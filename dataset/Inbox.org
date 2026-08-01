@@ -10,7 +10,7 @@ Claude Work
 
 Ask Claude/ChatGPT to design for me a better way to follow on the news in ML
 
---
+---
 
 https://www.boldvoice.com/
 
@@ -25,7 +25,7 @@ https://huggingface.co/hexgrad/Kokoro-82M
 
 ---
 
---
+---
 
 TODO Explore free GPUs (alternative to Google Colab)
 - Google Colab: K80 Tesla/T4, GPU mem up to 16GB, Storage 15GB, Usage limit: Dynamic, Runtime: 12 hrs/session
@@ -145,7 +145,7 @@ https://github.com/valeman/Transformers_And_LLM_Are_What_You_Dont_Need
 
 ---
 
-https://www.linkedin.com/posts/emollick_huh-looks-like-plato-was-right-a-new-paper-activity-7331511092277370883-3Ba3?utm_source=share&utm_medium=member_ios&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
+https://www.linkedin.com/posts/emollick_huh-looks-like-plato-was-right-a-new-paper-activity-7331511092277370883-3Ba3
 
 ---
 
@@ -249,7 +249,7 @@ https://arxiv.org/abs/2410.21549
 
 ---
 
-https://www.deeplearning.ai/short-courses/evaluating-debugging-generative-ai/?utm_campaign=Events+and+Community&utm_medium=event&utm_source=outreach-email
+https://www.deeplearning.ai/short-courses/evaluating-debugging-generative-ai/
 
 ---
 
@@ -481,13 +481,13 @@ RAG-Anything processes multimodal content that traditional RAG completely miss.
 
 - https://github.com/HKUDS/RAG-Anything
 
---
+---
 
 Teaching LLMs to Plan: Logical Chain-of-Thought Instruction Tuning for Symbolic Planning
 
 Verma et al.: https://arxiv.org/abs/2509.13351
 
---
+---
 
 A Practitioner's Guide to Multi-turn Agentic Reinforcement Learning
 (UC San Diego, October 2025)
@@ -499,7 +499,7 @@ Abstract:
 
 GitHub: [https://github.com/pearls-lab/meow-tea-taro](https://github.com/pearls-lab/meow-tea-taro)
 
---
+---
 
 No LLM Solved Yu Tsumura's 554th Problem
 
@@ -521,7 +521,7 @@ October 2025: GPT-5 Pro solves Yu Tsumura's 554th problem in 15 minutes.
 
 Lee Sedol moment is coming for many.
 
---
+---
 
 AI capabilities have been steadily improving across a wide range of skills, and show no sign of slowing down in the near term: https://epoch.ai/data-insights/ai-capabilities-over-past-year
 
@@ -529,7 +529,7 @@ Across benchmarks covering coding, math, scientific knowledge, common sense and 
 
 Revenues at frontier AI companies have more than tripled in the past year.
 
---
+---
 
 Self-Adapting Language Models
 
@@ -879,11 +879,11 @@ https://lnkd.in/gjzG5Ura
 https://lnkd.in/g5XHJFR9
 -> Anthropic's take on context-rich agents
 
---
+---
 
 https://www.reddit.com/r/n8n/s/vDmtNAj3PN
 
---
+---
 
 Extropic just announced their first probabilistic computing chip - and it might redefine how AI runs.
 
@@ -958,13 +958,13 @@ Also, as apparent from the figure above, MiniMax-M2 is twice as "sparse" as Qwen
 
 Link to the full article: [https://magazine.sebastianraschka.com/p/the-big-llm-architecture-comparison](https://magazine.sebastianraschka.com/p/the-big-llm-architecture-comparison)
 
---
+---
 
 Absolute Zero: Reinforced Self-play Reasoning with Zero Data
 
 Zhao et al.: https://arxiv.org/abs/2505.03335
 
---
+---
 
 making AI dataset management so much easier
 
@@ -972,17 +972,17 @@ collaboration tool for building and managing high-quality AI datasets
 
 -/github.com/0xSojalSec/argilla
 
---
+---
 
 https://web.stanford.edu/~mossr/pdf/alg4ai.pdf
 
---
+---
 
 Again, read all 30 research papers ilya recommended.
 
 -/aman.ai/primers/ai/top-30-papers/
 
---
+---
 
 Huge new benchmark from Basis Research Institute and collaborators!
 
@@ -1013,7 +1013,7 @@ WorldTest + AutumnBench set a new standard for studying how AI systems build and
 TODO Create workflow to capture interesting news using this idea
 https://www.reddit.com/r/n8n/s/3zPQYlrKos
 
---
+---
 
 Beyond Standard LLMs (Sebastian Taschka, November 2025, 20mn read)
 
@@ -1027,7 +1027,7 @@ Note that ideally each of these topics shown in the figure above would deserve a
 
 [https://magazine.sebastianraschka.com/p/beyond-standard-llms](https://magazine.sebastianraschka.com/p/beyond-standard-llms)
 
---
+---
 
 https://www.facebook.com/share/r/1BtiD57duk/?mibextid=wwXIfr
 
@@ -1035,7 +1035,7 @@ https://www.facebook.com/share/r/1BtiD57duk/?mibextid=wwXIfr
 
 https://github.com/deepspeedai/DeepSpeed
 
---
+---
 
 Why Less is More (Sometimes): A Theory of Data Curation
 
@@ -1058,7 +1058,7 @@ Perhaps most intriguingly, their framework helps explain why AI models for mathe
 
 In short, this work offers a new way to think about data: not as an ocean to be maximized, but as a resource to be *curated with intent.* Sometimes, smarter-not bigger-really is better.
 
---
+---
 
 Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning (Google Research, October 2025)
 
@@ -1067,7 +1067,7 @@ Paper: [https://arxiv.org/abs/2510.25992](https://arxiv.org/abs/2510.25992)
 Abstract:
 "Large Language Models (LLMs) often struggle with problems that require multi-step reasoning. For small-scale open-source models, Reinforcement Learning with Verifiable Rewards (RLVR) fails when correct solutions are rarely sampled even after many attempts, while Supervised Fine-Tuning (SFT) tends to overfit long demonstrations through rigid token-by-token imitation. To address this gap, we propose Supervised Reinforcement Learning (SRL), a framework that reformulates problem solving as generating a sequence of logical "actions". SRL trains the model to generate an internal reasoning monologue before committing to each action. It provides smoother rewards based on the similarity between the model's actions and expert actions extracted from the SFT dataset in a step-wise manner. This supervision offers richer learning signals even when all rollouts are incorrect, while encouraging flexible reasoning guided by expert demonstrations. As a result, SRL enables small models to learn challenging problems previously unlearnable by SFT or RLVR. Moreover, initializing training with SRL before refining with RLVR yields the strongest overall performance. Beyond reasoning benchmarks, SRL generalizes effectively to agentic software engineering tasks, establishing it as a robust and versatile training framework for reasoning-oriented LLMs."
 
---
+---
 
 how LLMs can judge product recommendations at scale without humans while staying reliable.
 
@@ -1091,7 +1091,7 @@ The system outputs counts, issues, conflicts, and agreement so results are easy 
 
 - arxiv. org/abs/2511.03051
 
---
+---
 
 How Do AI Agents Do Human Work? Comparing AI and Human Workflows Across Diverse Occupations
 
@@ -1112,7 +1112,7 @@ The authors suggest that the future may not be about replacing humans, but about
 
 *In essence: AI agents work fast and cheap, but not like us-and not yet as well.*
 
---
+---
 
 Transformer in Action -Optimizing Self-Attention with Attention Approximation (November 2025, 20mn read)
 
@@ -1164,7 +1164,7 @@ Results - Analyzing the Tradeoff
 
 [https://pub.towardsai.net/transformer-in-action-optimizing-self-attention-with-attention-approximation-6faa6f567d0d](https://pub.towardsai.net/transformer-in-action-optimizing-self-attention-with-attention-approximation-6faa6f567d0d)
 
---
+---
 
 I'm pleased to share that our paper "Learning Optimal Personalised Reservation Prices in Impression Ad Auctions with Mixture Density Networks" has been accepted to the research track of CIKM 2025! In this work, we combine game theory and deep learning to infer advertisers' hidden preferences directly from their strategic bidding behaviour. This approach allows us to optimise ad auctions in Spotify's free tier more effectively. Many thanks to my co-authors Emma Zetterdahl, Paul van Vliet, Zhenwen Dai, and Mounia Lalmas-Roelleke for the great collaboration!
 
@@ -1172,13 +1172,13 @@ Blog post: https://lnkd.in/eH98p-MH
 
 Full Paper: https://lnkd.in/ezHqfk3Y
 
---
+---
 
 Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model?
 
 Yue et al.: https://arxiv.org/abs/2504.13837
 
---
+---
 
 AlphaResearch: Accelerating New Algorithm Discovery with Language Models
 
@@ -1264,13 +1264,13 @@ Summary: Where would I place AlphaResearch in the landscape?
 
 * For robotics/semiconductors/AI grid/smart cities: If you consider deploying such agents for algorithm-discovery in those domains (optimization, control, grid algorithms), AlphaResearch (or systems like it) appears to be closer to viability than most-but you would still need to calibrate expectations and probably integrate human oversight.
 
---
+---
 
 https://github.com/harvard-edge/cs249r_book
 
---
+---
 
-https://www.instagram.com/reel/DQA6TfGkcR0/?igsh=MTQ5bTh5eGFldHQzaQ==
+https://www.instagram.com/reel/DQA6TfGkcR0/?igsh=MTQ5bTh5eGFldHQzaQ%3D%3D
 
 ---
 
@@ -1284,7 +1284,7 @@ Read it on ChapterPal by talking to it: https://lnkd.in/emT8P5yZ
 
 Download a PDF: https://lnkd.in/etDRGA9B
 
---
+---
 
 LLMs Know When They Don't Know - We Just Fine-Tune the Honesty Out of Them
 
@@ -1335,11 +1335,11 @@ Nested Learning: The Illusion of Deep Learning Architectures
 
 Behrouz et al.: https://openreview.net/forum?id=nbMeRvNb7A
 
---
+---
 
 Best Gen AI Projects- https://www.mltut.com/best-ai-agent-projects/
 
---
+---
 
 Why RoPE Replaced Positional Encodings in Modern LLMs
 
@@ -1437,7 +1437,7 @@ Model: https://lnkd.in/enRSJV5b
 Technical report: https://lnkd.in/e8znMU-A
 Blog: https://lnkd.in/eNpxT3mS
 
-https://huggingface.co/Qwen/Qwen-Image-Layered?spm=a2ty_o06.30285417.0.0.3ef2c921ny7ZmK
+https://huggingface.co/Qwen/Qwen-Image-Layered
 https://huggingface.co/papers/2512.15603
 https://qwen.ai/blog?id=qwen-image-layered
 
@@ -1459,7 +1459,7 @@ Let the paper talk to you and answer your questions on ChapterPal: https://lnkd.
 
 Download the PDF: https://lnkd.in/eDCswrZf
 
-https://www.linkedin.com/posts/andriyburkov_this-is-the-outstanding-paper-award-at-iclr-activity-7406897624257024000-H8OS?utm_source=share&utm_medium=member_ios&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
+https://www.linkedin.com/posts/andriyburkov_this-is-the-outstanding-paper-award-at-iclr-activity-7406897624257024000-H8OS
 
 ---
 
@@ -1524,12 +1524,12 @@ caseC / with - tool steps:
 step 1 Read /private/var/folders/f2/98g94n_x51l0zrxfnqp9s3wh0000gn/ ~1,135 tok (4,543 chars)
 step 2 Edit /private/var/folders/f2/98g94n_x51l0zrxfnqp9s3wh0000gn/ ~56 tok (224 chars)
 
-==============================================================================================================
+---
 case / setup total_tok in_tok out_tok cache_rd cost_usd turns sec
---------------------------------------------------------------------------------------------------------------
+---
 caseC / without 95,108 9 1,250 95,099 0.0884 5.0 28
 caseC / with 53,118 5 823 53,113 0.0636 3.0 17
---------------------------------------------------------------------------------------------------------------
+---
 
 with-trick savings (without / with), averaged [total_tok = in_tok + cache_rd]:
 caseC: total tokens 1.8x | cost 1.4x
@@ -1546,8 +1546,8 @@ Read these resources on the effective usage of Claude with Jupyter notebooks:
 
 ---
 
-https://www.linkedin.com/posts/hoang-van-hao_your-ai-coding-agent-burns-412000-tokens-share-7471549598994456576-ddd0/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
-https://www.linkedin.com/posts/hoang-van-hao_most-diagram-tools-make-you-drag-boxes-for-share-7472051514736521216-ufxn/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
+https://www.linkedin.com/posts/hoang-van-hao_your-ai-coding-agent-burns-412000-tokens-share-7471549598994456576-ddd0/
+https://www.linkedin.com/posts/hoang-van-hao_most-diagram-tools-make-you-drag-boxes-for-share-7472051514736521216-ufxn/
 
 ---
 

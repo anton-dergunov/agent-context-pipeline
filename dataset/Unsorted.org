@@ -172,7 +172,7 @@ to "I can build one that actually works."
 
 ---
 
-https://www.linkedin.com/posts/victorialslocum_have-you-tried-out-agentic-rag-yet-this-activity-7316069708347170817-qjHa?utm_medium=ios_app&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g&utm_source=social_share_send&utm_campaign=copy_link
+https://www.linkedin.com/posts/victorialslocum_have-you-tried-out-agentic-rag-yet-this-activity-7316069708347170817-qjHa
 
 Have you tried out agentic RAG yet?
 
@@ -196,7 +196,7 @@ Learn more about the Weaviate Query Agent: https://lnkd.in/eKWwasEZ
 
 ---
 
-https://www.linkedin.com/posts/avi-chawla_10-mcp-ai-agents-and-rag-projects-for-ai-activity-7317122234542616576-QKi4?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
+https://www.linkedin.com/posts/avi-chawla_10-mcp-ai-agents-and-rag-projects-for-ai-activity-7317122234542616576-QKi4
 
 10 MCP, AI Agents, and RAG projects for AI Engineers:
 
@@ -321,7 +321,7 @@ Read all of them to build strong basics:
 
 ---
 
-https://machinelearningmastery.com/understanding-rag-part-ix-fine-tuning-llms-for-rag/?fbclid=IwZXh0bgNhZW0CMTEAAR4y2fVPrg2ePsxXFfQpRs_eSCjTMPDPUvDKYsLk5Zs0qNT5WXQWBU88iBmpfA_aem_0ubrfOsbXSnKaw7Z48P9uw
+https://machinelearningmastery.com/understanding-rag-part-ix-fine-tuning-llms-for-rag/
 
 ---
 
@@ -360,7 +360,7 @@ https://lnkd.in/gAbRbdHT
 
 ---
 
-https://www.linkedin.com/posts/bsnisar_multi-agent-architectures-are-the-future-activity-7315736713400610816-BYz2?utm_medium=ios_app&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g&utm_source=social_share_send&utm_campaign=copy_link
+https://www.linkedin.com/posts/bsnisar_multi-agent-architectures-are-the-future-activity-7315736713400610816-BYz2
 
 Multi-agent architectures are the FUTURE
 
@@ -831,7 +831,7 @@ Refers to the new paradigm of using LLMs to evaluate natural language generation
 
 Note: This list is not exhaustive, but highlights a few critical areas which have gained popularity in the interviews recently
 
---
+---
 
 What industrial recsys papers have you enjoyed or found useful in the past year or two? Sharing my list:
 
@@ -1343,7 +1343,7 @@ https://arxiv.org/abs/2305.03495
 
 https://www.adaptive-ml.com/post/from-zero-to-ppo
 
-https://github.com/rasbt/LLMs-from-scratch?tab=readme-ov-file&fbclid=IwZXh0bgNhZW0CMTEAAR0BGMLBSFbAZw3sAGrcKbMdG1EtJA3OAZUjmHvMhQu7imu0zPQkeK8ETVg_aem_mCUfCuWG8UQqxE1fY7l8Qg#bonus-material
+https://github.com/rasbt/LLMs-from-scratch?tab=readme-ov-file#bonus-material
 
 ---
 
@@ -1757,8 +1757,8 @@ https://youtu.be/MZUSwO6rzG8
 Deep learning on computational biology and bioinformatics tutorial: from DNA to protein folding and alphafold2 (2021 - biology fundamentals still hold, AlphaFold-specific content dated by AlphaFold3/ESMFold since)
 https://theaisummer.com/deep-learning-biology-alphafold/
 
-----------------------------------------------------
-----------------------------------------------------
+---
+---
 
 Learning Deep Representations of Data Distributions. "A modern fully open-source textbook exploring why and how deep neural networks learn compact and information-dense representations of high-dimensional real-world data." https://ma-lab-berkeley.github.io/deep-representation-learning-book/
 
@@ -1827,13 +1827,13 @@ We'll dig into where LLMs fall short and where your expertise will matter more t
 
 If you're curious about the future of data science in an LLM-powered world, this session is for you.
 
---
+---
 
 Every Model Learned by Gradient Descent Is Approximately a Kernel Machine
 
 Pedro Domingos: https://arxiv.org/abs/2012.00152
 
---
+---
 
 https://github.com/Shubhamsaboo/awesome-llm-apps
 
@@ -1857,7 +1857,7 @@ Link to the Github Repo in the comments!
 
 If you're into ML, LLMs, RAG, and AI Agents, I share AI apps and tutorials every week. Subscribe to AI Engineering (it's free): https://lnkd.in/gfkzKZYk
 
---
+---
 
 Google DeepMind just dropped this new LLM model architecture called Mixture-of-Recursions.
 
@@ -2005,13 +2005,13 @@ Here's what it covers:
 
 3. How to write prompts that return structured outputs like JSON or specific formats
 
---
+---
 
 ATLAS: Learning to Optimally Memorize the Context at Test Time
 
 Behrouz et al.: https://arxiv.org/abs/2505.23735
 
---
+---
 
 Qwen 3 Mathematical Reasoning Fine Tuning with GRPO Technique (Youssef Hosni, June 2025, 18mn read)
 
@@ -2031,23 +2031,23 @@ Saving the Model Locally & Hugging Face Hub [Part 2]
 
 [https://levelup.gitconnected.com/qwen-3-mathematical-reasoning-fine-tuning-with-grpo-technique-1-2adc7d3fee20](https://levelup.gitconnected.com/qwen-3-mathematical-reasoning-fine-tuning-with-grpo-technique-1-2adc7d3fee20)
 
---
+---
 
 "We suspect the next AI paradigm will emerge from leveraging existing software to efficiently build training environments. The idea is that AIs will be tasked with replicating software functionality, similar to how pretraining leveraged existing web text to teach AIs language."
 
 Read more: https://www.mechanize.work/blog/the-upcoming-gpt-3-moment-for-rl/
 
---
+---
 
 AbsenceBench: Language Models Can't Tell What's Missing
 
 Fu et al.: https://arxiv.org/abs/2506.11440
 
---
+---
 
 The Economist has partnered with a research and AI firm to measure corporate culture across 900 companies in 19 industries. Does yours feature? https://econ.trib.al/UG6UiOO
 
---
+---
 
 Researchers at MIT just introduced a language model that trains itself
 
@@ -2073,7 +2073,7 @@ So if models can now update themselves... what's our role in the loop?
 Explore top MCP servers and start building powerful AI agents today!
 https://hubs.li/Q03sRFkL0
 
---
+---
 
 From Bytes to Ideas: Language Modeling with Autoregressive U-Nets
 
@@ -2100,7 +2100,7 @@ Overhead for simple tasks: May be inefficient for short or low-complexity inputs
 
 Benchmarks still evolving: So far, results mostly tie with strong BPE baselines-more evidence is needed for broad superiority.
 
---
+---
 
 How to master system design (in 1 month or less).
 Learn these case studies:
@@ -2178,7 +2178,7 @@ In one experiment, the researchers used misleading thoughts to "jailbreak" the m
 
 The takeaway? Today's AI systems can reflect a little, but they still lack deeper self-awareness or "meta-cognition."
 
---
+---
 
 Alibaba's RL LLM training library: ROLL
 
@@ -2187,7 +2187,7 @@ github: https://github.com/alibaba/ROLL
 
 "We introduce ROLL, an efficient, scalable, and user-friendly library designed for Reinforcement Learning Optimization for Large-scale Learning. ROLL caters to three primary user groups: tech pioneers aiming for cost-effective, fault-tolerant large-scale training, developers requiring flexible control over training workflows, and researchers seeking agile experimentation. ROLL is built upon several key modules to serve these user groups effectively. First, a single-controller architecture combined with an abstraction of the parallel worker simplifies the development of the training pipeline. Second, the parallel strategy and data transfer modules enable efficient and scalable training. Third, the rollout scheduler offers fine-grained management of each sample's lifecycle during the rollout stage. Fourth, the environment worker and reward worker support rapid and flexible experimentation with agentic RL algorithms and reward designs. Finally, AutoDeviceMapping allows users to assign resources to different models flexibly across various stages."
 
---
+---
 
 Model Once, Represent Everywhere: UDA (Unified Data Architecture) at Netflix
 
@@ -2211,7 +2211,7 @@ UDA (Unified Data Architecture) is the foundation for connected data in Content 
 
 https://netflixtechblog.com/uda-unified-data-architecture-6a6aee261d8d
 
---
+---
 
 H/T Denise Holt
 
@@ -2222,7 +2222,7 @@ Paper: https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf
 Abstract:
 "Recent generations of frontier language models have introduced Large Reasoning Models (LRMs) that generate detailed thinking processes before providing answers. While these models demonstrate improved performance on reasoning benchmarks, their fundamental capabilities, scal- ing properties, and limitations remain insufficiently understood. Current evaluations primarily fo- cus on established mathematical and coding benchmarks, emphasizing final answer accuracy. How- ever, this evaluation paradigm often suffers from data contamination and does not provide insights into the reasoning traces' structure and quality. In this work, we systematically investigate these gaps with the help of controllable puzzle environments that allow precise manipulation of compositional complexity while maintaining consistent logical structures. This setup enables the analysis of not only final answers but also the internal reasoning traces, offering insights into how LRMs "think". Through extensive experimentation across diverse puzzles, we show that frontier LRMs face a complete accuracy collapse beyond certain complexities. Moreover, they exhibit a counter- intuitive scaling limit: their reasoning effort increases with problem complexity up to a point, then declines despite having an adequate token budget. By comparing LRMs with their standard LLM counterparts under equivalent inference compute, we identify three performance regimes: (1) low- complexity tasks where standard models surprisingly outperform LRMs, (2) medium-complexity tasks where additional thinking in LRMs demonstrates advantage, and (3) high-complexity tasks where both models experience complete collapse. We found that LRMs have limitations in exact computation: they fail to use explicit algorithms and reason inconsistently across puzzles. We also investigate the reasoning traces in more depth, studying the patterns of explored solutions and analyzing the models' computational behavior, shedding light on their strengths, limitations, and ultimately raising crucial questions about their true reasoning capabilities."
 
---
+---
 
 2025 will be the year of AI Agents, and here's how you can start learning about AI Agents.
 
@@ -2252,7 +2252,7 @@ AI Python for beginners: https://lnkd.in/dFpn5j7U
 
 Credits to Rakesh Gohel for this amazing roadmap.
 
---
+---
 
 A Statistical Physics of Language Model Reasoning
 
@@ -2333,7 +2333,7 @@ With AI, the more context and direction you provide, the better your results.
 
 I hope it's a helpful read.
 
-https://www.linkedin.com/posts/addyosmani_ai-programming-softwareengineering-activity-7335190957706936321-cqba?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAIl92gBMuiYCPKqqasQ9_KsyP493ekzu4g
+https://www.linkedin.com/posts/addyosmani_ai-programming-softwareengineering-activity-7335190957706936321-cqba
 
 ---
 
@@ -2341,13 +2341,13 @@ Top 50 LLM Interview Questions.
 
 https://drive.google.com/file/d/1cUxKspEXgQ64s4OFEw0kabf_qNauOPiH/view
 
---
+---
 
 How much do language models memorize?
 
 Morris et al.: https://arxiv.org/abs/2505.24832
 
---
+---
 
 Anthropic Just Dropped an AI Coding Playbook - And It's Surprisingly Useful Beyond Claude
 
@@ -2396,7 +2396,7 @@ Whether you're a researcher, professor, developer, or technical team lead explor
 Here's the original PDF: Anthropic Claude Code Best Practices
 Source: https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf
 
---
+---
 
 Fine-Tune or Prompt? A Key Question in the Age of LLMs
 
@@ -2415,11 +2415,11 @@ Whether you're building tools in finance, healthcare, or SaaS, if your LLM use c
 
 -> Want hands-on experience with fine-tuning and deploying LLMs? Join our LLM Bootcamp: https://hubs.la/Q03qVs4w0
 
---
+---
 
 While AI agents promise to streamline everyday tasks like payments and flight reservations, another use case is emerging: Simulating human attitudes and behaviors could enable researchers to test interventions and theories and gain real-world insights. https://stanford.io/4kPDVkA
 
---
+---
 
 From Tokens to Thoughts: How LLMs and Humans Trade Compression for Meaning (Stanford & NYU, May 2025)
 
@@ -2428,7 +2428,7 @@ Paper. https://arxiv.org/abs/2505.17117
 Abstract:
 "Humans organize knowledge into compact categories through semantic compression by mapping diverse instances to abstract representations while preserving meaning (e.g., robin and blue jay are both birds; most birds can fly). These concepts reflect a trade-off between expressive fidelity and representational simplicity. Large Language Models (LLMs) demonstrate remarkable linguistic abilities, yet whether their internal representations strike a human-like trade-off between compression and semantic fidelity is unclear. We introduce a novel information-theoretic framework, drawing from Rate-Distortion Theory and the Information Bottleneck principle, to quantitatively compare these strategies. Analyzing token embeddings from a diverse suite of LLMs against seminal human categorization benchmarks, we uncover key divergences. While LLMs form broad conceptual categories that align with human judgment, they struggle to capture the fine-grained semantic distinctions crucial for human understanding. More fundamentally, LLMs demonstrate a strong bias towards aggressive statistical compression, whereas human conceptual systems appear to prioritize adaptive nuance and contextual richness, even if this results in lower compressional efficiency by our measures. These findings illuminate critical differences between current AI and human cognitive architectures, guiding pathways toward LLMs with more human-aligned conceptual representations."
 
---
+---
 
 Reflect, Retry, Reward: Self-Improving LLMs via Reinforcement Learning (Writer Inc, May 2025)
 
@@ -2457,7 +2457,7 @@ https://lnkd.in/gmGng6_m
 6:// LLM course (⭐ 53.5k)
 https://lnkd.in/gUP2-j7m
 
---
+---
 
 How much do language models memorize?
 
@@ -2526,7 +2526,7 @@ By analyzing how the models focused their attention during their answers, the re
 
 This is the first study to systematically show how reasoning-usually seen as a strength-can backfire, and how smarter prompting methods can help models better follow directions.
 
---
+---
 
 Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective (Nanyang Technological University, May 2025)
 
@@ -2558,11 +2558,11 @@ Enjoy and leave comments with questions/suggestions.
 ADVANCES AND CHALLENGES IN FOUNDATION AGENTS FROM BRAIN-INSPIRED INTELLIGENCE TO EVOLUTIONARY, COLLABORATIVE, AND SAFE SYSTEM
 https://arxiv.org/abs/2504.01990
 
---
+---
 
 https://arxiv.org/abs/2505.13775
 
---
+---
 
 Neurosymbolic Diffusion Models (May 2025)
 
@@ -2706,9 +2706,9 @@ https://cytoscape.org/index.html
 Representation Learning on Graphs: Methods and Applications
 https://arxiv.org/abs/1709.05584v3
 
-The Graph Factorization (https://dl.acm.org/citation.cfm?id=2488393) algorithm is a classic example of the approach above, and also gives great consideration to operating at scale. GraRep (http://dl.acm.org/citation.cfm?doid=2806416.2806512) builds on this by considering powers of A, e.g. A2=AA, making the observation that these powers encode the connectivity between nodes with different path lengths. HOPE (http://dl.acm.org/citation.cfm?doid=2939672.2939751) generalizes even further by allowing more generalized measures of similarity between nodes, for example using an analogy to the matrix exponential of A to capture all possible path lengths.
+The Graph Factorization (https://dl.acm.org/citation.cfm?id=2488393%29 algorithm is a classic example of the approach above, and also gives great consideration to operating at scale. GraRep (http://dl.acm.org/citation.cfm?doid=2806416.2806512%29 builds on this by considering powers of A, e.g. A2=AA, making the observation that these powers encode the connectivity between nodes with different path lengths. HOPE (http://dl.acm.org/citation.cfm?doid=2939672.2939751%29 generalizes even further by allowing more generalized measures of similarity between nodes, for example using an analogy to the matrix exponential of A to capture all possible path lengths.
 
-The seminal papers on random walk embeddings are DeepWalk (http://dl.acm.org/citation.cfm?doid=2623330.2623732) and node2vec (http://dl.acm.org/citation.cfm?doid=2882903.2903743) which differ in how they optimize the classifier evaluation. node2vec also allows the random walk transition probabilities to be tweaked to tune between breadth-first and depth-first search. HARP (https://ieeexplore.ieee.org/document/8486793/) is an interesting variant which operates on a coarsened graph to learn embeddings later used as initial values for the finer grained graph. Another interesting variation is to embed in hyperbolic space (http://arxiv.org/abs/1705.10359).
+The seminal papers on random walk embeddings are DeepWalk (http://dl.acm.org/citation.cfm?doid=2623330.2623732%29 and node2vec (http://dl.acm.org/citation.cfm?doid=2882903.2903743%29 which differ in how they optimize the classifier evaluation. node2vec also allows the random walk transition probabilities to be tweaked to tune between breadth-first and depth-first search. HARP (https://ieeexplore.ieee.org/document/8486793/) is an interesting variant which operates on a coarsened graph to learn embeddings later used as initial values for the finer grained graph. Another interesting variation is to embed in hyperbolic space (http://arxiv.org/abs/1705.10359).
 
 The Columbia Enron corpus with an extensive annotation of organizational hierarchy and gender. Documentation can be found here. As part of this release, three new attributes are added to the entries in the "entities" collection.
 http://www.cs.columbia.edu/~vinod/data/gender_identified_enron_corpus.tar.gz
@@ -2783,7 +2783,7 @@ Kevin Murphy: https://arxiv.org/abs/2412.05265
 
 5 CMU 11-785: Introduction to Deep Learning. Совсем свежий курс от университета Карнеги-Меллона, который еще даже не закончился в самом университете. Хороший охват тем: нейросети, прямое и обратное распространение, CNN, CV, рекуррентные и трансформерные архитектуры, оптимизационные алгоритмы (SGD, Adam и др.), регуляризация и тд. Вполне подробно. Затрагивается даже вопрос обобщающей способности. Доступны домашки и их разборы. Записи лекций (уже выложены 4 лекции и 2 семинара, остальное продолжает выходить), сайт
 
---
+---
 
 Train AI Agents for complex real-world tasks in just a single line of Python Code.
 
