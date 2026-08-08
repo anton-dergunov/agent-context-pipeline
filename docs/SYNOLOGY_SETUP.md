@@ -763,6 +763,9 @@ The application can therefore be reached on the LAN at:
 http://192.168.1.10:8000
 ```
 
+This address displays the read-only processing dashboard. The container health
+check continues to use `http://localhost:8000/health`.
+
 `restart: unless-stopped` tells Docker to bring the container back after
 Docker/NAS restarts unless it was explicitly stopped.
 
@@ -947,14 +950,14 @@ Run this from the project on the laptop whenever you want to synchronize:
 ```
 
 New and edited NAS items are copied to `~/info-triage-inbox/`. The script keeps
-only a list of delivered item IDs in
+only each delivered item ID and revision in
 `~/.local/state/info-triage/delivered-items`; it does not keep a second content
-snapshot.
+snapshot. Existing one-column manifests are migrated automatically.
 
-Moving or deleting a delivered item directory from the laptop inbox marks it
-processed. The next sync deletes the matching NAS directory. This decision is
-permanent for that Telegram message ID, including if the original message is
-edited later. Resend the content as a new Telegram message to capture it again.
+Moving or deleting a delivered item directory from the laptop inbox marks its
+current revision processed. The next sync deletes the matching NAS directory.
+If the original Telegram message is subsequently edited or labeled, the server
+creates a higher revision and the next sync restores it to the laptop.
 
 If the delivered-items file exists but the laptop inbox directory is missing,
 the script aborts instead of interpreting the missing directory as a request to

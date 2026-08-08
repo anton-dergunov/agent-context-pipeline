@@ -70,7 +70,9 @@ The user can send or share:
 
 The Telegram bot should make capture as frictionless as possible.
 
-A later version may add optional buttons for explicitly classifying an item, but automatic processing should remain the default.
+The bot may show optional buttons for explicitly classifying an item. The item
+must continue to processing immediately; leaving the buttons untouched must not
+leave it in staging.
 
 ---
 
@@ -89,6 +91,8 @@ because `message_id` is unique within a chat rather than globally.
 No additional deduplication system is required.
 
 The same `(chat_id, message_id)` should always refer to the same captured item.
+The chat ID remains in SQLite and metadata, but this single-chat deployment does
+not need it in the human-facing directory name.
 
 ---
 
@@ -108,13 +112,19 @@ For example:
 
 ```text
 staging/
-└── 123456_18492/
+└── 2026-08-08_18492/
     ├── message.md
     ├── metadata.json
     └── image-01.jpg
 ```
 
-The directory name can be based on the Telegram chat ID and message ID, or another stable identifier derived from them.
+The directory name is based on the Telegram creation date and message ID:
+
+```text
+YYYY-MM-DD_<message_id>
+```
+
+The date is Telegram's UTC message creation date.
 
 The important property is that the directory name remains stable if the Telegram message is edited later.
 
@@ -150,9 +160,14 @@ For example:
   "chat_id": 123456,
   "message_id": 18492,
   "received_at": "2026-08-08T20:31:12+01:00",
-  "edited_at": null
+  "edited_at": null,
+  "category": null,
+  "revision": 1
 }
 ```
+
+The revision starts at 1 and increases whenever the Telegram text or optional
+category changes.
 
 Only metadata that may be useful outside the server should be stored here.
 
@@ -167,7 +182,7 @@ Files associated with the item live directly inside the same directory.
 For example:
 
 ```text
-123456_18492/
+2026-08-08_18492/
 ├── message.md
 ├── metadata.json
 ├── article.md
@@ -313,7 +328,7 @@ receive edited message
     ↓
 update message.md
     ↓
-update metadata if necessary
+increment the metadata revision
     ↓
 if item is already in inbox:
     move it back to staging
@@ -345,6 +360,9 @@ CREATE TABLE items (
     message_id INTEGER NOT NULL,
 
     status TEXT NOT NULL,
+
+    category TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
 
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -435,6 +453,8 @@ After synchronization:
 
 - new server items appear on the laptop;
 - items removed from the laptop are removed from the server.
+- an item with a revision newer than the last laptop revision appears again,
+  even if the older local revision was removed.
 
 There is no separate archive or acknowledgement protocol.
 
@@ -448,9 +468,9 @@ For example:
 
 ```text
 ~/InfoTriage/inbox/
-├── 123456_18492/
-├── 123456_18493/
-└── 123456_18494/
+├── 2026-08-08_18492/
+├── 2026-08-08_18493/
+└── 2026-08-08_18494/
 ```
 
 The user processes these items one by one.
@@ -490,7 +510,9 @@ Possible tools include:
 - Syncthing
 - another simple bidirectional file synchronizer
 
-The final choice is an implementation detail.
+The initial implementation uses `rsync` plus a small local manifest mapping each
+item ID to its last delivered revision. This is the minimum state needed to
+distinguish an unchanged processed item from a newer server update.
 
 The desired laptop experience should be approximately:
 
@@ -539,13 +561,13 @@ Every tab displays the same simple table:
 ```text
 ID              Created              Updated              Message
 ---------------------------------------------------------------------------
-123456/18492    2026-08-08 20:31     2026-08-08 20:31     Interesting article...
-123456/18488    2026-08-08 20:25     2026-08-08 20:27     https://instagram...
+2026-08-08_18492  2026-08-08 20:31   2026-08-08 20:31     Interesting article...
+2026-08-08_18488  2026-08-08 20:25   2026-08-08 20:27     https://instagram...
 ```
 
 The columns are:
 
-- **ID** — derived from `(chat_id, message_id)`
+- **ID** — the `YYYY-MM-DD_<message_id>` item directory name
 - **Created** — when the Telegram message was first received
 - **Updated** — last relevant update
 - **Message** — short preview of the Telegram text

@@ -16,15 +16,19 @@ The current implementation is deliberately small:
 
 ```text
 Telegram message
-    -> choose ML, Career, Life, or Other
-    -> NAS data/inbox/<chat_id>_<message_id>/
+    -> saved immediately
+    -> optionally choose ML, Career, Life, or Other
+    -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
     -> ~/info-triage-inbox/
 ```
 
-Each completed item contains a categorized `message.md` and a
-`metadata.json`. Telegram message edits update the same stable item directory.
-Text and media captions are supported; attachments are not downloaded yet.
+The directory date is the UTC creation date supplied by Telegram.
+
+Each completed item contains a `message.md` and `metadata.json`. A label is
+optional; selecting one updates the ready item and adds category front matter.
+Telegram message edits update the same stable item directory. Text and media
+captions are supported; attachments are not downloaded yet.
 
 Create a local `.env` (it is ignored by Git):
 
@@ -39,6 +43,9 @@ Run locally in Docker:
 ./run.sh
 curl http://localhost:8000/health
 ```
+
+The read-only processing dashboard is available at `http://localhost:8000/`
+locally and `http://192.168.1.10:8000/` on the NAS.
 
 After completing the one-time NAS rename described in
 [`docs/SYNOLOGY_SETUP.md`](docs/SYNOLOGY_SETUP.md), deploy with:
@@ -56,11 +63,11 @@ Download new/edited items with:
 ./sync.sh
 ```
 
-The synchronization script keeps a small list of delivered Telegram item IDs
+The synchronization script keeps each delivered Telegram item ID and revision
 under `~/.local/state/info-triage/`. Removing a delivered item directory from
-`~/info-triage-inbox/` marks it processed; the next sync removes its NAS copy.
-That decision is permanent for that Telegram message ID, so resend the content
-as a new Telegram message if it needs to be captured again.
+`~/info-triage-inbox/` marks that revision processed; the next sync removes its
+NAS copy. If the Telegram message is edited or labeled later, its higher
+revision is downloaded again.
 
 ## Example Inputs
 
