@@ -1,0 +1,8 @@
+services:
+  hello:
+    build: .
+    container_name: hello-synology
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
