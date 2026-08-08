@@ -1,1335 +1,801 @@
-# Info Triage — System Design
+# Info Triage — Simplified System Design
 
-## 1. Overview
+## 1. Purpose
 
-Info Triage is a self-hosted personal information capture, processing, and routing system.
+Info Triage is a small self-hosted system for capturing information through Telegram, processing it on an always-running server, and making the processed items available on a laptop for manual review.
 
-Its purpose is to provide a very low-friction way to capture information encountered on different devices, automatically retrieve and process that information on an always-running server, and later deliver the processed results to a laptop for manual review.
+The intended workflow is:
 
-The central principle is:
+> **Capture quickly → process automatically on the server → synchronize to laptop → process manually**
 
-> **Capture immediately. Understand automatically. Decide manually later.**
+The system should remain deliberately simple.
 
-The system is not intended to replace a task manager, knowledge base, read-later application, or personal notes system. Instead, it acts as an **ingestion and triage layer** in front of those systems.
-
-The initial capture interface is Telegram.
-
-The processing service runs continuously on a dedicated server. The laptop does not need to be online while information is being captured or processed.
-
-Processed items accumulate safely on the server until the laptop retrieves them.
+It is not intended to become a task manager, knowledge base, read-later system, or general workflow engine. Its role is only to capture incoming information, enrich it where useful, and place it into a local inbox.
 
 ---
 
-# 2. High-Level Architecture
+## 2. High-Level Architecture
 
 ```text
-                           SERVER
-                    ┌──────────────────┐
-                    │                  │
-Telegram ──────────►│  Capture Service │
-                    │                  │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │      SQLite      │
-                    │                  │
-                    │ Processing state │
-                    │ Queue / history  │
-                    │ Retry state      │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Processing       │
-                    │ Pipeline         │
-                    │                  │
-                    │ Fetch            │
-                    │ Extract          │
-                    │ Classify         │
-                    │ Enrich           │
-                    │ Export           │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │ Server           │
-                    │ Filesystem       │
-                    │                  │
-                    │ raw/             │
-                    │ processed/       │
-                    │ export/          │
-                    └────────┬─────────┘
-                             │
-                             │
-                  ┌──────────┴──────────┐
-                  │                     │
-                  ▼                     ▼
-          ┌───────────────┐      ┌───────────────┐
-          │ Web Dashboard │      │ Laptop Pull   │
-          │               │      │ API / SSH     │
-          │ Queue         │      └───────┬───────┘
-          │ Processing    │              │
-          │ History       │              │ rsync
-          │ Errors        │              │
-          └───────────────┘              ▼
-                                ┌──────────────────┐
-                                │     LAPTOP       │
-                                │                  │
-                                │ InfoTriage/      │
-                                │   Inbox/         │
-                                └────────┬─────────┘
-                                         │
-                                         ▼
-                                  Manual processing
-                                         │
-                                         ▼
-                                    Acknowledge
-                                         │
-                                         ▼
-                                Server marks item
-                                  ACKNOWLEDGED
-```
-
----
-
-# 3. Capture Interface
-
-## 3.1 Telegram
-
-Telegram is initially the primary capture mechanism.
-
-The user can send content to a dedicated Telegram bot from a phone, tablet, laptop, or any other device with Telegram installed.
-
-Supported inputs may include:
-
-- URLs
-- plain text
-- forwarded messages
-- images
-- documents
-- screenshots
-- messages containing both text and links
-- social-media links
-- job advertisements
-- emails copied or forwarded into Telegram
-
-Telegram therefore acts as a universal cross-device "share to Info Triage" interface.
-
-For example:
-
-```text
-Web browser
-    │
-    │ Share
-    ▼
 Telegram
-    │
-    ▼
-Info Triage bot
-```
-
-The same workflow works for applications such as Instagram where a post can be shared into Telegram.
-
----
-
-## 3.2 Explicit Classification
-
-The Telegram bot may optionally allow manual classification.
-
-For example, after receiving an item it could offer buttons such as:
-
-```text
-[ Job ] [ Read Later ] [ Reference ]
-
-[ Task ] [ Idea ] [ Auto ]
-```
-
-Manual classification is optional.
-
-The normal low-friction workflow should remain:
-
-```text
-Share → Info Triage
-```
-
-with automatic classification performed by the server.
-
-If the user explicitly specifies a category, that information should take precedence over, or at least be recorded alongside, automatic classification.
-
----
-
-# 4. Example Content Types
-
-The system should support heterogeneous inputs.
-
-## Job advertisements
-
-A job posting may later be processed into structured information such as:
-
-- company
-- role
-- location
-- compensation
-- responsibilities
-- required skills
-- technologies
-- seniority
-- remote/hybrid requirements
-- other useful attributes
-
-## Articles
-
-An article may represent:
-
-- read later
-- already read but worth keeping
-- reference material
-- something requiring action
-- something worth summarizing
-
-## Social-media posts
-
-For posts such as Instagram content, the system may retrieve and retain:
-
-- description
-- text
-- author
-- URL
-- images
-- useful metadata
-- extracted information from images
-
-## Email
-
-Interesting emails can eventually be submitted to the same pipeline.
-
-## Notes and text snippets
-
-Telegram can also be used simply as a capture box:
-
-```text
-Investigate whether X would work for project Y
-```
-
-The server can classify this as an idea, task, reference, or other appropriate category.
-
----
-
-# 5. Server-Side Storage
-
-The system deliberately separates two kinds of storage:
-
-1. **content storage**
-2. **operational state**
-
-These should not be conflated.
-
----
-
-# 6. Filesystem — Content Storage
-
-Actual captured and generated content is stored on the filesystem.
-
-This includes:
-
-- HTML
-- extracted text
-- Markdown
-- JSON
-- images
-- PDFs
-- screenshots
-- Telegram attachments
-- downloaded files
-- generated summaries
-- source metadata
-
-Large content should generally **not** be stored as SQLite BLOBs.
-
-An example layout:
-
-```text
-/var/lib/info-triage/
-├── db/
-│   └── triage.sqlite
-│
-├── raw/
-│   ├── 01K2ABC.../
-│   └── 01K2DEF.../
-│
-├── processed/
-│   ├── 01K2ABC.../
-│   └── 01K2DEF.../
-│
-├── export/
-│   ├── 01K2ABC.../
-│   └── 01K2DEF.../
-│
-└── failed/
-```
-
-Each item receives a unique internal ID.
-
-A UUID or ULID could be used.
-
-ULIDs have the useful property of being naturally sortable by creation time.
-
----
-
-# 7. SQLite — Operational State
-
-SQLite is **not** the primary content store.
-
-It acts as the server's:
-
-- processing ledger
-- persistent queue
-- state database
-- retry tracker
-- deduplication mechanism
-- audit/history source
-
-This database remains on the server.
-
-It is **not synchronized to the laptop**.
-
-Only exported content is transferred to the laptop.
-
----
-
-# 8. Why SQLite Is Useful
-
-Without a state database, application state would have to be inferred from filesystem structure.
-
-For example:
-
-```text
-incoming/
-processing/
-ready/
-failed/
-```
-
-This can work for a very small implementation, but it becomes increasingly difficult to answer operational questions.
-
-SQLite makes it easy to determine:
-
-- Which Telegram messages have already been received?
-- Which messages have not yet been processed?
-- Which items are currently being processed?
-- Which items are waiting in the queue?
-- Which items failed?
-- Why did an item fail?
-- How many times has processing been attempted?
-- Which items are ready for the laptop?
-- Which items have already been downloaded?
-- Which items have been manually processed?
-- When was an item last updated?
-- How long did processing take?
-
-The web dashboard can obtain this information from exactly the same database.
-
----
-
-# 9. Initial Database Schema
-
-A first implementation may require only one main table.
-
-For example:
-
-```sql
-CREATE TABLE items (
-    id TEXT PRIMARY KEY,
-
-    telegram_chat_id INTEGER,
-    telegram_message_id INTEGER,
-
-    received_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-
-    source_type TEXT,
-    source_url TEXT,
-
-    requested_category TEXT,
-    detected_category TEXT,
-
-    status TEXT NOT NULL,
-
-    raw_path TEXT,
-    processed_path TEXT,
-    export_path TEXT,
-
-    processing_attempts INTEGER DEFAULT 0,
-
-    error TEXT,
-
-    processing_started_at TEXT,
-    processing_finished_at TEXT,
-
-    exported_at TEXT,
-    acknowledged_at TEXT,
-
-    UNIQUE(telegram_chat_id, telegram_message_id)
-);
-```
-
-The exact schema can evolve as the application develops.
-
----
-
-# 10. Telegram Deduplication
-
-Telegram may retry delivery under some circumstances.
-
-Processing the same capture twice would be undesirable.
-
-The constraint:
-
-```sql
-UNIQUE(telegram_chat_id, telegram_message_id)
-```
-
-makes Telegram ingestion idempotent.
-
-If the same message is delivered twice, the server can recognize that it has already been accepted.
-
----
-
-# 11. Item Lifecycle
-
-A captured item moves through explicit states.
-
-A possible initial state machine is:
-
-```text
-RECEIVED
-    │
-    ▼
-QUEUED
-    │
-    ▼
-FETCHING
-    │
-    ▼
-FETCHED
-    │
-    ▼
-PROCESSING
-    │
-    ▼
-READY
-    │
-    ▼
-EXPORTED
-    │
-    ▼
-ACKNOWLEDGED
-```
-
-Failures can occur during processing:
-
-```text
-FETCHING ──────► FAILED
-PROCESSING ────► FAILED
-EXPORTING ─────► FAILED
-```
-
-Failed operations can subsequently be retried.
-
-The exact number of states should remain small unless finer-grained states provide actual operational value.
-
----
-
-# 12. Crash Recovery
-
-Persistent state makes processing resilient to server restarts.
-
-Suppose an item reaches:
-
-```text
-FETCHED
-```
-
-and the server process crashes before LLM processing begins.
-
-When the application restarts, it can query SQLite for unfinished items:
-
-```sql
-SELECT *
-FROM items
-WHERE status NOT IN ('ACKNOWLEDGED', 'FAILED');
-```
-
-The worker can then determine which processing stages still need to run.
-
-This avoids depending entirely on in-memory queues.
-
----
-
-# 13. Processing Pipeline
-
-Conceptually:
-
-```text
-Capture
    │
    ▼
-Retrieve
+Server
+   │
+   ├── SQLite
+   │     small processing-state database
+   │
+   ├── staging/
+   │     newly received / processing / failed items
+   │
+   └── inbox/
+         finished items
+            │
+            │ bidirectional synchronization
+            ▼
+Laptop inbox/
    │
    ▼
-Extract
+Manual processing
    │
    ▼
-Classify
+Item removed from laptop inbox
    │
    ▼
-Enrich
-   │
-   ▼
-Export
+Deletion synchronized back to server
 ```
-
-Different source types may use different processing pipelines.
-
-For example:
-
-```text
-Instagram URL
-      │
-      ├── retrieve post
-      ├── extract caption
-      ├── download images
-      ├── analyse images
-      ├── classify
-      ├── summarize
-      └── export
-```
-
-while:
-
-```text
-plain Telegram text
-      │
-      ├── classify
-      ├── extract useful information
-      └── export
-```
-
----
-
-# 14. Export Format
-
-Once processing is complete, the system creates a self-contained export package.
-
-For example:
-
-```text
-export/
-└── 01K2ABCDEF/
-    ├── item.md
-    ├── metadata.json
-    ├── original.html
-    ├── image-01.jpg
-    └── image-02.jpg
-```
-
-Not every item needs every file.
-
-A simple Telegram note might contain only:
-
-```text
-01K2XYZ/
-├── item.md
-└── metadata.json
-```
-
----
-
-# 15. Human-Readable Representation
-
-`item.md` is the primary human-readable representation.
-
-For example:
-
-```markdown
----
-id: 01K2ABCDEF
-source: instagram
-category: reference
-captured: 2026-08-08T13:42:11+01:00
-url: https://...
----
-
-# Post title / generated title
-
-## Summary
-
-...
-
-## Extracted information
-
-...
-
-## Original text
-
-...
-```
-
-The precise format can evolve independently of the internal database.
-
-`metadata.json` can contain more detailed machine-readable information.
-
----
-
-# 16. Laptop Delivery
-
-The laptop is not expected to run continuously.
-
-Therefore the server should **not depend on being able to connect to the laptop**.
-
-The laptop initiates synchronization.
-
-Conceptually:
-
-```text
-SERVER                    LAPTOP
-
-export/
-   │
-   │      laptop pull
-   ├─────────────────────► Inbox/
-   │
-```
-
-SSH + `rsync` is a suitable initial transport.
-
----
-
-# 17. Why Pull Instead of Push
 
 The server runs continuously.
 
-The laptop may be:
-
-- asleep
-- disconnected
-- travelling
-- behind NAT
-- on a different network
-
-Therefore pushing from server to laptop introduces unnecessary connectivity problems.
-
-With pull:
-
-```text
-Laptop becomes available
-        │
-        ▼
-Laptop asks server for new items
-        │
-        ▼
-Items are transferred
-```
-
-The server simply retains completed items until they are retrieved.
+The laptop may be offline for long periods. It synchronizes when convenient.
 
 ---
 
-# 18. Synchronization vs Transfer
+# 3. Capture
 
-The laptop and server directories should not necessarily be treated as two mirrors of the same filesystem.
+Telegram is the initial capture mechanism.
 
-The desired semantics are closer to a reliable delivery queue.
+The user can send or share:
 
-Therefore a blind bidirectional synchronization mechanism is not ideal.
+- plain text
+- URLs
+- forwarded Telegram messages
+- articles
+- job advertisements
+- Instagram or other social-media links
+- images
+- documents
+- screenshots
+- arbitrary notes
 
-In particular, automatically propagating laptop deletions back to the server could be dangerous.
+The Telegram bot should make capture as frictionless as possible.
 
-If the laptop directory were accidentally removed, a synchronization command using deletion propagation could potentially remove the server copy as well.
-
-Instead, delivery and deletion should be separate operations.
-
----
-
-# 19. Laptop Pull Command
-
-Eventually the project should provide a simple command such as:
-
-```bash
-info-triage pull
-```
-
-rather than requiring the user to remember raw `rsync` commands.
-
-Conceptually the command performs:
-
-```text
-1. Determine which server items are READY.
-
-2. Download those items.
-
-3. Verify successful local creation.
-
-4. Tell the server which items arrived successfully.
-
-5. Server changes those items from READY to EXPORTED.
-```
-
-The underlying transfer mechanism can still simply be SSH + `rsync`.
+A later version may add optional buttons for explicitly classifying an item, but automatic processing should remain the default.
 
 ---
 
-# 20. Manual Processing
+# 4. Item Identity
 
-Downloaded items arrive in a local inbox such as:
+Telegram provides a `message_id`.
 
-```text
-~/InfoTriage/
-├── Inbox/
-├── Processed/
-└── Archive/
-```
-
-or potentially categorized:
+A Telegram message is identified by:
 
 ```text
-~/InfoTriage/Inbox/
-├── jobs/
-├── read-later/
-├── references/
-├── tasks/
-├── ideas/
-└── unknown/
+(chat_id, message_id)
 ```
 
-The laptop-side representation is intentionally based on ordinary files.
+because `message_id` is unique within a chat rather than globally.
 
-This allows the information to be processed with arbitrary tools:
+No additional deduplication system is required.
 
-- Emacs
-- Org mode
-- VS Code
-- shell scripts
-- Python
-- ripgrep
-- Git
-- LLM tools
-- future custom tooling
-
-The server does not dictate the final destination of an item.
+The same `(chat_id, message_id)` should always refer to the same captured item.
 
 ---
 
-# 21. Acknowledgement
+# 5. Filesystem Layout
 
-Downloading an item and processing an item are different events.
-
-Successful transfer means:
+The server needs only two main directories:
 
 ```text
-READY → EXPORTED
+data/
+├── staging/
+└── inbox/
 ```
 
-It does **not** mean the item has been dealt with.
-
-After manual processing on the laptop, the user can explicitly acknowledge the item.
-
-For example:
-
-```bash
-info-triage done 01K2ABCDEF
-```
-
-The laptop sends an acknowledgement to the server.
-
-The server records:
-
-```text
-EXPORTED → ACKNOWLEDGED
-```
-
-and:
-
-```text
-acknowledged_at = ...
-```
-
-This creates explicit delivery semantics rather than using filesystem deletion as an implicit signal.
-
----
-
-# 22. Server Retention
-
-Acknowledgement does not necessarily have to immediately delete the original data.
-
-A useful policy could be:
-
-```text
-ACKNOWLEDGED
-      │
-      │ retain 30 days
-      ▼
-DELETE / ARCHIVE
-```
-
-This provides protection against accidental loss.
-
-Retention policy should be configurable.
-
----
-
-# 23. Web Dashboard
-
-The server should provide a lightweight browser-based dashboard.
-
-The dashboard is primarily an **operational view of the processing pipeline**, not a replacement for manual laptop processing.
-
-Its purpose is to answer questions such as:
-
-> Did the thing I just sent through Telegram arrive?
-
-> Is it being processed?
-
-> How large is the queue?
-
-> What has been processed recently?
-
-> Did anything fail?
-
-> Has this item already been downloaded to my laptop?
-
-SQLite naturally provides the data required for this interface.
-
----
-
-# 24. Dashboard Overview
-
-The main page could contain a compact status summary:
-
-```text
-Info Triage
-
-Queue
-──────────────
-Waiting             3
-Processing          1
-Ready               7
-Failed              1
-
-Today
-──────────────
-Received           18
-Processed          15
-Exported           12
-Acknowledged        9
-```
-
-Below this can be a live/recent item list.
-
----
-
-# 25. Currently Processing
-
-A dedicated section should show active work:
-
-```text
-CURRENTLY PROCESSING
-
-14:46  Instagram
-       "Interesting post about..."
-       PROCESSING
-       Running image extraction
-       00:18
-
-14:47  Article
-       "Scaling recommendation..."
-       FETCHING
-       00:04
-```
-
-This provides immediate visibility into whether the worker is functioning.
-
----
-
-# 26. Queue
-
-The queue view shows items waiting for processing:
-
-```text
-QUEUE
-
-#   Received   Type       Description
-────────────────────────────────────────────────
-1   14:47      Article    example.com/...
-2   14:48      Instagram  instagram.com/...
-3   14:48      Text       "Look into..."
-```
-
-Queue ordering should normally correspond to processing order.
-
----
-
-# 27. Recently Processed
-
-Another section should show recent activity:
-
-```text
-RECENT
-
-14:43  Job        READY
-14:41  Instagram  READY
-14:37  Article    EXPORTED
-14:32  Text       ACKNOWLEDGED
-14:25  Article    FAILED
-```
-
-This provides a quick operational history without requiring SSH access or database queries.
-
----
-
-# 28. Item Details
-
-Clicking an item should open a detail page.
+Each captured item is represented by one self-contained directory.
 
 For example:
 
 ```text
-Item: 01K2ABCDEF
-
-Status
-    READY
-
-Source
-    Telegram / Instagram
-
-Received
-    2026-08-08 14:41:13
-
-Processing started
-    2026-08-08 14:41:15
-
-Processing finished
-    2026-08-08 14:41:37
-
-Duration
-    22 seconds
-
-Category
-    reference
-
-Source URL
-    https://instagram.com/...
-
-Files
-    item.md
-    metadata.json
-    image-01.jpg
-    image-02.jpg
-
-Processing
-    ✓ Telegram capture
-    ✓ Source retrieval
-    ✓ Text extraction
-    ✓ Image download
-    ✓ Image analysis
-    ✓ Classification
-    ✓ Summary
-    ✓ Export
+staging/
+└── 123456_18492/
+    ├── message.md
+    ├── metadata.json
+    └── image-01.jpg
 ```
 
-Errors should also be visible here.
+The directory name can be based on the Telegram chat ID and message ID, or another stable identifier derived from them.
+
+The important property is that the directory name remains stable if the Telegram message is edited later.
 
 ---
 
-# 29. Failed Items
+# 6. `message.md`
 
-Failures should be highly visible.
+Every captured item should contain a `message.md`.
 
-For example:
+This file stores the text received from Telegram as faithfully as possible.
 
-```text
-FAILED
+For a plain text message, it may simply contain:
 
-14:25  Instagram
-
-Could not retrieve Instagram post.
-
-Attempt: 3
-Last attempt: 14:31
+```markdown
+This article looks useful for the ranking project:
+https://example.com/article
 ```
 
-The dashboard could eventually provide:
+The initial capture should not rewrite or summarize this content.
 
-```text
-[ Retry ]
-```
-
-This is useful because some failures may be transient.
+Additional processing can create or update other files in the same item directory.
 
 ---
 
-# 30. Processing Progress
+# 7. `metadata.json`
 
-A single `status` column provides coarse progress.
-
-Eventually, more detailed progress may be useful.
+A small `metadata.json` can preserve useful source information that belongs with the exported item.
 
 For example:
 
-```text
-PROCESSING
-    └── current_stage = "image_analysis"
+```json
+{
+  "chat_id": 123456,
+  "message_id": 18492,
+  "received_at": "2026-08-08T20:31:12+01:00",
+  "edited_at": null
+}
 ```
 
-Possible stages:
+Only metadata that may be useful outside the server should be stored here.
 
-```text
-capture
-fetch
-extract
-download_assets
-classify
-image_analysis
-summarize
-export
-```
-
-This can be represented separately from the overall item lifecycle.
-
-For example:
-
-```text
-status = PROCESSING
-stage  = IMAGE_ANALYSIS
-```
-
-The dashboard can therefore display:
-
-```text
-Processing — analysing 4 images
-```
-
-rather than merely:
-
-```text
-PROCESSING
-```
+Operational processing state belongs in SQLite instead.
 
 ---
 
-# 31. Processing Events
+# 8. Attachments and Extracted Content
 
-A later version may introduce an `item_events` table.
+Files associated with the item live directly inside the same directory.
 
 For example:
+
+```text
+123456_18492/
+├── message.md
+├── metadata.json
+├── article.md
+├── original.html
+├── image-01.jpg
+└── image-02.jpg
+```
+
+Different item types can produce different files.
+
+There is no requirement for every item to have the same output structure beyond having a stable item directory and the original captured message.
+
+---
+
+# 9. Processing Lifecycle
+
+There are four logical states:
+
+```text
+received
+processing
+ready
+failed
+```
+
+The filesystem and SQLite work together.
+
+### Received
+
+The Telegram message has been saved into:
+
+```text
+staging/<item>/
+```
+
+SQLite contains:
+
+```text
+status = received
+```
+
+### Processing
+
+A worker is currently processing the item.
+
+The item remains in:
+
+```text
+staging/<item>/
+```
+
+SQLite contains:
+
+```text
+status = processing
+```
+
+No `.processing` marker file is required.
+
+### Failed
+
+Processing failed.
+
+The item remains in:
+
+```text
+staging/<item>/
+```
+
+SQLite contains:
+
+```text
+status = failed
+```
+
+The error message can also be stored in SQLite.
+
+No `.failed` marker file is required.
+
+### Ready
+
+Processing completed successfully.
+
+The entire item directory is moved:
+
+```text
+staging/<item>/
+        ↓
+inbox/<item>/
+```
+
+SQLite contains:
+
+```text
+status = ready
+```
+
+The move into `inbox/` is the filesystem representation that the item is ready for synchronization.
+
+---
+
+# 10. Processing
+
+Processing depends on the type of captured information.
+
+A plain Telegram note may require almost no processing.
+
+A URL may require:
+
+```text
+retrieve page
+    ↓
+extract useful content
+    ↓
+optionally classify / summarize
+    ↓
+save generated files into item directory
+```
+
+An Instagram post may require additional extraction of:
+
+- caption
+- images
+- post metadata
+- useful information contained in the images
+
+A job advertisement may later have its own extraction pipeline.
+
+The system does not need a general workflow engine. Processing can simply be ordinary Python code that handles different source types.
+
+---
+
+# 11. Telegram Message Edits
+
+Telegram edits should be supported.
+
+If an already captured Telegram message is edited, the same `(chat_id, message_id)` is located.
+
+The system then:
+
+```text
+receive edited message
+    ↓
+update message.md
+    ↓
+update metadata if necessary
+    ↓
+if item is already in inbox:
+    move it back to staging
+    ↓
+status = received
+    ↓
+process again
+    ↓
+move back to inbox when finished
+```
+
+This ensures that edited source information is reprocessed rather than leaving stale output in the inbox.
+
+The stable item directory name is important here.
+
+---
+
+# 12. SQLite
+
+SQLite is intentionally small.
+
+It stores **processing state**, not captured content.
+
+A minimal table is sufficient:
 
 ```sql
-CREATE TABLE item_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_id TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    event_type TEXT NOT NULL,
-    message TEXT
+CREATE TABLE items (
+    chat_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+
+    status TEXT NOT NULL,
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+
+    short_text TEXT,
+    error TEXT,
+
+    PRIMARY KEY (chat_id, message_id)
 );
 ```
 
-This could record:
+Possible values of `status` are:
 
 ```text
-14:41:13 RECEIVED
-14:41:14 QUEUED
-14:41:15 FETCH_STARTED
-14:41:18 FETCH_FINISHED
-14:41:19 EXTRACTION_STARTED
-14:41:21 IMAGE_DOWNLOAD
-14:41:23 LLM_STARTED
-14:41:36 LLM_FINISHED
-14:41:37 READY
+received
+processing
+ready
+failed
 ```
 
-The dashboard could then show a detailed processing timeline.
+The actual text, HTML, images, documents, and generated outputs remain on disk.
 
-This table is optional for the initial implementation but would make debugging and observability considerably better.
+SQLite does not need to be synchronized to the laptop.
 
 ---
 
-# 32. Dashboard Architecture
+# 13. Why Keep SQLite
 
-The dashboard does not need a complex frontend initially.
+SQLite has only a few responsibilities:
 
-A simple server-rendered web application is sufficient.
+1. Track the current processing state.
+2. Identify Telegram messages by `(chat_id, message_id)`.
+3. Support Telegram message edits.
+4. Store processing errors.
+5. Supply data to the web dashboard.
+
+It is not:
+
+- a content database
+- a permanent history
+- an export database
+- an acknowledgement system
+- a distributed queue
+
+This keeps SQLite useful without making it central to the whole architecture.
+
+---
+
+# 14. SQLite Pruning
+
+SQLite is operational rather than archival.
+
+Old rows can therefore be deleted automatically.
+
+A simple policy is:
+
+> Remove rows whose `updated_at` is older than 30 days.
+
+The filesystem remains the source of actual content.
+
+The pruning process can run periodically, for example once per day.
+
+There is no need to preserve indefinite processing history.
+
+---
+
+# 15. Server-to-Laptop Synchronization
+
+The server `inbox/` and laptop `inbox/` should behave like two synchronized copies of the same working inbox.
 
 Conceptually:
 
 ```text
-Browser
-   │
-   ▼
-HTTP server
-   │
-   ▼
-SQLite
+server/inbox/  ⇄  laptop/inbox/
 ```
 
-The dashboard primarily performs read-only SQL queries.
+The roles are intentionally asymmetric:
+
+```text
+SERVER
+creates new item directories
+
+LAPTOP
+reads, processes, moves or deletes item directories
+```
+
+After synchronization:
+
+- new server items appear on the laptop;
+- items removed from the laptop are removed from the server.
+
+There is no separate archive or acknowledgement protocol.
+
+---
+
+# 16. Manual Processing on the Laptop
+
+The laptop receives ordinary self-contained directories.
 
 For example:
 
-```sql
-SELECT *
-FROM items
-WHERE status = 'PROCESSING'
-ORDER BY processing_started_at;
+```text
+~/InfoTriage/inbox/
+├── 123456_18492/
+├── 123456_18493/
+└── 123456_18494/
 ```
 
-or:
+The user processes these items one by one.
 
-```sql
-SELECT *
-FROM items
-ORDER BY received_at DESC
-LIMIT 50;
-```
+Once an item has been dealt with, it is moved elsewhere in the user's own system or removed from the Info Triage inbox.
 
-This keeps the first implementation extremely small.
+Info Triage does not need to know where it goes afterwards.
+
+That may be:
+
+- an Org file
+- a project directory
+- a task system
+- a notes system
+- a job-processing pipeline
+- a read-later collection
+- somewhere else entirely
+
+From Info Triage's perspective, removing it from the synchronized inbox means it has been consumed.
 
 ---
 
-# 33. Dashboard Refresh
+# 17. Synchronization Tool
 
-Initially, the dashboard can simply refresh periodically.
+A normal bidirectional synchronization tool is preferable to treating raw `rsync` as a two-way synchronization protocol.
 
-For example, every few seconds.
-
-There is no need to introduce WebSockets or another real-time messaging system just to display processing progress.
-
-If the application later requires genuinely live updates, Server-Sent Events or WebSockets can be introduced.
-
----
-
-# 34. Dashboard Actions
-
-The initial dashboard should primarily be observational.
-
-Useful later actions include:
+The desired behavior is:
 
 ```text
-[ Retry ]
-
-[ Reprocess ]
-
-[ Change category ]
-
-[ Delete ]
-
-[ Download ]
-
-[ Mark acknowledged ]
+server additions → laptop
+laptop deletions → server
 ```
 
-Administrative actions should be deliberately limited so that the dashboard does not gradually become a second manual-processing application.
+Possible tools include:
 
-The laptop remains the primary place where captured information is actually reviewed and acted upon.
+- Unison
+- Syncthing
+- another simple bidirectional file synchronizer
 
----
+The final choice is an implementation detail.
 
-# 35. Security
+The desired laptop experience should be approximately:
 
-The dashboard exposes personal captured information and therefore must not simply be exposed anonymously to the public Internet.
+```bash
+info-triage sync
+```
 
-Possible approaches include:
+or a direct invocation of the chosen synchronization tool.
 
-- authentication
-- VPN access
-- private network access
-- reverse proxy authentication
-- access through a service such as Tailscale
-
-The first implementation can remain private and simple rather than building a complete user/account system.
+No additional pull/acknowledge commands are required.
 
 ---
 
-# 36. Operational Separation
+# 18. Web Dashboard
 
-The system should maintain a clear separation between:
+The server exposes a very small web dashboard.
 
-### Capture
+Its purpose is only to show the state of Telegram captures and processing.
 
-Telegram provides fast cross-device capture.
+It is not intended to become another interface for manually processing captured information.
 
-### Processing
-
-The always-running server retrieves, extracts, classifies, enriches, and packages content.
-
-### Operational state
-
-SQLite records what has happened and what needs to happen next.
-
-### Content storage
-
-The filesystem contains actual source material and generated artifacts.
-
-### Monitoring
-
-The web dashboard shows processing activity, queue state, history, and failures.
-
-### Delivery
-
-The laptop explicitly pulls completed packages from the server.
-
-### Decision
-
-The user manually reviews and processes the resulting information on the laptop.
+The dashboard reads its data directly from SQLite.
 
 ---
 
-# 37. Complete Item Lifecycle
+# 19. Dashboard Tabs
 
-The resulting end-to-end workflow is:
+The dashboard contains one tab for each status:
 
 ```text
-             PHONE / OTHER DEVICE
+[ Received 3 ] [ Processing 1 ] [ Ready 12 ] [ Failed 2 ]
+```
 
-                    Telegram
-                       │
-                       ▼
-              ┌─────────────────┐
-              │     SERVER      │
-              │                 │
-              │ Receive         │
-              │      ↓          │
-              │ Queue           │
-              │      ↓          │
-              │ Fetch           │
-              │      ↓          │
-              │ Extract         │
-              │      ↓          │
-              │ Classify        │
-              │      ↓          │
-              │ Enrich          │
-              │      ↓          │
-              │ Export          │
-              │                 │
-              └────────┬────────┘
-                       │
-                       │
-              READY on server
-                       │
-                       │
-        ┌──────────────┴───────────────┐
-        │                              │
-        ▼                              ▼
- Web dashboard                   Laptop available
- shows READY                          │
-                                     │
-                                     ▼
-                              info-triage pull
-                                     │
-                                     ▼
-                              Local Inbox/
-                                     │
-                                     ▼
-                              Manual processing
-                                     │
-                                     ▼
-                              info-triage done
-                                     │
-                                     ▼
-                                ACKNOWLEDGED
-                                     │
-                                     ▼
-                              retention period
-                                     │
-                                     ▼
-                              archive / delete
+The number displayed in the tab is the number of SQLite rows currently in that state.
+
+Selecting a tab filters the table to that status.
+
+No separate overview dashboard is necessary.
+
+---
+
+# 20. Dashboard Table
+
+Every tab displays the same simple table:
+
+```text
+ID              Created              Updated              Message
+---------------------------------------------------------------------------
+123456/18492    2026-08-08 20:31     2026-08-08 20:31     Interesting article...
+123456/18488    2026-08-08 20:25     2026-08-08 20:27     https://instagram...
+```
+
+The columns are:
+
+- **ID** — derived from `(chat_id, message_id)`
+- **Created** — when the Telegram message was first received
+- **Updated** — last relevant update
+- **Message** — short preview of the Telegram text
+
+For failed items, the error can also be displayed, either as another column or below the short text.
+
+The initial dashboard does not need:
+
+- charts
+- statistics
+- event timelines
+- per-stage progress indicators
+- WebSockets
+- retry history
+- complex item detail pages
+
+A normal HTML table is sufficient.
+
+---
+
+# 21. Dashboard Refresh
+
+The page can simply refresh automatically every few seconds, or refresh only when manually reloaded.
+
+Real-time infrastructure is unnecessary.
+
+---
+
+# 22. Failure Handling
+
+If processing fails:
+
+```text
+status = failed
+```
+
+and the item remains in `staging/`.
+
+The error is stored in SQLite.
+
+A simple retry mechanism can later reset:
+
+```text
+failed → received
+```
+
+and let the normal processing loop try again.
+
+Retrying can initially be done through a command-line command or a simple dashboard button.
+
+No dedicated failure directory is required.
+
+---
+
+# 23. Simplified Directory and State Model
+
+The complete server-side model is:
+
+```text
+data/
+├── staging/
+│   ├── item A     received
+│   ├── item B     processing
+│   └── item C     failed
+│
+└── inbox/
+    ├── item D     ready
+    └── item E     ready
+```
+
+SQLite tells us which state each `staging/` item is in.
+
+Anything in `inbox/` is ready.
+
+---
+
+# 24. End-to-End Workflow
+
+```text
+Telegram message
+      │
+      ▼
+save item into staging/
+      │
+      ▼
+SQLite: received
+      │
+      ▼
+worker starts
+      │
+      ▼
+SQLite: processing
+      │
+      ├──────── processing fails
+      │               │
+      │               ▼
+      │         SQLite: failed
+      │         remains in staging/
+      │
+      ▼
+processing succeeds
+      │
+      ▼
+move folder staging/ → inbox/
+      │
+      ▼
+SQLite: ready
+      │
+      ▼
+synchronize
+      │
+      ▼
+item appears in laptop inbox
+      │
+      ▼
+manual processing
+      │
+      ▼
+remove/move item from laptop inbox
+      │
+      ▼
+synchronize
+      │
+      ▼
+item removed from server inbox
+```
+
+For an edited Telegram message:
+
+```text
+edited Telegram message
+      │
+      ▼
+find same (chat_id, message_id)
+      │
+      ▼
+move inbox item back to staging if necessary
+      │
+      ▼
+replace/update captured Telegram content
+      │
+      ▼
+SQLite: received
+      │
+      ▼
+normal processing again
 ```
 
 ---
 
-# 38. Initial Implementation Scope
+# 25. What the System Deliberately Does Not Have
 
-A sensible first version does not need much infrastructure.
-
-### Server
-
-- Telegram bot
-- Python application
-- SQLite
-- ordinary filesystem storage
-- processing worker
-- simple HTTP dashboard
-- SSH access
-
-### Laptop
-
-- SSH
-- `rsync`
-- small `info-triage` command/script
-- ordinary local filesystem inbox
-
-No distributed infrastructure should be necessary.
-
-In particular, the initial implementation should not require:
+The simplified design does not require:
 
 - PostgreSQL
 - Redis
-- Kafka
 - Celery
-- Kubernetes
+- Kafka
 - object storage
 - distributed queues
-- a JavaScript SPA
-- bidirectional file synchronization
+- explicit export state
+- explicit acknowledgement state
+- archive directories
+- server-side retention of consumed content
+- filesystem marker files
+- an item-events table
+- processing timelines
+- complex dashboard statistics
+- a frontend SPA
+- bidirectional application-level APIs for synchronization
 
-These can be introduced later only if concrete requirements justify them.
+The main components are simply:
+
+```text
+Telegram bot
+Python server
+SQLite
+filesystem
+processing code
+simple web page
+bidirectional folder synchronization
+```
 
 ---
 
-# 39. Core Design Principles
+# 26. Design Principles
 
-## Low-friction capture
+## Keep capture trivial
 
-Sending something to the system should require almost no thought.
+The normal interaction should remain:
 
 ```text
 Share → Telegram → done
 ```
 
-## Server independence from laptop availability
+## Keep content in files
 
-Capture and processing must continue regardless of whether the laptop is online.
+Files are easy to inspect, copy, process, search, and use with arbitrary tools.
 
-## Durable processing state
+## Keep state in SQLite
 
-A restart should not lose track of what has already happened.
+SQLite only records small operational facts that are awkward to infer from files.
 
-## Idempotent ingestion
+## Keep the state machine tiny
 
-Repeated Telegram delivery must not create duplicate captures.
+Only:
 
-## Files for content, SQLite for state
+```text
+received
+processing
+ready
+failed
+```
 
-The filesystem stores the actual information.
+## Keep only two server directories
 
-SQLite stores what the system knows about the processing of that information.
+```text
+staging/
+inbox/
+```
 
-## Pull-based delivery
+## Treat one item as one directory
 
-The laptop decides when to retrieve processed content.
+Everything belonging to a capture travels together.
 
-## Explicit acknowledgement
+## Let the laptop consume the inbox
 
-Deleting a local file should not implicitly delete the server's copy.
+The server produces items.
 
-## Human-readable output
+The laptop decides when they have been dealt with.
 
-Exported items should remain useful without the Info Triage application itself.
+## Synchronize rather than build a delivery protocol
 
-## Manual final decision
+There is no need for export acknowledgements or retention logic.
 
-Automatic processing assists organization but does not replace the final human review step.
+## Avoid permanent history
 
-## Simple infrastructure
+SQLite can be pruned after roughly one month.
 
-This is a personal system. Operational complexity should only be introduced when it solves a demonstrated problem.
+## Keep the dashboard observational
+
+Its job is to answer:
+
+- What has just arrived?
+- What is processing?
+- What is ready?
+- What failed?
+
+Nothing more is required initially.
+
+## Add complexity only when a real problem appears
+
+The design should remain a small personal tool rather than evolving pre-emptively into a general distributed system.
