@@ -11,7 +11,7 @@ The concrete setup documented here is:
 -   NAS LAN IP: `192.168.1.10`
 -   DSM/SSH deployment user: `deploy`
 -   Mac SSH alias: `server`
--   NAS deployment directory: `/volume1/docker/hello`
+-   NAS deployment directory: `/volume1/docker/info-triage`
 -   Application port: `8000`
 -   SSH public-key authentication
 -   rsync-over-SSH for copying application files
@@ -48,6 +48,47 @@ health check from Mac
 > **Security scope:** SSH should be accessible from the local network
 > only. Do not configure router port forwarding for TCP port 22 merely
 > for this deployment workflow.
+
+## Migrating the existing prototype
+
+The original prototype used the project name and directory `hello`. Before the
+first Info Triage deployment, make this one-time change from a NAS root shell.
+
+First stop the old container and rename the deployment directory:
+
+```bash
+/usr/local/bin/docker compose \
+    -f /volume1/docker/hello/compose.yaml \
+    --project-directory /volume1/docker/hello \
+    down
+
+mv /volume1/docker/hello /volume1/docker/info-triage
+```
+
+Then edit `/usr/local/sbin/deploy-container` so its only accepted case is:
+
+```sh
+info-triage)
+    PROJECT_DIR="/volume1/docker/info-triage"
+    ;;
+```
+
+Finally, replace the command in `/etc/sudoers.d/deploy-container` with:
+
+```sudoers
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-container info-triage
+```
+
+Keep the existing ownership and modes (`root:root`, mode `755` for the wrapper
+and `440` for the sudoers file), then validate the sudoers configuration before
+closing the root session:
+
+```bash
+visudo -c
+```
+
+This migration is required only once. Normal deployments afterwards use
+`./deploy.sh`.
 
 ------------------------------------------------------------------------
 
@@ -94,13 +135,13 @@ not be used for application source.
 The application is deployed to:
 
 ``` text
-/volume1/docker/hello
+/volume1/docker/info-triage
 ```
 
 Create it if necessary:
 
 ``` bash
-mkdir -p /volume1/docker/hello
+mkdir -p /volume1/docker/info-triage
 ```
 
 The deployment user `deploy` needs write access to this directory
@@ -304,11 +345,11 @@ launched `rsync --server ...` command can still be rejected by DSM.
 On the Mac:
 
 ``` bash
-echo hello >/tmp/rsync-test.txt
+echo info-triage >/tmp/rsync-test.txt
 
 rsync -av \
     /tmp/rsync-test.txt \
-    server:/volume1/docker/hello/
+    server:/volume1/docker/info-triage/
 ```
 
 Successful output should resemble:
@@ -321,13 +362,13 @@ rsync-test.txt
 Verify:
 
 ``` bash
-ssh server 'cat /volume1/docker/hello/rsync-test.txt'
+ssh server 'cat /volume1/docker/info-triage/rsync-test.txt'
 ```
 
 Expected:
 
 ``` text
-hello
+info-triage
 ```
 
 The Mac and NAS do not need identical rsync versions. For example, rsync
@@ -439,8 +480,8 @@ Contents:
 set -eu
 
 case "${1:-}" in
-    hello)
-        PROJECT_DIR="/volume1/docker/hello"
+    info-triage)
+        PROJECT_DIR="/volume1/docker/info-triage"
         ;;
     *)
         echo "Unknown project: ${1:-}" >&2
@@ -484,10 +525,10 @@ It should be owned by `root`.
 Test it while root:
 
 ``` bash
-/usr/local/sbin/deploy-container hello
+/usr/local/sbin/deploy-container info-triage
 ```
 
-The script deliberately accepts only the named `hello` deployment.
+The script deliberately accepts only the named `info-triage` deployment.
 
 ------------------------------------------------------------------------
 
@@ -526,7 +567,7 @@ vim /etc/sudoers.d/deploy-container
 Contents:
 
 ``` sudoers
-deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-container hello
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-container info-triage
 ```
 
 Set secure permissions:
@@ -546,7 +587,7 @@ ls -l /etc/sudoers.d/deploy-container
 The final custom file should contain exactly:
 
 ``` text
-deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-container hello
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-container info-triage
 ```
 
 The main `/etc/sudoers` remains DSM's standard configuration:
@@ -578,7 +619,7 @@ Cmnd_Alias SU = /usr/bin/su
 From a separate Mac terminal:
 
 ``` bash
-ssh server 'sudo -n /usr/local/sbin/deploy-container hello'
+ssh server 'sudo -n /usr/local/sbin/deploy-container info-triage'
 ```
 
 This should work without asking for a password.
@@ -612,7 +653,9 @@ info-triage/
 ├── compose.yaml
 ├── Dockerfile
 ├── deploy.sh
-└── run.sh
+├── requirements.txt
+├── run.sh
+└── sync.sh
 ```
 
 The Mac is used for:
@@ -627,27 +670,11 @@ The NAS copy is a deployment target.
 
 ------------------------------------------------------------------------
 
-## 11. Hello-world application
+## 11. Info Triage application
 
-`app.py`:
-
-``` python
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
-
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"Hello from my Synology NAS!\n")
-
-
-server = HTTPServer(("0.0.0.0", 8000), Handler)
-
-print("Server listening on port 8000")
-server.serve_forever()
-```
+`app.py` runs the Telegram polling bot and a small HTTP health server in one
+process. It stores durable application data below `/app/data` and exposes
+`GET /health` on port 8000.
 
 The server deliberately binds to:
 
@@ -672,6 +699,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY app.py .
 
 CMD ["python", "app.py"]
@@ -688,16 +718,27 @@ uses it.
 
 ``` yaml
 services:
-  hello:
+  info-triage:
     build: .
-    container_name: hello-synology
+    container_name: info-triage
     restart: unless-stopped
+    user: "1026:100"
+
+    env_file:
+      - .env
+
+    environment:
+      DATA_DIR: /app/data
+      PORT: "8000"
+
+    volumes:
+      - ./data:/app/data
 
     ports:
       - "8000:8000"
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -754,17 +795,14 @@ Run:
 Test:
 
 ``` bash
-curl http://localhost:8000
+curl http://localhost:8000/health
 ```
 
 Expected:
 
 ``` text
-Hello from my Synology NAS!
+Info Triage is running
 ```
-
-Although the message says "Synology NAS", during this test the same
-application is actually running locally in Docker on the Mac.
 
 Stop the foreground Compose process with `Ctrl-C`.
 
@@ -782,8 +820,18 @@ This local test is intentionally separate from deployment.
 set -euo pipefail
 
 REMOTE="server"
-REMOTE_DIR="/volume1/docker/hello"
-URL="http://192.168.1.10:8000"
+REMOTE_DIR="/volume1/docker/info-triage"
+URL="http://192.168.1.10:8000/health"
+
+if [[ ! -f .env ]]; then
+    echo "Missing .env with Telegram credentials" >&2
+    exit 1
+fi
+
+echo "==> Preparing deployment directory"
+
+ssh "$REMOTE" \
+    "mkdir -p '$REMOTE_DIR/data/staging' '$REMOTE_DIR/data/inbox'"
 
 echo "==> Copying files to NAS"
 
@@ -792,14 +840,18 @@ rsync -az --delete \
     --exclude '.env' \
     --exclude 'data/' \
     --exclude 'logs/' \
+    --exclude '.venv/' \
     --exclude '__pycache__/' \
     --exclude '.DS_Store' \
     ./ "${REMOTE}:${REMOTE_DIR}/"
 
+rsync -az .env "${REMOTE}:${REMOTE_DIR}/.env"
+ssh "$REMOTE" "chmod 600 '$REMOTE_DIR/.env'"
+
 echo "==> Building and restarting container"
 
 ssh "$REMOTE" \
-    'sudo -n /usr/local/sbin/deploy-container hello'
+    'sudo -n /usr/local/sbin/deploy-container info-triage'
 
 echo "==> Waiting for service"
 
@@ -829,10 +881,10 @@ The script performs:
 
 1.  `rsync` of the Mac project to the NAS.
 2.  SSH public-key authentication as `deploy`.
-3.  Passwordless execution of only `deploy-container hello`.
+3.  Passwordless execution of only `deploy-container info-triage`.
 4.  `docker compose up -d --build` as root.
 5.  Display of Compose container status.
-6.  A three-second wait.
+6.  A three-second wait and an HTTP health check.
 7.  An HTTP request from the Mac to verify that the deployed service is
     reachable.
 
@@ -868,12 +920,14 @@ The exclusions therefore matter:
 .env
 data/
 logs/
+.venv/
 __pycache__/
 .DS_Store
 ```
 
-For a real Telegram bot, `.env` will typically contain deployment
-secrets such as the Telegram bot token and must not be committed to Git.
+The main mirror operation excludes `.env`, then `deploy.sh` copies that file
+separately and sets mode `600`. It contains the Telegram bot token and must not
+be committed to Git.
 
 Persistent runtime data should similarly live in an excluded directory
 such as:
@@ -881,6 +935,30 @@ such as:
 ``` text
 data/
 ```
+
+------------------------------------------------------------------------
+
+### Laptop inbox synchronization
+
+Run this from the project on the laptop whenever you want to synchronize:
+
+```bash
+./sync.sh
+```
+
+New and edited NAS items are copied to `~/info-triage-inbox/`. The script keeps
+only a list of delivered item IDs in
+`~/.local/state/info-triage/delivered-items`; it does not keep a second content
+snapshot.
+
+Moving or deleting a delivered item directory from the laptop inbox marks it
+processed. The next sync deletes the matching NAS directory. This decision is
+permanent for that Telegram message ID, including if the original message is
+edited later. Resend the content as a new Telegram message to capture it again.
+
+If the delivered-items file exists but the laptop inbox directory is missing,
+the script aborts instead of interpreting the missing directory as a request to
+delete every delivered NAS item.
 
 ------------------------------------------------------------------------
 
@@ -892,7 +970,7 @@ Open:
 
 **DSM → Container Manager → Container**
 
-The `hello-synology` container can be inspected there for:
+The `info-triage` container can be inspected there for:
 
 -   running/stopped state
 -   CPU usage
@@ -908,8 +986,8 @@ Interactive administrative inspection can be done after SSH login:
 ``` bash
 ssh server
 sudo docker compose \
-    -f /volume1/docker/hello/compose.yaml \
-    --project-directory /volume1/docker/hello \
+    -f /volume1/docker/info-triage/compose.yaml \
+    --project-directory /volume1/docker/info-triage \
     ps
 ```
 
@@ -919,8 +997,8 @@ On the NAS:
 
 ``` bash
 sudo docker compose \
-    -f /volume1/docker/hello/compose.yaml \
-    --project-directory /volume1/docker/hello \
+    -f /volume1/docker/info-triage/compose.yaml \
+    --project-directory /volume1/docker/info-triage \
     logs --tail=100
 ```
 
@@ -928,8 +1006,8 @@ Follow continuously:
 
 ``` bash
 sudo docker compose \
-    -f /volume1/docker/hello/compose.yaml \
-    --project-directory /volume1/docker/hello \
+    -f /volume1/docker/info-triage/compose.yaml \
+    --project-directory /volume1/docker/info-triage \
     logs -f --tail=100
 ```
 
@@ -963,7 +1041,7 @@ without a password prompt.
 ### rsync works
 
 ``` bash
-rsync -av /tmp/rsync-test.txt server:/volume1/docker/hello/
+rsync -av /tmp/rsync-test.txt server:/volume1/docker/info-triage/
 ```
 
 should succeed without a password.
@@ -971,7 +1049,7 @@ should succeed without a password.
 ### Restricted deployment works
 
 ``` bash
-ssh server 'sudo -n /usr/local/sbin/deploy-container hello'
+ssh server 'sudo -n /usr/local/sbin/deploy-container info-triage'
 ```
 
 should succeed without a password.
@@ -993,7 +1071,7 @@ curl http://192.168.1.10:8000
 Expected:
 
 ``` text
-Hello from my Synology NAS!
+Info Triage is running
 ```
 
 ### SSH is not deliberately exposed through the router
@@ -1016,7 +1094,7 @@ execution, but there is one important caveat.
 `deploy` can currently `rsync` these files into:
 
 ``` text
-/volume1/docker/hello
+/volume1/docker/info-triage
 ```
 
 including:
@@ -1041,11 +1119,11 @@ Mac
  |
  | rsync as deploy
  v
-/volume1/docker-staging/hello/
+/volume1/docker-staging/info-triage/
         |
         | restricted root deployment
         v
-/volume1/docker/hello/
+/volume1/docker/info-triage/
     ├── compose.yaml       root-controlled
     ├── Dockerfile         root-controlled
     └── src/               copied from staging
@@ -1100,17 +1178,17 @@ docker compose
 rsync over SSH key
      |
      v
-/volume1/docker/hello
+/volume1/docker/info-triage
      |
      | restricted sudo
      v
-/usr/local/sbin/deploy-container hello
+/usr/local/sbin/deploy-container info-triage
      |
      v
 Docker Compose
      |
      v
-hello-synology
+info-triage
      |
      v
 192.168.1.10:8000

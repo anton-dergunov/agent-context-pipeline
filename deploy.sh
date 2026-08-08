@@ -3,8 +3,18 @@
 set -euo pipefail
 
 REMOTE="server"
-REMOTE_DIR="/volume1/docker/hello"
-URL="http://192.168.1.10:8000"
+REMOTE_DIR="/volume1/docker/info-triage"
+URL="http://192.168.1.10:8000/health"
+
+if [[ ! -f .env ]]; then
+    echo "Missing .env with Telegram credentials" >&2
+    exit 1
+fi
+
+echo "==> Preparing deployment directory"
+
+ssh "$REMOTE" \
+    "mkdir -p '$REMOTE_DIR/data/staging' '$REMOTE_DIR/data/inbox'"
 
 echo "==> Copying files to NAS"
 
@@ -13,14 +23,18 @@ rsync -az --delete \
     --exclude '.env' \
     --exclude 'data/' \
     --exclude 'logs/' \
+    --exclude '.venv/' \
     --exclude '__pycache__/' \
     --exclude '.DS_Store' \
     ./ "${REMOTE}:${REMOTE_DIR}/"
 
+rsync -az .env "${REMOTE}:${REMOTE_DIR}/.env"
+ssh "$REMOTE" "chmod 600 '$REMOTE_DIR/.env'"
+
 echo "==> Building and restarting container"
 
 ssh "$REMOTE" \
-    'sudo -n /usr/local/sbin/deploy-container hello'
+    'sudo -n /usr/local/sbin/deploy-container info-triage'
 
 echo "==> Waiting for service"
 

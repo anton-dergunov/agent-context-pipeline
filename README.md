@@ -10,6 +10,58 @@ Instead of immediately deciding what to do with something, I can simply share it
 
 The goal is to make capturing information extremely low-friction while keeping the final organization and decision-making process under manual control.
 
+## Current Prototype
+
+The current implementation is deliberately small:
+
+```text
+Telegram message
+    -> choose ML, Career, Life, or Other
+    -> NAS data/inbox/<chat_id>_<message_id>/
+    -> ./sync.sh
+    -> ~/info-triage-inbox/
+```
+
+Each completed item contains a categorized `message.md` and a
+`metadata.json`. Telegram message edits update the same stable item directory.
+Text and media captions are supported; attachments are not downloaded yet.
+
+Create a local `.env` (it is ignored by Git):
+
+```dotenv
+TELEGRAM_BOT_TOKEN=your-token
+ALLOWED_USER_ID=your-numeric-telegram-user-id
+```
+
+Run locally in Docker:
+
+```bash
+./run.sh
+curl http://localhost:8000/health
+```
+
+After completing the one-time NAS rename described in
+[`docs/SYNOLOGY_SETUP.md`](docs/SYNOLOGY_SETUP.md), deploy with:
+
+```bash
+./deploy.sh
+```
+
+Only one process may poll a Telegram bot token at a time. Stop any locally
+running copy of the old bot before starting the NAS deployment.
+
+Download new/edited items with:
+
+```bash
+./sync.sh
+```
+
+The synchronization script keeps a small list of delivered Telegram item IDs
+under `~/.local/state/info-triage/`. Removing a delivered item directory from
+`~/info-triage-inbox/` marks it processed; the next sync removes its NAS copy.
+That decision is permanent for that Telegram message ID, so resend the content
+as a new Telegram message if it needs to be captured again.
+
 ## Example Inputs
 
 The system should accept several kinds of information.
