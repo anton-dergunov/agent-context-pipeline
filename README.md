@@ -25,10 +25,18 @@ Telegram message
 
 The directory date is the UTC creation date supplied by Telegram.
 
-Each completed item contains a `message.md` and `metadata.json`. A label is
-optional; selecting one updates the ready item and adds category front matter.
-Telegram message edits update the same stable item directory. Text and media
-captions are supported; attachments are not downloaded yet.
+Each completed item contains `message.md`, `metadata.json`, and the complete
+received Telegram payload in `telegram.json`. Useful source media is kept in
+`attachments/`: documents, photos, video, animations, voice/audio notes, and
+video notes. Albums are one ordered item. A label is optional; selecting one
+updates the ready item and adds category front matter. Telegram message edits
+update the same stable item directory.
+
+The capture layer deliberately ignores Telegram interaction content such as
+stickers, contacts, polls, payments, games, dice, and service events. It stores
+original media only: there is no transcription, OCR, image analysis, or web
+page extraction. Files above Telegram's hosted Bot API download limit are
+recorded in metadata with a warning but cannot be copied locally.
 
 Create a local `.env` (it is ignored by Git):
 

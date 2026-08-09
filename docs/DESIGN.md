@@ -64,8 +64,10 @@ The user can send or share:
 - job advertisements
 - Instagram or other social-media links
 - images
+- videos, animations, voice notes, audio notes, and video notes
 - documents
 - screenshots
+- locations and venues
 - arbitrary notes
 
 The Telegram bot should make capture as frictionless as possible.
@@ -115,7 +117,9 @@ staging/
 └── 2026-08-08_18492/
     ├── message.md
     ├── metadata.json
-    └── image-01.jpg
+    ├── telegram.json
+    └── attachments/
+        └── 01-photo.jpg
 ```
 
 The directory name is based on the Telegram creation date and message ID:
@@ -147,6 +151,10 @@ The initial capture should not rewrite or summarize this content.
 
 Additional processing can create or update other files in the same item directory.
 
+For a location or venue, it also contains a small readable location block with
+the coordinates and a maps link. It remains empty for media that has neither a
+caption nor a location.
+
 ---
 
 # 7. `metadata.json`
@@ -173,6 +181,9 @@ Only metadata that may be useful outside the server should be stored here.
 
 Operational processing state belongs in SQLite instead.
 
+The metadata also records an attachment manifest, source message IDs, an
+optional media-group ID, and any attachment-download warnings.
+
 ---
 
 # 8. Attachments and Extracted Content
@@ -185,15 +196,26 @@ For example:
 2026-08-08_18492/
 ├── message.md
 ├── metadata.json
-├── article.md
-├── original.html
-├── image-01.jpg
-└── image-02.jpg
+├── telegram.json
+└── attachments/
+    ├── 01-photo.jpg
+    └── 02-video.mp4
 ```
 
 Different item types can produce different files.
 
 There is no requirement for every item to have the same output structure beyond having a stable item directory and the original captured message.
+
+The capture layer preserves useful references: text and links, forwarded source
+context, documents, photos, videos, animations, voice/audio/video notes,
+locations, venues, and mixed media albums. It does not archive stickers,
+contacts, polls, payments, games, dice, service events, or comments. Media is
+stored as supplied; transcription, OCR, and scraping are separate future
+processing steps.
+
+A media group is delivered as one item directory, named from its first message
+ID and containing ordered members. Each member identity remains in metadata and
+SQLite so an edit to any member updates the same item.
 
 ---
 

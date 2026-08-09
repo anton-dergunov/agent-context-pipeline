@@ -7,13 +7,16 @@ import logging
 import os
 import sqlite3
 import threading
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
+from telegram.error import TelegramError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -24,9 +27,15 @@ from telegram.ext import (
 
 CATEGORIES = ("ML", "Career", "Life", "Other")
 BASE_DIR = Path(__file__).resolve().parent
+MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+MEDIA_GROUP_SETTLE_SECONDS = 1.0
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("info_triage")
+# Telegram's request URL contains the bot token. Keep transport logging quiet even
+# when the application itself is running at INFO level.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def now_iso() -> str:
@@ -37,6 +46,169 @@ def atomic_write(path: Path, content: str) -> None:
     temporary = path.with_name(f".{path.name}.tmp")
     temporary.write_text(content, encoding="utf-8")
     temporary.replace(path)
+
+
+def atomic_write_bytes(path: Path, content: bytes) -> None:
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_bytes(content)
+    temporary.replace(path)
+
+
+@dataclass(frozen=True)
+class AttachmentSpec:
+    kind: str
+    file_id: str
+    file_unique_id: str
+    file_size: int | None
+    mime_type: str | None
+    original_name: str | None
+    extension: str
+    source_message_id: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "file_id": self.file_id,
+            "file_unique_id": self.file_unique_id,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "original_name": self.original_name,
+            "extension": self.extension,
+            "source_message_id": self.source_message_id,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> "AttachmentSpec":
+        return cls(
+            kind=value["kind"],
+            file_id=value["file_id"],
+            file_unique_id=value["file_unique_id"],
+            file_size=value.get("file_size"),
+            mime_type=value.get("mime_type"),
+            original_name=value.get("original_name"),
+            extension=value["extension"],
+            source_message_id=value["source_message_id"],
+        )
+
+
+@dataclass
+class DownloadedAttachment:
+    spec: AttachmentSpec
+    data: bytes | None
+    warning: str | None = None
+
+
+def _extension_for(kind: str, mime_type: str | None, original_name: str | None) -> str:
+    suffix = Path(original_name or "").suffix.lower()
+    if suffix and len(suffix) <= 12 and suffix[1:].isalnum():
+        return suffix
+    if mime_type:
+        extensions = {
+            "audio/mpeg": ".mp3",
+            "audio/ogg": ".ogg",
+            "audio/opus": ".ogg",
+            "video/mp4": ".mp4",
+            "image/jpeg": ".jpg",
+            "image/png": ".png",
+            "image/gif": ".gif",
+            "image/webp": ".webp",
+        }
+        if mime_type in extensions:
+            return extensions[mime_type]
+    return {
+        "photo": ".jpg",
+        "video": ".mp4",
+        "animation": ".mp4",
+        "voice": ".ogg",
+        "video_note": ".mp4",
+        "audio": ".mp3",
+    }.get(kind, "")
+
+
+def attachment_specs(message: Message) -> list[AttachmentSpec]:
+    """Return the useful downloadable media in one Telegram message."""
+    candidates: list[tuple[str, Any]] = []
+    if message.photo:
+        candidates.append(("photo", message.photo[-1]))
+    for kind in ("document", "video", "animation", "audio", "voice", "video_note"):
+        value = getattr(message, kind)
+        if value is not None:
+            candidates.append((kind, value))
+
+    specs = []
+    for kind, value in candidates:
+        specs.append(
+            AttachmentSpec(
+                kind=kind,
+                file_id=value.file_id,
+                file_unique_id=value.file_unique_id,
+                file_size=value.file_size,
+                mime_type=getattr(value, "mime_type", None),
+                original_name=getattr(value, "file_name", None),
+                extension=_extension_for(
+                    kind,
+                    getattr(value, "mime_type", None),
+                    getattr(value, "file_name", None),
+                ),
+                source_message_id=message.message_id,
+            )
+        )
+    return specs
+
+
+def attachment_specs_from_payload(payload: dict[str, Any]) -> list[AttachmentSpec]:
+    """Rebuild attachment specs from a stored Telegram message payload."""
+    message_id = payload["message_id"]
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    if payload.get("photo"):
+        candidates.append(("photo", payload["photo"][-1]))
+    for kind in ("document", "video", "animation", "audio", "voice", "video_note"):
+        if payload.get(kind):
+            candidates.append((kind, payload[kind]))
+    return [
+        AttachmentSpec(
+            kind=kind,
+            file_id=value["file_id"],
+            file_unique_id=value["file_unique_id"],
+            file_size=value.get("file_size"),
+            mime_type=value.get("mime_type"),
+            original_name=value.get("file_name"),
+            extension=_extension_for(
+                kind, value.get("mime_type"), value.get("file_name")
+            ),
+            source_message_id=message_id,
+        )
+        for kind, value in candidates
+    ]
+
+
+def location_markdown(message: Message) -> str:
+    location = message.location or (message.venue.location if message.venue else None)
+    if location is None:
+        return ""
+    if message.venue:
+        heading = message.venue.title
+        details = [message.venue.address]
+    else:
+        heading = "Location"
+        details = []
+    coordinates = f"{location.latitude},{location.longitude}"
+    details.extend(
+        [
+            f"Coordinates: {coordinates}",
+            f"[Open in maps](https://www.google.com/maps/search/?api=1&query={coordinates})",
+        ]
+    )
+    return "\n".join([f"## {heading}", *details])
+
+
+def capture_content(message: Message) -> str | None:
+    """Return useful Markdown content, or None for deliberately ignored messages."""
+    text = message.text if message.text is not None else message.caption
+    location = location_markdown(message)
+    if text is not None or location or attachment_specs(message):
+        return "\n\n".join(part for part in (text or "", location) if part)
+    return None
 
 
 def render_message(category: str | None, content: str) -> str:
@@ -99,6 +271,42 @@ class CaptureStore:
                 connection.execute(
                     "ALTER TABLE items ADD COLUMN revision INTEGER NOT NULL DEFAULT 1"
                 )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS item_messages (
+                    chat_id INTEGER NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    item_message_id INTEGER NOT NULL,
+                    media_group_id TEXT,
+                    PRIMARY KEY (chat_id, message_id)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_media_group_members (
+                    chat_id INTEGER NOT NULL,
+                    media_group_id TEXT NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    received_at TEXT NOT NULL,
+                    edited_at TEXT,
+                    content TEXT NOT NULL,
+                    raw_json TEXT NOT NULL,
+                    attachments_json TEXT NOT NULL,
+                    PRIMARY KEY (chat_id, media_group_id, message_id)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pending_media_groups (
+                    chat_id INTEGER NOT NULL,
+                    media_group_id TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (chat_id, media_group_id)
+                )
+                """
+            )
 
     @staticmethod
     def item_name(created_at: str, message_id: int) -> str:
@@ -109,6 +317,18 @@ class CaptureStore:
         with self._connect() as connection:
             return connection.execute(
                 "SELECT * FROM items WHERE chat_id = ? AND message_id = ?",
+                (chat_id, message_id),
+            ).fetchone()
+
+    def item_for_source_message(self, chat_id: int, message_id: int):
+        with self._connect() as connection:
+            return connection.execute(
+                """
+                SELECT items.* FROM item_messages
+                JOIN items ON items.chat_id = item_messages.chat_id
+                    AND items.message_id = item_messages.item_message_id
+                WHERE item_messages.chat_id = ? AND item_messages.message_id = ?
+                """,
                 (chat_id, message_id),
             ).fetchone()
 
@@ -184,8 +404,24 @@ class CaptureStore:
         revision: int,
         received_at: str,
         edited_at: str | None,
+        telegram_payload: dict[str, Any] | list[dict[str, Any]] | None = None,
+        attachments: list[DownloadedAttachment] | None = None,
+        media_group_id: str | None = None,
+        source_message_ids: list[int] | None = None,
     ) -> None:
         atomic_write(item_path / "message.md", render_message(category, content))
+        existing_metadata = self._read_metadata(item_path)
+        attachment_manifest = existing_metadata.get("attachments", [])
+        warnings = existing_metadata.get("download_warnings", [])
+        if attachments is not None:
+            attachment_manifest, warnings = self._write_attachments(
+                item_path, attachments
+            )
+        if telegram_payload is not None:
+            atomic_write(
+                item_path / "telegram.json",
+                json.dumps(telegram_payload, ensure_ascii=False, indent=2) + "\n",
+            )
         metadata = {
             "chat_id": chat_id,
             "message_id": message_id,
@@ -193,11 +429,57 @@ class CaptureStore:
             "edited_at": edited_at,
             "category": category,
             "revision": revision,
+            "media_group_id": media_group_id
+            if media_group_id is not None
+            else existing_metadata.get("media_group_id"),
+            "source_message_ids": source_message_ids
+            if source_message_ids is not None
+            else existing_metadata.get("source_message_ids", [message_id]),
+            "attachments": attachment_manifest,
+            "download_warnings": warnings,
         }
         atomic_write(
             item_path / "metadata.json",
             json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         )
+
+    def _write_attachments(
+        self, item_path: Path, attachments: list[DownloadedAttachment]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        attachments_dir = item_path / "attachments"
+        temporary_dir = item_path / ".attachments.tmp"
+        if temporary_dir.exists():
+            for path in temporary_dir.iterdir():
+                path.unlink()
+            temporary_dir.rmdir()
+        temporary_dir.mkdir()
+        manifest = []
+        warnings = []
+        for index, attachment in enumerate(attachments, start=1):
+            record = attachment.spec.to_dict()
+            record["path"] = None
+            if attachment.data is None:
+                record["download_status"] = "unavailable"
+                record["warning"] = attachment.warning
+                if attachment.warning:
+                    warnings.append(attachment.warning)
+            else:
+                filename = (
+                    f"{index:02d}-{attachment.spec.kind}{attachment.spec.extension}"
+                )
+                atomic_write_bytes(temporary_dir / filename, attachment.data)
+                record["path"] = f"attachments/{filename}"
+                record["download_status"] = "downloaded"
+            manifest.append(record)
+        if attachments_dir.exists():
+            for path in attachments_dir.iterdir():
+                path.unlink()
+            attachments_dir.rmdir()
+        if manifest:
+            temporary_dir.rename(attachments_dir)
+        else:
+            temporary_dir.rmdir()
+        return manifest, warnings
 
     def _read_metadata(self, item_path: Path) -> dict:
         metadata_path = item_path / "metadata.json"
@@ -284,13 +566,18 @@ class CaptureStore:
         content: str,
         edited_at: str | None = None,
         received_at: str | None = None,
+        telegram_payload: dict[str, Any] | list[dict[str, Any]] | None = None,
+        attachments: list[DownloadedAttachment] | None = None,
+        media_group_id: str | None = None,
+        source_message_ids: list[int] | None = None,
+        force_revision: bool = False,
     ) -> tuple[bool, str | None]:
         """Capture or update a message. Return (already_known, category)."""
         existing = self.get_item(chat_id, message_id)
         already_known = existing is not None
         category = existing["category"] if existing else None
         revision = existing["revision"] if existing else 1
-        if existing and edited_at is not None:
+        if existing and (edited_at is not None or force_revision):
             revision += 1
         created_at = existing["created_at"] if existing else received_at or now_iso()
         item_name = self.item_name(created_at, message_id)
@@ -318,6 +605,10 @@ class CaptureStore:
             revision,
             created_at,
             edited_at,
+            telegram_payload,
+            attachments,
+            media_group_id,
+            source_message_ids,
         )
         self._save_state(
             chat_id,
@@ -330,7 +621,185 @@ class CaptureStore:
         )
         self._promote(chat_id, message_id, category, revision, created_at, content)
 
+        with self._connect() as connection:
+            for source_message_id in source_message_ids or [message_id]:
+                connection.execute(
+                    """
+                    INSERT INTO item_messages (
+                        chat_id, message_id, item_message_id, media_group_id
+                    ) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(chat_id, message_id) DO UPDATE SET
+                        item_message_id = excluded.item_message_id,
+                        media_group_id = excluded.media_group_id
+                    """,
+                    (chat_id, source_message_id, message_id, media_group_id),
+                )
+
         return already_known, category
+
+    def stage_media_group_member(
+        self,
+        chat_id: int,
+        media_group_id: str,
+        message_id: int,
+        content: str,
+        received_at: str,
+        edited_at: str | None,
+        raw_payload: dict[str, Any],
+        specs: list[AttachmentSpec],
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO pending_media_group_members (
+                    chat_id, media_group_id, message_id, received_at, edited_at,
+                    content, raw_json, attachments_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(chat_id, media_group_id, message_id) DO UPDATE SET
+                    received_at = excluded.received_at, edited_at = excluded.edited_at,
+                    content = excluded.content, raw_json = excluded.raw_json,
+                    attachments_json = excluded.attachments_json
+                """,
+                (
+                    chat_id,
+                    media_group_id,
+                    message_id,
+                    received_at,
+                    edited_at,
+                    content,
+                    json.dumps(raw_payload, ensure_ascii=False),
+                    json.dumps([spec.to_dict() for spec in specs], ensure_ascii=False),
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO pending_media_groups (chat_id, media_group_id, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(chat_id, media_group_id) DO UPDATE SET
+                    updated_at = excluded.updated_at
+                """,
+                (chat_id, media_group_id, now_iso()),
+            )
+
+    def pending_media_groups(self) -> list[tuple[int, str]]:
+        with self._connect() as connection:
+            return [
+                (row["chat_id"], row["media_group_id"])
+                for row in connection.execute(
+                    "SELECT chat_id, media_group_id FROM pending_media_groups"
+                )
+            ]
+
+    def media_group_updated_at(self, chat_id: int, media_group_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT updated_at FROM pending_media_groups
+                WHERE chat_id = ? AND media_group_id = ?
+                """,
+                (chat_id, media_group_id),
+            ).fetchone()
+        return row["updated_at"] if row else None
+
+    def media_group_capture(
+        self, chat_id: int, media_group_id: str
+    ) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM pending_media_group_members
+                WHERE chat_id = ? AND media_group_id = ? ORDER BY message_id
+                """,
+                (chat_id, media_group_id),
+            ).fetchall()
+            if not rows:
+                return None
+            existing = connection.execute(
+                """
+                SELECT item_message_id FROM item_messages
+                WHERE chat_id = ? AND media_group_id = ? LIMIT 1
+                """,
+                (chat_id, media_group_id),
+            ).fetchone()
+
+        existing_payloads: dict[int, dict[str, Any]] = {}
+        if existing:
+            item = self.get_item(chat_id, existing["item_message_id"])
+            if item:
+                item_path = self.inbox_dir / self.item_name(
+                    item["created_at"], item["message_id"]
+                )
+                payload_path = item_path / "telegram.json"
+                if payload_path.exists():
+                    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+                    for message in payload.get("messages", []):
+                        existing_payloads[message["message_id"]] = message
+
+        staged = {row["message_id"]: row for row in rows}
+        payloads = dict(existing_payloads)
+        payloads.update(
+            {
+                message_id: json.loads(row["raw_json"])
+                for message_id, row in staged.items()
+            }
+        )
+        ordered_ids = sorted(payloads)
+        if not ordered_ids:
+            return None
+        specs = []
+        for message_id in ordered_ids:
+            if message_id in staged:
+                specs.extend(
+                    AttachmentSpec.from_dict(value)
+                    for value in json.loads(staged[message_id]["attachments_json"])
+                )
+            else:
+                specs.extend(attachment_specs_from_payload(payloads[message_id]))
+        contents = [
+            staged[message_id]["content"]
+            for message_id in ordered_ids
+            if message_id in staged
+        ]
+        if existing_payloads:
+            item = self.get_item(chat_id, existing["item_message_id"])
+            item_path = self.inbox_dir / self.item_name(
+                item["created_at"], item["message_id"]
+            )
+            contents = [
+                original_content(
+                    item["category"],
+                    (item_path / "message.md").read_text(encoding="utf-8"),
+                )
+            ]
+            for message_id, row in staged.items():
+                if row["content"]:
+                    contents = [row["content"]]
+                    break
+        return {
+            "message_id": ordered_ids[0],
+            "source_message_ids": ordered_ids,
+            "received_at": min((row["received_at"] for row in rows), default=now_iso()),
+            "edited_at": max(
+                (row["edited_at"] for row in rows if row["edited_at"]), default=None
+            ),
+            "content": next((content for content in contents if content), ""),
+            "payload": {
+                "messages": [payloads[message_id] for message_id in ordered_ids]
+            },
+            "specs": specs,
+            "force_revision": existing is not None,
+        }
+
+    def clear_media_group(self, chat_id: int, media_group_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM pending_media_group_members WHERE chat_id = ? AND media_group_id = ?",
+                (chat_id, media_group_id),
+            )
+            connection.execute(
+                "DELETE FROM pending_media_groups WHERE chat_id = ? AND media_group_id = ?",
+                (chat_id, media_group_id),
+            )
 
     def categorize(self, chat_id: int, message_id: int, category: str) -> None:
         if category not in CATEGORIES:
@@ -555,6 +1024,108 @@ def is_authorized(update: Update, allowed_user_id: int) -> bool:
     return authorized
 
 
+async def download_attachments(
+    bot, specs: list[AttachmentSpec]
+) -> list[DownloadedAttachment]:
+    attachments = []
+    for spec in specs:
+        if spec.file_size is not None and spec.file_size > MAX_DOWNLOAD_BYTES:
+            attachments.append(
+                DownloadedAttachment(
+                    spec,
+                    None,
+                    f"{spec.kind} is {spec.file_size} bytes and exceeds Telegram's 20 MB download limit.",
+                )
+            )
+            continue
+        for attempt in range(3):
+            try:
+                telegram_file = await bot.get_file(spec.file_id)
+                attachments.append(
+                    DownloadedAttachment(
+                        spec, bytes(await telegram_file.download_as_bytearray())
+                    )
+                )
+                break
+            except TelegramError as error:
+                if attempt == 2:
+                    logger.warning(
+                        "Could not download Telegram %s: %s", spec.kind, error
+                    )
+                    attachments.append(
+                        DownloadedAttachment(
+                            spec, None, f"Could not download {spec.kind}: {error}"
+                        )
+                    )
+                else:
+                    await asyncio.sleep(2**attempt)
+    return attachments
+
+
+def schedule_media_group_finalization(
+    application: Application, chat_id: int, media_group_id: str
+) -> None:
+    tasks: dict[tuple[int, str], asyncio.Task] = application.bot_data.setdefault(
+        "media_group_tasks", {}
+    )
+    key = (chat_id, media_group_id)
+    task = tasks.get(key)
+    if task and not task.done():
+        task.cancel()
+    tasks[key] = application.create_task(
+        finalize_media_group(application, chat_id, media_group_id),
+        name=f"media-group-{chat_id}-{media_group_id}",
+    )
+
+
+async def finalize_media_group(
+    application: Application, chat_id: int, media_group_id: str
+) -> None:
+    try:
+        await asyncio.sleep(MEDIA_GROUP_SETTLE_SECONDS)
+        store: CaptureStore = application.bot_data["store"]
+        bundle = store.media_group_capture(chat_id, media_group_id)
+        if bundle is None:
+            return
+        attachments = await download_attachments(application.bot, bundle["specs"])
+        already_known, category = store.capture(
+            chat_id,
+            bundle["message_id"],
+            bundle["content"],
+            edited_at=bundle["edited_at"],
+            received_at=bundle["received_at"],
+            telegram_payload=bundle["payload"],
+            attachments=attachments,
+            media_group_id=media_group_id,
+            source_message_ids=bundle["source_message_ids"],
+            force_revision=bundle["force_revision"],
+        )
+        store.clear_media_group(chat_id, media_group_id)
+        if category or already_known:
+            return
+        warnings = [
+            attachment.warning for attachment in attachments if attachment.warning
+        ]
+        text = "Saved."
+        if warnings:
+            text += " Some attachments could not be downloaded; details are in metadata.json."
+        await application.bot.send_message(
+            chat_id,
+            f"{text} Optional label:",
+            reply_markup=category_keyboard(bundle["message_id"]),
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("Failed to capture Telegram media group %s", media_group_id)
+
+
+async def recover_pending_media_groups(application: Application) -> None:
+    store: CaptureStore = application.bot_data["store"]
+    for chat_id, media_group_id in store.pending_media_groups():
+        schedule_media_group_finalization(application, chat_id, media_group_id)
+
+
 async def handle_message(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -570,28 +1141,43 @@ async def handle_message(
     if message is None:
         return
 
-    content = message.text if message.text is not None else message.caption
-    existing = store.get_item(message.chat_id, message.message_id)
-    if content is None and not (is_edit and existing is not None):
-        if not is_edit:
-            await message.reply_text(
-                "For now, Info Triage supports text and captions only."
-            )
+    content = capture_content(message)
+    if content is None:
         return
-    content = content or ""
 
     edited_at = None
     if is_edit:
         edit_date = message.edit_date or datetime.now(UTC)
         edited_at = edit_date.isoformat()
 
+    raw_payload = json.loads(message.to_json())
+    specs = attachment_specs(message)
+    if message.media_group_id:
+        store.stage_media_group_member(
+            message.chat_id,
+            message.media_group_id,
+            message.message_id,
+            content,
+            message.date.isoformat(),
+            edited_at,
+            raw_payload,
+            specs,
+        )
+        schedule_media_group_finalization(
+            context.application, message.chat_id, message.media_group_id
+        )
+        return
+
     try:
+        attachments = await download_attachments(context.application.bot, specs)
         already_known, category = store.capture(
             message.chat_id,
             message.message_id,
             content,
             edited_at=edited_at,
             received_at=message.date.isoformat(),
+            telegram_payload=raw_payload,
+            attachments=attachments,
         )
     except Exception:
         logger.exception("Failed to capture Telegram message")
@@ -607,8 +1193,14 @@ async def handle_message(
         return
 
     if not already_known:
+        warnings = [
+            attachment.warning for attachment in attachments if attachment.warning
+        ]
+        prefix = "Saved."
+        if warnings:
+            prefix += " Some attachments could not be downloaded; details are in metadata.json."
         await message.reply_text(
-            "Saved. Optional label:",
+            f"{prefix} Optional label:",
             reply_markup=category_keyboard(message.message_id),
         )
 
@@ -680,27 +1272,25 @@ def main() -> None:
     logger.info("Health server listening on port %s", port)
 
     asyncio.set_event_loop(asyncio.new_event_loop())
-    application = Application.builder().token(bot_token).build()
+    application = (
+        Application.builder()
+        .token(bot_token)
+        .post_init(recover_pending_media_groups)
+        .build()
+    )
     application.bot_data["store"] = store
     application.bot_data["allowed_user_id"] = allowed_user_id
 
-    supported_messages = filters.TEXT | filters.CAPTION
     application.add_handler(
         MessageHandler(
-            filters.UpdateType.MESSAGE & supported_messages & ~filters.COMMAND,
+            filters.UpdateType.MESSAGE & ~filters.COMMAND,
             handle_new_message,
         )
     )
     application.add_handler(
         MessageHandler(
-            filters.UpdateType.EDITED_MESSAGE & supported_messages,
+            filters.UpdateType.EDITED_MESSAGE & ~filters.COMMAND,
             handle_edited_message,
-        )
-    )
-    application.add_handler(
-        MessageHandler(
-            filters.UpdateType.MESSAGE & ~supported_messages & ~filters.COMMAND,
-            handle_new_message,
         )
     )
     application.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^label\|"))
