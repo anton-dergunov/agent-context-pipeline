@@ -22,6 +22,12 @@ Telegram
    ▼
 Server
    │
+   ├── Telegram capture
+   │     sequential download and durable staging
+   │
+   ├── one processing worker
+   │     at most one item at a time
+   │
    ├── SQLite
    │     small processing-state database
    │
@@ -48,6 +54,11 @@ Deletion synchronized back to server
 The server runs continuously.
 
 The laptop may be offline for long periods. It synchronizes when convenient.
+
+`app.py` is the only runtime entry point. It wires together small modules for
+shared models, storage, processing, Telegram handling, and the web dashboard.
+The Telegram event loop, one processing-worker thread, and one single-threaded
+HTTP server are the only long-lived execution paths.
 
 ---
 
@@ -136,9 +147,8 @@ The important property is that the directory name remains stable if the Telegram
 
 # 6. `message.md`
 
-Every captured item should contain a `message.md`.
-
-This file stores the text received from Telegram as faithfully as possible.
+Every ready item contains a `message.md`. It is the processed, laptop-facing
+Markdown representation of the item.
 
 For a plain text message, it may simply contain:
 
@@ -147,9 +157,13 @@ This article looks useful for the ranking project:
 https://example.com/article
 ```
 
-The initial capture should not rewrite or summarize this content.
+The initial capture does not rewrite or summarize this content. When no
+processing step applies, `message.md` therefore remains equivalent to the text
+captured from Telegram. Future processing may clean or enrich it and may add
+other generated files to the same item directory.
 
-Additional processing can create or update other files in the same item directory.
+The complete original Telegram payload remains in `telegram.json`, and
+downloaded source media remains in `attachments/`.
 
 For a location or venue, it also contains a small readable location block with
 the coordinates and a maps link. It remains empty for media that has neither a
@@ -264,6 +278,10 @@ status = processing
 
 No `.processing` marker file is required.
 
+The nullable SQLite `processing_step` records the currently running step. It
+is retained with an error when that step fails and cleared when the item is
+ready.
+
 ### Failed
 
 Processing failed.
@@ -304,6 +322,9 @@ status = ready
 
 The move into `inbox/` is the filesystem representation that the item is ready for synchronization.
 
+If no implemented processing step applies, an item moves directly from
+`received` to `ready` without occupying the worker.
+
 ---
 
 # 10. Processing
@@ -311,6 +332,21 @@ The move into `inbox/` is the filesystem representation that the item is ready f
 Processing depends on the type of captured information.
 
 A plain Telegram note may require almost no processing.
+
+One background worker claims the oldest `received` row and processes only one
+item at a time. SQLite is the durable queue; there is no separate queue table or
+in-memory-only job list. On restart, an interrupted `processing` item still in
+staging returns to `received`.
+
+Processing steps are ordinary ordered Python functions. The initial step list
+is empty. Expected future steps are text normalization, shortened-URL
+resolution, OCR or transcription where applicable, and final cleanup.
+
+Steps write only to a revision-specific temporary workspace. `message.md` is
+the processed, laptop-facing result, while `telegram.json` and original media
+preserve the captured source. Storage commits generated output only if the
+claimed revision remains current. A later Telegram edit or category change
+therefore supersedes a slow result without blocking capture.
 
 A URL may require:
 
@@ -391,6 +427,7 @@ CREATE TABLE items (
 
     short_text TEXT,
     error TEXT,
+    processing_step TEXT,
 
     PRIMARY KEY (chat_id, message_id)
 );
@@ -592,7 +629,8 @@ The columns are:
 - **ID** — the `YYYY-MM-DD_<message_id>` item directory name
 - **Created** — when the Telegram message was first received
 - **Updated** — last relevant update
-- **Message** — short preview of the Telegram text
+- **Message** — short preview of the Telegram text, plus the current or failed
+  processing step when present
 
 For failed items, the error can also be displayed, either as another column or below the short text.
 
@@ -678,25 +716,17 @@ save item into staging/
 SQLite: received
       │
       ▼
-worker starts
+check applicable steps
       │
-      ▼
-SQLite: processing
+      ├── none ── move staging/ → inbox/; SQLite: ready
       │
-      ├──────── processing fails
-      │               │
-      │               ▼
-      │         SQLite: failed
-      │         remains in staging/
-      │
-      ▼
-processing succeeds
-      │
-      ▼
-move folder staging/ → inbox/
-      │
-      ▼
-SQLite: ready
+      └── one or more ── single worker; SQLite: processing
+                               │
+                               ├── failure ── SQLite: failed;
+                               │              remain in staging/
+                               │
+                               └── success ── move staging/ → inbox/;
+                                              SQLite: ready
       │
       ▼
 synchronize

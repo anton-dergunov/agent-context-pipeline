@@ -16,7 +16,9 @@ The current implementation is deliberately small:
 
 ```text
 Telegram message
-    -> saved immediately
+    -> source and media saved immediately in data/staging/
+    -> direct to inbox when no processing step applies
+       or queued for the single background worker
     -> optionally choose ML, Career, Life, or Other
     -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
@@ -37,6 +39,18 @@ stickers, contacts, polls, payments, games, dice, and service events. It stores
 original media only: there is no transcription, OCR, image analysis, or web
 page extraction. Files above Telegram's hosted Bot API download limit are
 recorded in metadata with a warning but cannot be copied locally.
+
+The Python runtime remains deliberately small. `app.py` only wires together
+the application. The `info_triage/` package separates shared models, storage,
+processing, Telegram handling, and the read-only web dashboard. SQLite's
+`received` rows are the durable processing queue, and one background thread
+processes at most one item at a time. There are currently no processing steps,
+so captured items normally move from staging to inbox immediately.
+
+Future processors will produce the laptop-facing `message.md` in a temporary
+revision-specific workspace. Raw Telegram data remains in `telegram.json`, and
+original downloaded media remains in `attachments/`. A result is committed
+only if its source revision is still current.
 
 Create a local `.env` (it is ignored by Git):
 

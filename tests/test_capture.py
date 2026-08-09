@@ -5,13 +5,14 @@ from pathlib import Path
 
 from telegram import Message
 
-from app import (
-    AttachmentSpec,
-    CaptureStore,
-    DownloadedAttachment,
-    attachment_specs_from_payload,
-    capture_content,
-)
+from info_triage.models import AttachmentSpec, DownloadedAttachment
+from info_triage.storage import CaptureStore
+from info_triage.telegram_bot import attachment_specs_from_payload, capture_content
+
+
+def promote(store, item):
+    store.promote_if_current(item)
+    return item
 
 
 def message(payload):
@@ -92,13 +93,19 @@ class CaptureStoreTests(unittest.TestCase):
             voice = AttachmentSpec(
                 "voice", "voice", "unique-voice", 3, "audio/ogg", None, ".ogg", 1
             )
-            store.capture(
-                10,
-                1,
-                "voice note",
-                received_at="2026-08-09T10:00:00+00:00",
-                telegram_payload={"message_id": 1, "voice": {"file_id": "voice"}},
-                attachments=[DownloadedAttachment(voice, b"ogg")],
+            promote(
+                store,
+                store.capture(
+                    10,
+                    1,
+                    "voice note",
+                    received_at="2026-08-09T10:00:00+00:00",
+                    telegram_payload={
+                        "message_id": 1,
+                        "voice": {"file_id": "voice"},
+                    },
+                    attachments=[DownloadedAttachment(voice, b"ogg")],
+                ),
             )
             item = Path(temporary) / "inbox" / "2026-08-09_1"
             self.assertEqual(
@@ -107,7 +114,7 @@ class CaptureStoreTests(unittest.TestCase):
             self.assertEqual(
                 json.loads((item / "telegram.json").read_text())["message_id"], 1
             )
-            store.categorize(10, 1, "Life")
+            promote(store, store.categorize(10, 1, "Life"))
             self.assertEqual(
                 (item / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
@@ -155,15 +162,18 @@ class CaptureStoreTests(unittest.TestCase):
                 bundle["specs"][0], None, "photo exceeds limit"
             )
             downloaded = DownloadedAttachment(bundle["specs"][1], b"video")
-            store.capture(
-                10,
-                bundle["message_id"],
-                bundle["content"],
-                received_at=bundle["received_at"],
-                telegram_payload=bundle["payload"],
-                attachments=[unavailable, downloaded],
-                media_group_id="album",
-                source_message_ids=bundle["source_message_ids"],
+            promote(
+                store,
+                store.capture(
+                    10,
+                    bundle["message_id"],
+                    bundle["content"],
+                    received_at=bundle["received_at"],
+                    telegram_payload=bundle["payload"],
+                    attachments=[unavailable, downloaded],
+                    media_group_id="album",
+                    source_message_ids=bundle["source_message_ids"],
+                ),
             )
             album = Path(temporary) / "inbox" / "2026-08-09_2"
             metadata = json.loads((album / "metadata.json").read_text())
