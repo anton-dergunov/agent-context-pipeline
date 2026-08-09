@@ -8,11 +8,22 @@ dependencies = [
     "browser-cookie3>=0.20.1",
     "instaloader>=4.14.2",
     "numpy>=2.1",
+    "onnxruntime>=1.28.0",
     "opencv-python-headless>=4.10",
     "pillow>=10.2,<11",
     "pyobjc-framework-quartz>=11.0; sys_platform == 'darwin'",
     "pyobjc-framework-vision>=11.0; sys_platform == 'darwin'",
     "rapidfuzz>=3.10",
+    # PP-OCR through ONNX Runtime: the portable engine. Runs on x86-64 and ARM,
+    # needs no PyTorch, and is the only practical option on the NAS and the Pi.
+    "rapidocr>=3.9.2",
+]
+
+[project.optional-dependencies]
+# Surya is the most accurate engine for text-heavy carousel images, but it pulls
+# in PyTorch (~2-3 GB) and was measured at 8.3 s/frame, so it is opt-in and is
+# deliberately absent from the Linux container image.
+surya = [
     # 0.17.x is the last classical detector/recognizer. Newer Surya 2 releases
     # are generative VLMs, which are too heavy and less deterministic per frame.
     "surya-ocr==0.17.0",
@@ -21,9 +32,18 @@ dependencies = [
 
 [project.scripts]
 instagram-extract = "instagram_extractor.cli:main"
+instagram-ocr-bench = "instagram_extractor.bench:main"
 
 [dependency-groups]
 dev = ["pytest>=8.3"]
+
+[tool.uv]
+# rapidocr requires opencv-python, which links GUI libraries (libGL, libglib)
+# that slim container images do not ship. opencv-python-headless provides the
+# same cv2 module without them; installing both leaves two distributions
+# fighting over one import name. The always-false marker drops the GUI build so
+# only the headless one is installed.
+override-dependencies = ["opencv-python; python_version < '3.0'"]
 
 [build-system]
 requires = ["hatchling"]

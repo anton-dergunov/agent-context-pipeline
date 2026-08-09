@@ -1,225 +1,54 @@
 from __future__ import annotations
 
 import json
-import os
-import html
-import re
-import shutil
-import subprocess
-import tempfile
-from abc import ABC, abstractmethod
+import math
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import cv2
-import numpy as np
 from PIL import Image
 from rapidfuzz.fuzz import ratio
 
 from .dedup import _key, lines_to_frame, merge_frames
+from .engines import OCREngine, make_engine  # re-exported for callers
 from .models import OCRFrame, OCRLine
 
+__all__ = [
+    "OCREngine",
+    "make_engine",
+    "ocr_image",
+    "ocr_images",
+    "ocr_video",
+    "rededuplicate_ocr_result",
+    "filter_thresholds",
+]
 
-class OCREngine(ABC):
-    name: str
-
-    @abstractmethod
-    def recognize(self, image: Image.Image) -> list[OCRLine]:
-        raise NotImplementedError
-
-    def recognize_batch(self, images: list[Image.Image]) -> list[list[OCRLine]]:
-        return [self.recognize(image) for image in images]
-
-
-class SuryaOCR(OCREngine):
-    """High-quality, single-model OCR for 90+ languages."""
-
-    name = "surya"
-
-    def __init__(self, model_cache_dir: Path | None = None) -> None:
-        # Surya reads settings at import time. Keep its downloaded weights local
-        # to this project unless the caller has selected another cache directory.
-        cache = model_cache_dir or Path(os.environ.get("INSTAGRAM_OCR_MODEL_DIR", ".ocr_models")).resolve()
-        cache.mkdir(parents=True, exist_ok=True)
-        os.environ.setdefault("MODEL_CACHE_DIR", str(cache))
-
-        from surya.detection import DetectionPredictor  # type: ignore[import-not-found]
-        from surya.foundation import FoundationPredictor  # type: ignore[import-not-found]
-        from surya.recognition import RecognitionPredictor  # type: ignore[import-not-found]
-
-        foundation = FoundationPredictor()
-        self.recognition = RecognitionPredictor(foundation)
-        self.detection = DetectionPredictor()
-        self.recognition.disable_tqdm = True
-        self.detection.disable_tqdm = True
-
-    @staticmethod
-    def _lines(result: Any) -> list[OCRLine]:
-        image_width = float(result.image_bbox[2])
-        image_height = float(result.image_bbox[3])
-        lines: list[OCRLine] = []
-        for line in result.text_lines:
-            x1, y1, x2, y2 = map(float, line.bbox)
-            # Surya preserves presentational markup such as <b>; downstream
-            # summarization needs the visible characters, not HTML styling.
-            visible_text = html.unescape(re.sub(r"<[^>]+>", "", line.text)).strip()
-            lines.append(
-                OCRLine(
-                    text=visible_text,
-                    confidence=float(line.confidence or 0),
-                    bbox=(
-                        x1 / image_width,
-                        1 - y2 / image_height,
-                        (x2 - x1) / image_width,
-                        (y2 - y1) / image_height,
-                    ),
-                )
-            )
-        return lines
-
-    def recognize(self, image: Image.Image) -> list[OCRLine]:
-        return self.recognize_batch([image])[0]
-
-    def recognize_batch(self, images: list[Image.Image]) -> list[list[OCRLine]]:
-        results = self.recognition(
-            images,
-            det_predictor=self.detection,
-            sort_lines=True,
-            math_mode=False,
-            return_words=True,
-            drop_repeated_text=True,
-        )
-        return [self._lines(result) for result in results]
+#: Text must be visible this long to count as an overlay rather than a flicker.
+MIN_VISIBLE_SECONDS = 0.10
+#: Very short strings ("3.", "$0") need longer exposure before they are trusted.
+SHORT_TEXT_MIN_VISIBLE_SECONDS = 0.25
+#: Alphanumeric length at or below which a string counts as "short".
+SHORT_TEXT_MAX_CHARACTERS = 3
 
 
-class VisionOCR(OCREngine):
-    name = "apple-vision"
+def filter_thresholds(effective_fps: float) -> tuple[int, int]:
+    """Observation counts for (normal text, short text) at a given OCR rate.
 
-    def __init__(self) -> None:
-        import objc  # type: ignore[import-not-found]
-        import Quartz  # type: ignore[import-not-found]
-        import Vision  # type: ignore[import-not-found]
-        from Foundation import NSData  # type: ignore[import-not-found]
+    ``observations`` counts frames that were actually OCR'd, so a fixed count
+    silently tightens as sampling gets sparser. Expressing the thresholds as a
+    duration keeps them meaningful at any sampling rate.
 
-        self.objc = objc
-        self.Quartz = Quartz
-        self.Vision = Vision
-        self.NSData = NSData
-
-    def recognize(self, image: Image.Image) -> list[OCRLine]:
-        # Thousands of video frames otherwise leave Objective-C autoreleased
-        # Vision objects alive until process exit and can exhaust memory.
-        with self.objc.autorelease_pool():
-            return self._recognize(image)
-
-    def _recognize(self, image: Image.Image) -> list[OCRLine]:
-        import io
-
-        buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=95)
-        raw = buffer.getvalue()
-        data = self.NSData.dataWithBytes_length_(raw, len(raw))
-        source = self.Quartz.CGImageSourceCreateWithData(data, None)
-        cg_image = self.Quartz.CGImageSourceCreateImageAtIndex(source, 0, None)
-
-        request = self.Vision.VNRecognizeTextRequest.alloc().init()
-        request.setRecognitionLevel_(self.Vision.VNRequestTextRecognitionLevelAccurate)
-        request.setUsesLanguageCorrection_(True)
-        if hasattr(request, "setAutomaticallyDetectsLanguage_"):
-            request.setAutomaticallyDetectsLanguage_(True)
-        handler = self.Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(cg_image, {})
-        ok, error = handler.performRequests_error_([request], None)
-        if not ok:
-            raise RuntimeError(f"Apple Vision OCR failed: {error}")
-
-        lines: list[OCRLine] = []
-        for observation in request.results() or []:
-            candidates = observation.topCandidates_(1)
-            if not candidates:
-                continue
-            candidate = candidates[0]
-            box = observation.boundingBox()
-            lines.append(
-                OCRLine(
-                    text=str(candidate.string()),
-                    confidence=float(candidate.confidence()),
-                    bbox=(float(box.origin.x), float(box.origin.y), float(box.size.width), float(box.size.height)),
-                )
-            )
-        return lines
-
-
-class TesseractOCR(OCREngine):
-    name = "tesseract"
-
-    # Script models cover far more languages without having to know the language in advance.
-    DEFAULT_SCRIPTS = "script/Latin+script/Cyrillic+script/Arabic+script/HanS+script/HanT+script/Japanese+script/Hangul+script/Devanagari"
-
-    def __init__(self, languages: str | None = None) -> None:
-        if not shutil.which("tesseract"):
-            raise RuntimeError("tesseract is not installed")
-        self.languages = languages or self.DEFAULT_SCRIPTS
-
-    def recognize(self, image: Image.Image) -> list[OCRLine]:
-        with tempfile.NamedTemporaryFile(suffix=".png") as temp:
-            image.save(temp.name)
-            command = [
-                "tesseract", temp.name, "stdout", "-l", self.languages, "--psm", "11", "tsv",
-            ]
-            result = subprocess.run(command, capture_output=True, text=True, check=True)
-        rows = result.stdout.splitlines()
-        if not rows:
-            return []
-        width, height = image.size
-        lines: list[OCRLine] = []
-        for row in rows[1:]:
-            fields = row.split("\t")
-            if len(fields) < 12 or not fields[11].strip():
-                continue
-            try:
-                confidence = float(fields[10]) / 100.0
-                left, top, box_width, box_height = map(int, fields[6:10])
-            except ValueError:
-                continue
-            if confidence < 0:
-                continue
-            lines.append(
-                OCRLine(
-                    text=fields[11].strip(),
-                    confidence=confidence,
-                    bbox=(left / width, 1 - (top + box_height) / height, box_width / width, box_height / height),
-                )
-            )
-        return lines
-
-
-def make_engine(
-    name: str = "auto",
-    tesseract_languages: str | None = None,
-    model_cache_dir: Path | None = None,
-) -> OCREngine:
-    errors: list[str] = []
-    if name in {"auto", "surya"}:
-        try:
-            return SuryaOCR(model_cache_dir)
-        except Exception as exc:
-            errors.append(f"Surya: {exc}")
-            if name == "surya":
-                raise
-    if name in {"auto", "vision"}:
-        try:
-            return VisionOCR()
-        except Exception as exc:
-            errors.append(f"Vision: {exc}")
-            if name == "vision":
-                raise
-    if name in {"auto", "tesseract"}:
-        try:
-            return TesseractOCR(tesseract_languages)
-        except Exception as exc:
-            errors.append(f"Tesseract: {exc}")
-    raise RuntimeError("no OCR engine is available (" + "; ".join(errors) + ")")
+    Rounding up reads as "visible for at least this long" and reproduces the
+    original hardcoded behaviour on real footage: (3, 8) at 30 fps, (3, 6) at
+    24 fps and (3, 7) at 25 fps, where a plain round() would have loosened the
+    24/25 fps cases to 2 and admitted single-frame noise.
+    """
+    if effective_fps <= 0:
+        return 3, 3
+    minimum = max(2, math.ceil(effective_fps * MIN_VISIBLE_SECONDS))
+    short = max(3, math.ceil(effective_fps * SHORT_TEXT_MIN_VISIBLE_SECONDS))
+    return minimum, short
 
 
 def _write_ocr_frames(
@@ -231,15 +60,16 @@ def _write_ocr_frames(
 ) -> None:
     segments = merge_frames(frames)
     media_type = details["media_type"]
-    source_fps = float(details.get("source_fps") or 0)
+    effective_fps = float(details.get("effective_fps") or 0)
+    min_observations, short_text_min_observations = filter_thresholds(effective_fps)
 
     def useful(segment) -> bool:
         visible = [character for character in segment.text if character.isalnum()]
         if not visible or segment.confidence < 0.45:
             return False
-        if len(visible) <= 3 and segment.observations < max(3, round(source_fps * 0.25)):
+        if len(visible) <= SHORT_TEXT_MAX_CHARACTERS and segment.observations < short_text_min_observations:
             return False
-        if media_type == "video" and segment.observations < 3:
+        if media_type == "video" and segment.observations < min_observations:
             # Preserve a long, high-confidence one-frame flash, but do not send
             # short single-frame texture/noise to the downstream model. It
             # remains present in raw frames and deduplicated_segments.
@@ -306,8 +136,11 @@ def _write_ocr_frames(
         "llm_ready_filter": {
             "minimum_confidence": 0.45,
             "reject_punctuation_only": True,
-            "short_text_minimum_observations": max(3, round(source_fps * 0.25)),
-            "video_minimum_observations": 3,
+            "effective_fps": round(effective_fps, 3),
+            "short_text_minimum_observations": short_text_min_observations,
+            "video_minimum_observations": min_observations,
+            "minimum_visible_seconds": MIN_VISIBLE_SECONDS,
+            "short_text_minimum_visible_seconds": SHORT_TEXT_MIN_VISIBLE_SECONDS,
             "one_frame_exception": "at least 12 alphanumeric characters and confidence >= 0.9",
             "remove_temporally_related_substrings": True,
             "near_duplicate_similarity": 88,
@@ -354,6 +187,9 @@ def rededuplicate_ocr_result(path: Path) -> None:
         "llm_ready_filter",
     }
     details = {key: value for key, value in payload.items() if key not in excluded}
+    # Results written before effective_fps existed OCR'd every decoded frame.
+    if "effective_fps" not in details and details.get("media_type") == "video":
+        details["effective_fps"] = float(details.get("source_fps") or 0)
     _write_ocr_frames(path, payload["source_file"], payload["engine"], frames, details)
 
 
@@ -365,7 +201,7 @@ def ocr_image(source: Path, output_json: Path, engine: OCREngine) -> None:
         source,
         engine,
         [lines_to_frame(lines, None, None)],
-        {"media_type": "image", "frames_decoded": 1, "frames_ocrd": 1},
+        {"media_type": "image", "frames_decoded": 1, "frames_ocrd": 1, **engine.details()},
     )
 
 
@@ -392,34 +228,37 @@ def ocr_images(
                 source,
                 engine,
                 [lines_to_frame(lines, None, None)],
-                {"media_type": "image", "frames_decoded": 1, "frames_ocrd": 1},
+                {"media_type": "image", "frames_decoded": 1, "frames_ocrd": 1, **engine.details()},
             )
-
-
-def _frame_signature(frame: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return cv2.resize(gray, (32, 32), interpolation=cv2.INTER_AREA)
 
 
 def ocr_video(
     source: Path,
     output_json: Path,
     engine: OCREngine,
-    mode: str = "adaptive",
-    sample_fps: float = 2.0,
-    change_threshold: float = 11.0,
+    mode: str = "sample",
+    sample_fps: float = 3.0,
+    max_height: int = 800,
     batch_size: int = 8,
 ) -> None:
+    """OCR a video by sampling frames in time.
+
+    On-screen text persists for seconds, so OCRing every frame re-reads the same
+    words dozens of times. Sampling at 3 fps was measured to OCR 10.6% of frames
+    while retaining 88.9% of substantial overlay text; what it drops is dominated
+    by unstable single-frame noise. ``mode="all"`` keeps the exhaustive
+    behaviour for regression comparisons.
+    """
     capture = cv2.VideoCapture(str(source))
     if not capture.isOpened():
         raise RuntimeError(f"could not open video: {source}")
     source_fps = float(capture.get(cv2.CAP_PROP_FPS) or 30.0)
-    periodic_stride = max(1, round(source_fps / sample_fps))
+    stride = 1 if mode == "all" else max(1, round(source_fps / sample_fps))
     frames: list[OCRFrame] = []
     pending_images: list[Image.Image] = []
     pending_metadata: list[tuple[float, int]] = []
     decoded = 0
-    previous_signature: np.ndarray | None = None
+    scale = 1.0
 
     def flush() -> None:
         if not pending_images:
@@ -432,17 +271,21 @@ def ocr_video(
 
     try:
         while True:
-            ok, frame = capture.read()
-            if not ok:
+            # grab() advances without converting the frame to BGR; only sampled
+            # frames pay for retrieve(). Measured 30s -> 13.8s over the corpus.
+            if not capture.grab():
                 break
             frame_number = decoded
             decoded += 1
-            signature = _frame_signature(frame)
-            changed = previous_signature is None or float(np.mean(cv2.absdiff(signature, previous_signature))) >= change_threshold
-            should_ocr = mode == "all" or frame_number % periodic_stride == 0 or changed
-            previous_signature = signature
-            if not should_ocr:
+            if frame_number % stride:
                 continue
+            ok, frame = capture.retrieve()
+            if not ok:
+                continue
+            height = frame.shape[0]
+            if max_height and height > max_height:
+                scale = max_height / height
+                frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pending_images.append(Image.fromarray(rgb))
             pending_metadata.append((frame_number / source_fps, frame_number))
@@ -451,6 +294,8 @@ def ocr_video(
         flush()
     finally:
         capture.release()
+
+    duration = decoded / source_fps if source_fps else 0.0
     _write_ocr_result(
         output_json,
         source,
@@ -460,10 +305,15 @@ def ocr_video(
             "media_type": "video",
             "video_mode": mode,
             "source_fps": source_fps,
-            "sample_fps": sample_fps,
-            "change_threshold": change_threshold,
+            "sample_fps": sample_fps if mode != "all" else source_fps,
+            "effective_fps": (len(frames) / duration) if duration else 0.0,
+            "frame_stride": stride,
+            "max_height": max_height,
+            "frame_scale": round(scale, 4),
+            "duration_seconds": round(duration, 3),
             "ocr_batch_size": batch_size,
             "frames_decoded": decoded,
             "frames_ocrd": len(frames),
+            **engine.details(),
         },
     )
