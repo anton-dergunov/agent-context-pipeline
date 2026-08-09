@@ -29,10 +29,18 @@ surya = [
     "surya-ocr==0.17.0",
     "transformers>=4.56.1,<5",
 ]
+# Kept separate until the model benchmark has been reviewed and a production
+# transcription model is selected. The eventual production dependency set will
+# bake only that model into the multi-architecture container.
+transcription-bench = [
+    "faster-whisper>=1.2.1,<2",
+    "jieba>=0.42.1,<1",
+]
 
 [project.scripts]
 instagram-extract = "instagram_extractor.cli:main"
 instagram-ocr-bench = "instagram_extractor.bench:main"
+instagram-transcription-bench = "instagram_extractor.transcription_bench:main"
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

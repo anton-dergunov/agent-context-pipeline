@@ -1,6 +1,8 @@
 .venv/
 .uv-cache/
 .ocr_models/
+.whisper_models/
+.bench_transcription/
 .pytest_cache/
 __pycache__/
 instagram_output/

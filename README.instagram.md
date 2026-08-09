@@ -129,6 +129,30 @@ costs**, appending each run to `bench_results.json`. Measured so far, over
 | macOS, Apple Vision, sampled | 16 s | 412 MB |
 | macOS, RapidOCR, 2 threads | 47 s | 566 MB |
 
+### Transcription model evaluation (selection pending)
+
+The multilingual transcription benchmark is deliberately separate from the
+production extractor until its results have been reviewed. Install its extra
+and run all six CPU/int8 models with one thread:
+
+```bash
+UV_CACHE_DIR=.uv-cache uv sync --extra transcription-bench
+UV_CACHE_DIR=.uv-cache uv run --extra transcription-bench \
+  instagram-transcription-bench \
+  --telegram-audio /absolute/path/to/first.ogg \
+  --telegram-audio /absolute/path/to/second.ogg
+```
+
+It tests every downloaded video named by `dataset/instagram_urls.txt`, the two
+explicit audio files, and a fixed ten-sample FLEURS set for each of English,
+Spanish, Russian, and Mandarin. Audio and model downloads stay in ignored cache
+directories. The report compares ROUGE-L and token Jaccard against both FLEURS
+reference text and large-v3, and includes peak memory, timing, exact real-world
+transcripts, and VAD-on/off results for the expected music-only posts.
+
+No transcription model is currently selected or baked into Docker. That is an
+intentional review checkpoint, not an installation error.
+
 ## Docker (Synology NAS, Raspberry Pi)
 
 The image excludes PyTorch and bakes the ONNX models in, so the container never
