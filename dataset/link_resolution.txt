@@ -1,0 +1,25 @@
+
+Generative AI for everyone: https://lnkd.in/d8kGVA29
+
+Getting started with LLM: https://lnkd.in/dJ-dJY2q
+
+Prompt engineering for VLMS: https://lnkd.in/dZ3_4Dkb
+
+Build AI Apps with GPT Wrappers: https://lnkd.in/dUf7gj7z
+
+Agentic RAG with LlamaIndex: https://lnkd.in/dvY3nzNx
+
+Agent memory: https://lnkd.in/dfm_YPWa
+
+Fundamentals of AI Agents Using RAG and LangChain: https://lnkd.in/dTvBKJGJ
+
+AI Agentic Design Patterns with AutoGen: https://lnkd.in/dU8dxuJp
+
+Multi AI Agent Systems with crewAI: https://lnkd.in/dQiQajaC
+
+AI Agents in LangGraph: https://lnkd.in/dyeWMa72
+
+AI Python for beginners: https://lnkd.in/dFpn5j7U
+
+Credits to Rakesh Gohel for this amazing roadmap.
+

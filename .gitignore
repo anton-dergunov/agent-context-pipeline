@@ -1,0 +1,11 @@
+.venv/
+.uv-cache/
+.ocr_models/
+.pytest_cache/
+__pycache__/
+instagram_output/
+.env
+.env.*
+*.part
+*cookies*.txt
+session-*
