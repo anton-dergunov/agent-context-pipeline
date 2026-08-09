@@ -1,7 +1,9 @@
 .venv/
 .uv-cache/
 .ocr_models/
+.whisper_models/
 .bench_ocr/
+.bench_transcription/
 .pytest_cache/
 __pycache__/
 **/__pycache__/
@@ -15,4 +17,5 @@ secrets/
 session-*
 bench_results.json
 docs/
+dist/
 tests/

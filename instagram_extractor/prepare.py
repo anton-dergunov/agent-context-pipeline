@@ -27,8 +27,25 @@ def prepare_llm_input(post_dir: Path) -> None:
             }
         )
 
+    transcript_items: list[dict[str, Any]] = []
+    for path in sorted((post_dir / "transcripts").glob("*.json")):
+        if path.name == "status.json":
+            continue
+        result = _read_json(path, {})
+        transcript_items.append(
+            {
+                "source_file": result.get("source_file"),
+                "status": result.get("status"),
+                "backend": result.get("backend"),
+                "model": result.get("model"),
+                "language": result.get("language"),
+                "language_probability": result.get("language_probability"),
+                "text": result.get("text", ""),
+            }
+        )
+
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "purpose": "Input prepared for a separate summarization/information-extraction model",
         "post": metadata,
         "submitter_first_comment": comments.get("submitter_first_comment"),
@@ -40,6 +57,7 @@ def prepare_llm_input(post_dir: Path) -> None:
             "error": comments.get("error"),
         },
         "visual_text": ocr_items,
+        "spoken_audio": transcript_items,
     }
     (post_dir / "llm_input.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -71,5 +89,7 @@ def prepare_llm_input(post_dir: Path) -> None:
     visual_text = (post_dir / "ocr_text.txt").read_text(encoding="utf-8").strip() if (post_dir / "ocr_text.txt").exists() else ""
     if visual_text:
         sections.extend(["", "ON-SCREEN / IMAGE TEXT", visual_text])
+    spoken_audio = (post_dir / "transcript.txt").read_text(encoding="utf-8").strip() if (post_dir / "transcript.txt").exists() else ""
+    if spoken_audio:
+        sections.extend(["", "SPOKEN AUDIO", spoken_audio])
     (post_dir / "llm_input.txt").write_text("\n".join(sections).rstrip() + "\n", encoding="utf-8")
-

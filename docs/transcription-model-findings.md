@@ -5,7 +5,9 @@ inference thread, beam size 5, VAD enabled. The suite contained 40 controlled
 FLEURS recordings (ten each in English, Spanish, Russian, and Mandarin), all
 nine downloaded Instagram videos, and two Telegram voice messages.
 
-No production model has been selected and no model has been added to Docker.
+Production selection (2026-08-10): `small` with faster-whisper CPU/int8 and one
+thread for Docker on Synology/Raspberry Pi; `medium` with MLX/Metal and one CPU
+helper thread on Apple Silicon Macs. VAD remains enabled on both paths.
 
 ## Resource results
 
@@ -71,4 +73,3 @@ Mandarin, rather than language identification.
 The complete generated report, including ROUGE-L precision/recall, Jaccard,
 large-v3 agreement, VAD-on/off text, and exact side-by-side Instagram/Telegram
 transcripts, is available locally at `.bench_transcription/report.md`.
-

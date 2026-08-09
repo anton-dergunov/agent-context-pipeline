@@ -6,6 +6,9 @@ readme = "README.instagram.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "browser-cookie3>=0.20.1",
+    # Production transcription backend for Linux x86-64/ARM64. CTranslate2's
+    # CPU/int8 path supports both the NAS AMD CPU and Raspberry Pi 4.
+    "faster-whisper>=1.2.1,<2",
     "instaloader>=4.14.2",
     "numpy>=2.1",
     "onnxruntime>=1.28.0",
@@ -29,12 +32,14 @@ surya = [
     "surya-ocr==0.17.0",
     "transformers>=4.56.1,<5",
 ]
-# Kept separate until the model benchmark has been reviewed and a production
-# transcription model is selected. The eventual production dependency set will
-# bake only that model into the multi-architecture container.
+# Metrics-only dependency; faster-whisper itself is now a production dependency.
 transcription-bench = [
-    "faster-whisper>=1.2.1,<2",
     "jieba>=0.42.1,<1",
+]
+# MLX executes Whisper on the Metal GPU. It is opt-in because MLX is specific to
+# Apple Silicon and must never enter the portable Linux container dependency set.
+mac-transcription = [
+    "mlx-whisper>=0.4.3,<1; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.scripts]

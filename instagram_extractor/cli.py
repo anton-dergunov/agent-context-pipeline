@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -10,6 +12,17 @@ from .engines import DEFAULT_SCRIPTS
 from .ocr import OCREngine, make_engine, ocr_images, ocr_video, rededuplicate_ocr_result
 from .prepare import prepare_llm_input
 from .runtime import apply_runtime_threads, platform_defaults, resolve_threads
+from .transcription import (
+    BACKEND_CHOICES,
+    MODEL_CHOICES,
+    TranscriptResult,
+    Transcriber,
+    has_audio_stream,
+    make_transcriber,
+    resolve_backend_and_model,
+    resolve_transcription_threads,
+    write_transcript_outputs,
+)
 from .urls import load_inputs
 
 
@@ -25,10 +38,14 @@ def _path(value: str) -> Path:
     return Path(value).expanduser().resolve()
 
 
+def _env_path(name: str, default: str) -> Path:
+    return _path(os.environ.get(name, default))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="instagram-extract",
-        description="Download Instagram posts and extract multilingual on-screen text locally.",
+        description="Download Instagram posts and extract multilingual visual and spoken text locally.",
     )
     parser.add_argument("urls", nargs="*", help="Instagram post/reel URLs or bare shortcodes")
     parser.add_argument("--input-file", type=_path, help="UTF-8 text file containing one URL per line")
@@ -44,8 +61,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--session-file", type=_path, help="Instaloader session file")
     parser.add_argument("--cookies-file", type=_path, help="Netscape/Mozilla cookies.txt containing Instagram cookies")
     parser.add_argument("--cookies-from-browser", help="import the logged-in Instagram session from this browser")
-    parser.add_argument("--skip-download", action="store_true", help="OCR media already present under the output directory")
+    parser.add_argument(
+        "--skip-download",
+        action="store_true",
+        help="process media already present under the output directory",
+    )
     parser.add_argument("--skip-ocr", action="store_true")
+    parser.add_argument("--skip-transcription", action="store_true", help="leave existing speech transcripts untouched")
     parser.add_argument("--skip-image-ocr", action="store_true", help="leave existing still-image OCR untouched")
     parser.add_argument("--skip-video-ocr", action="store_true", help="leave existing video OCR untouched")
     parser.add_argument(
@@ -59,7 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="best",
         help="best picks per platform: Surya/Vision on macOS, RapidOCR elsewhere",
     )
-    parser.add_argument("--model-cache-dir", type=_path, default=_path(".ocr_models"))
+    parser.add_argument(
+        "--model-cache-dir",
+        type=_path,
+        default=_env_path("INSTAGRAM_OCR_MODEL_DIR", ".ocr_models"),
+    )
     parser.add_argument(
         "--image-ocr-engine",
         choices=ENGINE_OVERRIDE_CHOICES,
@@ -81,6 +107,36 @@ def build_parser() -> argparse.ArgumentParser:
         "--threads",
         type=int,
         help="inference threads; defaults to INSTAGRAM_OCR_THREADS, the cgroup CPU limit, then all CPUs",
+    )
+    parser.add_argument(
+        "--transcription-backend",
+        choices=BACKEND_CHOICES,
+        help="best uses MLX on Apple Silicon and faster-whisper CPU elsewhere",
+    )
+    parser.add_argument(
+        "--transcription-model",
+        choices=MODEL_CHOICES,
+        help="default: medium on Apple Silicon Macs, small elsewhere",
+    )
+    parser.add_argument(
+        "--transcription-language",
+        help="spoken language code (for example en, es, ru, zh); omit for automatic detection",
+    )
+    parser.add_argument(
+        "--transcription-model-cache-dir",
+        type=_path,
+        default=_env_path("INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR", ".whisper_models"),
+    )
+    parser.add_argument(
+        "--transcription-threads",
+        type=int,
+        help="CPU helper threads; defaults to INSTAGRAM_TRANSCRIPTION_THREADS or 1",
+    )
+    parser.add_argument(
+        "--transcription-vad",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="filter non-speech audio before transcription (enabled by default)",
     )
     parser.add_argument(
         "--video-mode",
@@ -154,6 +210,37 @@ def _ocr_post(
     prepare_llm_input(post_dir)
 
 
+def _transcribe_post(
+    post_dir: Path,
+    args: argparse.Namespace,
+    transcriber: Transcriber | None,
+    *,
+    backend: str,
+    model_name: str,
+) -> None:
+    media_dir = post_dir / "media"
+    sources = sorted(
+        path
+        for path in media_dir.glob("*")
+        if path.is_file() and path.suffix.lower() in VIDEO_SUFFIXES and not path.name.endswith(".part")
+    )
+    results: list[TranscriptResult] = []
+    for source in sources:
+        if transcriber is None:
+            results.append(TranscriptResult(source_file=str(source), status="no_audio"))
+        else:
+            results.append(
+                transcriber.transcribe(
+                    source,
+                    language=args.transcription_language,
+                    vad=args.transcription_vad,
+                    keep_segments=False,
+                )
+            )
+    write_transcript_outputs(post_dir, results, backend=backend, model_name=model_name)
+    prepare_llm_input(post_dir)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -167,8 +254,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--video-max-height must be non-negative")
     if args.threads is not None and args.threads < 1:
         parser.error("--threads must be positive")
+    if args.transcription_threads is not None and args.transcription_threads < 1:
+        parser.error("--transcription-threads must be positive")
 
     threads = resolve_threads(args.threads)
+    transcription_threads = resolve_transcription_threads(args.transcription_threads)
     apply_runtime_threads(threads)
     try:
         inputs = load_inputs(args.urls, args.input_file)
@@ -212,6 +302,61 @@ def main(argv: list[str] | None = None) -> int:
             post_dir = download_post(loader, source_url, shortcode, options)
             status = json.loads((post_dir / "status.json").read_text(encoding="utf-8"))
             print(f"  {status['download']}: {post_dir}", flush=True)
+
+    if not args.skip_transcription:
+        try:
+            transcription_backend, transcription_model = resolve_backend_and_model(
+                args.transcription_backend,
+                args.transcription_model,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        media_files = [
+            path
+            for _, shortcode in inputs
+            for path in (args.output_dir / shortcode / "media").glob("*")
+            if path.is_file() and path.suffix.lower() in VIDEO_SUFFIXES
+        ]
+        needs_model = False
+        for path in media_files:
+            try:
+                needs_model = needs_model or has_audio_stream(path)
+            except Exception:
+                # Let the normal per-file result record a useful decode error.
+                needs_model = True
+        transcriber: Transcriber | None = None
+        if needs_model:
+            try:
+                transcriber = make_transcriber(
+                    transcription_backend,
+                    transcription_model,
+                    args.transcription_model_cache_dir,
+                    transcription_threads,
+                )
+            except Exception as exc:
+                parser.error(str(exc))
+        print(
+            f"Transcription: {transcription_backend}/{transcription_model} "
+            f"({transcription_threads} CPU thread(s), VAD {'on' if args.transcription_vad else 'off'})",
+            flush=True,
+        )
+        for _, shortcode in inputs:
+            post_dir = args.output_dir / shortcode
+            if not (post_dir / "media").exists():
+                print(f"Skipping transcription for {shortcode}: no media directory", file=sys.stderr)
+                continue
+            print(f"Transcribing {shortcode} …", flush=True)
+            _transcribe_post(
+                post_dir,
+                args,
+                transcriber,
+                backend=transcription_backend,
+                model_name=transcription_model,
+            )
+        if transcriber is not None and hasattr(transcriber, "close"):
+            transcriber.close()
+        del transcriber
+        gc.collect()
 
     if not args.skip_ocr:
         media_files = [

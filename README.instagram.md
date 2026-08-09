@@ -1,6 +1,6 @@
 # Local Instagram extractor
 
-This project downloads each Instagram post into `instagram_output/<shortcode>/` and prepares its media and text for a later LLM step. Instagram network access is handled by Instaloader; OCR is performed locally. No LLM or hosted OCR API is called.
+This project downloads each Instagram post into `instagram_output/<shortcode>/` and prepares its media, on-screen text, and spoken audio for a later LLM step. Instagram network access is handled by Instaloader; OCR and transcription are performed locally. No LLM, hosted OCR, or hosted transcription API is called.
 
 ## Setup
 
@@ -10,8 +10,11 @@ The repository pins Python 3.12 because it has the broadest compatibility with t
 # Core install: the portable ONNX engine, no PyTorch.
 UV_CACHE_DIR=.uv-cache uv sync
 
-# macOS only: adds Surya for the most accurate carousel-image OCR (~2-3 GB).
-UV_CACHE_DIR=.uv-cache uv sync --extra surya
+# Apple Silicon: adds MLX Whisper for medium-model transcription on the Metal GPU.
+UV_CACHE_DIR=.uv-cache uv sync --extra mac-transcription
+
+# Optional macOS image OCR (~2-3 GB in addition to the core install).
+UV_CACHE_DIR=.uv-cache uv sync --extra surya --extra mac-transcription
 ```
 
 ## Authentication
@@ -105,8 +108,15 @@ Useful controls:
 --video-max-height 800       downscale before OCR; 640 is faster, 0 disables
 --rec-script auto|cyrillic|latin|ch|...
 --threads N                  inference threads (see Resource limits)
+--transcription-backend best|faster-whisper|mlx
+--transcription-model tiny|base|small|medium|large-v3|turbo
+--transcription-language CODE  force a spoken language; default detects it
+--transcription-threads N    CPU helper threads; default 1
+--[no-]transcription-vad     suppress silence/music hallucinations; default on
+--transcription-model-cache-dir PATH
 --skip-download              rerun OCR over already-downloaded media
---skip-ocr                   download only
+--skip-ocr                   skip visual OCR; transcription still runs
+--skip-transcription         leave existing transcript artifacts untouched
 --skip-image-ocr             leave existing carousel/image OCR untouched
 --skip-video-ocr             leave existing video OCR untouched
 --rededuplicate-only         rebuild compact text from stored frame OCR
@@ -129,11 +139,33 @@ costs**, appending each run to `bench_results.json`. Measured so far, over
 | macOS, Apple Vision, sampled | 16 s | 412 MB |
 | macOS, RapidOCR, 2 threads | 47 s | 566 MB |
 
-### Transcription model evaluation (selection pending)
+### Speech transcription
 
-The multilingual transcription benchmark is deliberately separate from the
-production extractor until its results have been reviewed. Install its extra
-and run all six CPU/int8 models with one thread:
+The reviewed production defaults are platform-aware:
+
+| Platform | Backend | Model | Compute | Threads |
+|---|---|---|---|---:|
+| Apple Silicon Mac | MLX Whisper | medium | Metal GPU, FP16 | 1 CPU helper |
+| Synology NAS (`linux/amd64`) | faster-whisper | small | CPU, int8 | 1 |
+| Raspberry Pi 4, 64-bit OS (`linux/arm64`) | faster-whisper | small | CPU, int8 | 1 |
+
+VAD is enabled conservatively by default. Instrumental/no-speech media produces
+a successful empty transcript instead of invented words. Spoken language is
+preserved; the extractor never translates. Both backends record the detected
+language and its probability (unless the user explicitly fixes the language).
+
+All choices can be overridden through the CLI controls above or with
+`INSTAGRAM_TRANSCRIPTION_BACKEND`, `INSTAGRAM_TRANSCRIPTION_MODEL`, and
+`INSTAGRAM_TRANSCRIPTION_THREADS`. For example:
+
+```bash
+# Explicitly use the normal Mac default.
+UV_CACHE_DIR=.uv-cache uv run --extra mac-transcription instagram-extract \
+  --input-file dataset/instagram_urls.txt \
+  --transcription-backend mlx --transcription-model medium
+```
+
+The evaluation suite remains available for regression testing:
 
 ```bash
 UV_CACHE_DIR=.uv-cache uv sync --extra transcription-bench
@@ -150,13 +182,16 @@ directories. The report compares ROUGE-L and token Jaccard against both FLEURS
 reference text and large-v3, and includes peak memory, timing, exact real-world
 transcripts, and VAD-on/off results for the expected music-only posts.
 
-No transcription model is currently selected or baked into Docker. That is an
-intentional review checkpoint, not an installation error.
+MLX must run in a macOS process that can access Metal. Sandboxed/headless tools
+that hide the GPU can abort inside MLX while importing its native extension;
+run the extractor from a normal Terminal/session in that environment. This does
+not affect Docker, which uses faster-whisper on CPU and does not install MLX.
 
 ## Docker (Synology NAS, Raspberry Pi)
 
-The image excludes PyTorch and bakes the ONNX models in, so the container never
-downloads anything at runtime.
+The image excludes PyTorch/MLX and bakes both RapidOCR and multilingual Whisper
+`small` into the image. `HF_HUB_OFFLINE=1` prevents runtime downloads, and the
+build validates that the checkpoint loads on the target architecture.
 
 ```bash
 # Build for the NAS from an ARM Mac
@@ -165,7 +200,10 @@ docker buildx build --platform linux/amd64 -t instagram-extractor:latest --load 
 docker compose run --rm instagram-extract --input-file /data/dataset/instagram_urls.txt
 ```
 
-Resulting image: ~461 MB.
+The same Dockerfile builds `linux/amd64` for Synology and `linux/arm64` for the
+Pi. The Pi requires 64-bit Raspberry Pi OS. Locally verified image sizes were
+approximately 1.28 GB (`amd64`) and 1.15 GB (`arm64`), including the 486 MB
+Whisper checkpoint.
 
 ### Resource limits
 
@@ -174,16 +212,15 @@ resource control are separate concerns. They live in `docker-compose.yml`
 (`cpus`, `mem_limit`), on `docker run --cpus/--memory`, or in the Synology
 Container Manager UI.
 
-Limits alone are not enough. ONNX Runtime and OpenMP size their thread pools from
-the **host** CPU count and ignore the cgroup quota, so a container capped at 2
-CPUs would otherwise start a thread per host core and lose the time to context
-switching. The `INSTAGRAM_OCR_THREADS` environment variable in the Dockerfile
-pins this, and when it is unset the code reads the cgroup quota directly. Keep it
-equal to the `cpus` limit.
+Limits alone are not enough. ONNX Runtime, CTranslate2, and OpenMP size thread
+pools from the **host** CPU count and ignore the cgroup quota. The image pins
+both OCR and transcription to one thread, matching the Compose `cpus: "1.0"`
+limit.
 
-Defaults are tuned for the NAS (2-core R1600): 2 CPUs, 2 GB memory, 2 threads.
-Measured peak usage is 566 MB, so the memory limit is a blast-radius guard rather
-than a fit — exceeding it means an OOM kill, so do not trim it close.
+Defaults are tuned for the NAS (2-core/4-thread Ryzen R1600): 1 CPU, 2 GB
+memory, 1 thread. Whisper small measured 1,347 MB peak RSS on the benchmark Mac;
+2 GB is its 1.5x rounded allowance. OCR and transcription models are loaded
+sequentially so their peaks do not add together.
 
 ## Output
 
@@ -201,10 +238,15 @@ ocr/*.ocr.raw.txt            all deduplicated text, including low-confidence noi
 ocr/*.ocr.txt                confidence-filtered, deduplicated text for one item
 ocr/status.json              OCR backend and per-file errors
 ocr_text.txt                 combined, LLM-ready visual text for the post
+transcripts/<media>.txt      plain spoken text, no timestamps
+transcripts/<media>.json     status, model, language, probability, and text
+transcripts/status.json      per-media transcription outcome/errors
+transcript.txt               combined spoken text for the post
+llm_input.json / .txt        metadata, comments, visual text, and spoken audio
 ```
 
 Comment output separately identifies the chronologically first scanned comment/reply by the post owner, and includes like counts so downstream code can re-rank the selected comments.
 
 ## Accuracy notes
 
-“Any language” means automatic multilingual recognition over the scripts supported by the installed model; no OCR system can guarantee every written language or illegible frame. The JSON confidence scores and raw observations make uncertain results visible. The extractor handles visual/on-screen text only—it does not transcribe speech from the audio track.
+“Any language” means automatic multilingual recognition over the languages supported by the installed models; no OCR or speech model can guarantee every language or unclear input. The JSON confidence/probability fields and explicit empty/failure statuses make uncertainty visible.

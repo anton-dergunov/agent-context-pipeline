@@ -15,7 +15,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models
+    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
+    INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR=/app/.whisper_models \
+    INSTAGRAM_TRANSCRIPTION_MODEL=small
 
 # Dependencies first so code edits do not invalidate the heavy layer.
 COPY pyproject.toml uv.lock README.instagram.md ./
@@ -44,16 +46,21 @@ RUN useradd --create-home --uid 1000 extractor \
     && mkdir -p /data \
     && chown extractor:extractor /data
 
-# Thread pinning. ONNX Runtime and OpenMP size their pools from the *host* CPU
-# count and ignore the cgroup quota, so a container limited to 2 CPUs would
+# Thread pinning. ONNX Runtime, CTranslate2, and OpenMP size pools from the host
+# CPU count and ignore the cgroup quota, so a container limited to one CPU would
 # otherwise start a thread per host core and lose the time to context
 # switching. Keep this in step with the `cpus` limit in docker-compose.yml.
-ENV INSTAGRAM_OCR_THREADS=2 \
-    OMP_NUM_THREADS=2 \
-    OPENBLAS_NUM_THREADS=2 \
-    MKL_NUM_THREADS=2 \
-    NUMEXPR_NUM_THREADS=2 \
-    VECLIB_MAXIMUM_THREADS=2 \
+ENV INSTAGRAM_OCR_THREADS=1 \
+    INSTAGRAM_TRANSCRIPTION_THREADS=1 \
+    INSTAGRAM_TRANSCRIPTION_BACKEND=faster-whisper \
+    INSTAGRAM_TRANSCRIPTION_MODEL=small \
+    INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR=/app/.whisper_models \
+    HF_HUB_OFFLINE=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    VECLIB_MAXIMUM_THREADS=1 \
     INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"

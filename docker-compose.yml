@@ -13,14 +13,12 @@ services:
     image: instagram-extractor:latest
     container_name: instagram-extract
 
-    # The NAS is a 2-core / 4-thread R1600. 2.0 leaves the second core's SMT
-    # sibling and all of DSM's own work unaffected. Keep INSTAGRAM_OCR_THREADS
-    # in the Dockerfile equal to this number: the cgroup quota throttles the
-    # container but does not tell ONNX Runtime how many threads to start.
-    cpus: "2.0"
+    # The NAS is a 2-core / 4-thread Ryzen R1600. The requested one-CPU
+    # default leaves DSM and other processing ample capacity.
+    cpus: "1.0"
 
-    # Measured peak was 566 MB with one detection and one recognition session,
-    # so 2g is roughly 3.5x headroom. It is a blast-radius guard, not a fit:
+    # Whisper small measured 1,347 MB peak RSS; sequential OCR avoids combining
+    # that with OCR's 566 MB peak. 2g is the reviewed 1.5x rounded allowance.
     # exceeding it means the kernel OOM-kills the process (exit 137), so do not
     # trim it close to the measurement.
     mem_limit: 2g
@@ -30,7 +28,10 @@ services:
     cpu_shares: 512
 
     environment:
-      INSTAGRAM_OCR_THREADS: "2"
+      INSTAGRAM_OCR_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_BACKEND: "faster-whisper"
+      INSTAGRAM_TRANSCRIPTION_MODEL: "small"
       TZ: "Europe/London"
 
     volumes:
