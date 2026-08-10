@@ -6,6 +6,7 @@
 .pytest_cache/
 __pycache__/
 instagram_output/
+linkedin_output/
 .env
 .env.*
 *.part

@@ -24,6 +24,10 @@ COPY pyproject.toml uv.lock README.instagram.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY instagram_extractor/ ./instagram_extractor/
+# The root Python distribution now contains both extractor packages. The image
+# still exposes only the Instagram entry point, but Hatch needs both package
+# directories present when it builds the installed project.
+COPY linkedin_extractor/ ./linkedin_extractor/
 COPY docker/ ./docker/
 COPY tools/ ./tools/
 RUN uv sync --frozen --no-dev
