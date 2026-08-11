@@ -16,10 +16,11 @@ The current implementation is deliberately small:
 
 ```text
 Telegram message
-    -> source and media saved immediately in data/staging/
+    -> wait for the configurable nearby-message grouping window
+    -> grouped source and media saved in data/staging/
     -> direct to inbox when no processing step applies
        or queued for the single background worker
-    -> optionally choose ML, Career, Life, or Other
+    -> category: Other
     -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
     -> ~/info-triage-inbox/
@@ -30,9 +31,12 @@ The directory date is the UTC creation date supplied by Telegram.
 Each completed item contains `message.md`, `metadata.json`, and the complete
 received Telegram payload in `telegram.json`. Useful source media is kept in
 `attachments/`: documents, photos, video, animations, voice/audio notes, and
-video notes. Albums are one ordered item. A label is optional; selecting one
-updates the ready item and adds category front matter. Telegram message edits
-update the same stable item directory.
+video notes. Albums are one logical message. Consecutive logical messages whose
+Telegram timestamps are no more than three seconds apart are combined into one
+item after a four-second quiet period. Explicit forwards are rendered before an
+adjacent personal note; otherwise content remains chronological. New captures
+silently receive the `Other` category. Editing any constituent Telegram message
+updates the same stable item directory.
 
 The capture layer deliberately ignores Telegram interaction content such as
 stickers, contacts, polls, payments, games, dice, and service events. It stores
@@ -45,7 +49,8 @@ the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
 processes at most one item at a time. There are currently no processing steps,
-so captured items normally move from staging to inbox immediately.
+so captured items normally move from staging to inbox when the short grouping
+period ends.
 
 Future processors will produce the laptop-facing `message.md` in a temporary
 revision-specific workspace. Raw Telegram data remains in `telegram.json`, and
@@ -107,8 +112,8 @@ Download new/edited items with:
 The synchronization script keeps each delivered Telegram item ID and revision
 under `~/.local/state/info-triage/`. Removing a delivered item directory from
 `~/info-triage-inbox/` marks that revision processed; the next sync removes its
-NAS copy. If the Telegram message is edited or labeled later, its higher
-revision is downloaded again.
+NAS copy. If a constituent Telegram message is edited later, its higher revision
+is downloaded again.
 
 ## Example Inputs
 
@@ -180,10 +185,8 @@ A Telegram bot can provide a particularly convenient capture interface.
 
 I can send text, links, forwarded messages, images, or other content to the bot. The bot sends them to the central server for processing.
 
-The Telegram interface can also provide explicit classification options through buttons or menus. This allows two complementary modes:
-
-1. Automatic classification — simply send something and let the server determine what it is.
-2. Manual classification — explicitly identify an item as a job, article, task, reference, read-later item, etc.
+The current Telegram interface stays silent after successful capture and assigns
+`Other`; classification is deferred to later processing or manual review.
 
 ## Processing Pipeline
 
@@ -247,7 +250,7 @@ Example categories include:
 * idea
 * note
 
-Explicit user classification, when provided, can override or supplement automatic classification.
+Future processing may supplement the default category automatically.
 
 5. Enrich
 

@@ -309,6 +309,28 @@ This is caused by the newer SSH client connecting to the older OpenSSH
 server shipped by DSM. It is independent of SSH public-key
 authentication and of the deployment scripts described here.
 
+The cryptographic fix is to upgrade the NAS SSH server to OpenSSH 9.0 or
+newer, which supports a post-quantum key exchange. Until DSM provides such an
+upgrade, the warning can be suppressed only for this LAN-only NAS alias by
+adding the following line to the existing `Host server` block in
+`~/.ssh/config`:
+
+See OpenSSH's [post-quantum guidance](https://www.openssh.com/pq.html) and the
+[`WarnWeakCrypto` client option](https://man.openbsd.org/ssh_config#WarnWeakCrypto).
+
+``` sshconfig
+Host server
+    HostName 192.168.1.10
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519
+    WarnWeakCrypto no-pq-kex
+```
+
+This setting is used by direct `ssh` commands and by rsync's SSH connections,
+so it removes the repeated warnings from `sync.sh`. It only hides the warning;
+it does not make the connection post-quantum-safe. Keep it scoped to `server`
+rather than disabling the warning globally.
+
 ------------------------------------------------------------------------
 
 ## 6. Enable rsync in DSM
@@ -956,8 +978,8 @@ snapshot. Existing one-column manifests are migrated automatically.
 
 Moving or deleting a delivered item directory from the laptop inbox marks its
 current revision processed. The next sync deletes the matching NAS directory.
-If the original Telegram message is subsequently edited or labeled, the server
-creates a higher revision and the next sync restores it to the laptop.
+If a constituent Telegram message is subsequently edited, the server creates a
+higher revision and the next sync restores it to the laptop.
 
 If the delivered-items file exists but the laptop inbox directory is missing,
 the script aborts instead of interpreting the missing directory as a request to

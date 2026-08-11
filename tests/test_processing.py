@@ -84,7 +84,10 @@ class ProcessingTests(unittest.TestCase):
             message = (
                 Path(temporary) / "inbox" / "2026-08-09_1" / "message.md"
             ).read_text()
-            self.assertEqual(message, "first\nprocessed")
+            self.assertEqual(
+                message,
+                "---\ncategory: Other\n---\n\nfirst\nprocessed",
+            )
 
     def test_worker_commits_generated_files_from_workspace(self):
         class GenerateStep(AppendStep):
@@ -196,7 +199,10 @@ class ProcessingTests(unittest.TestCase):
             message = (
                 Path(temporary) / "inbox" / "2026-08-09_1" / "message.md"
             ).read_text()
-            self.assertEqual(message, "new\nrevision 2")
+            self.assertEqual(
+                message,
+                "---\ncategory: Other\n---\n\nnew\nrevision 2",
+            )
 
     def test_category_change_supersedes_running_revision(self):
         started = threading.Event()

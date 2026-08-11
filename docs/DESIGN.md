@@ -83,9 +83,16 @@ The user can send or share:
 
 The Telegram bot should make capture as frictionless as possible.
 
-The bot may show optional buttons for explicitly classifying an item. The item
-must continue to processing immediately; leaving the buttons untouched must not
-leave it in staging.
+The bot does not ask for classification or send a success dialog. Every new item
+is assigned `Other` and continues to processing automatically. Capture failures
+may still produce an error reply.
+
+Messages are first written to a durable pending table. A module-level
+`CAPTURE_GROUP_MAX_GAP_SECONDS` constant controls grouping and is currently
+`3.0`. Consecutive logical messages are combined while each Telegram timestamp
+gap is at most that value. A media group counts as one logical message, and a
+quiet period one second longer than the configured gap prevents boundary races.
+Pending captures are resumed after restart.
 
 ---
 
@@ -104,8 +111,10 @@ because `message_id` is unique within a chat rather than globally.
 No additional deduplication system is required.
 
 The same `(chat_id, message_id)` should always refer to the same captured item.
-The chat ID remains in SQLite and metadata, but this single-chat deployment does
-not need it in the human-facing directory name.
+When nearby messages are grouped, the earliest message is the item identity and
+every constituent identity maps to it. The chat ID remains in SQLite and
+metadata, but this single-chat deployment does not need it in the human-facing
+directory name.
 
 ---
 
@@ -183,13 +192,13 @@ For example:
   "message_id": 18492,
   "received_at": "2026-08-08T20:31:12+01:00",
   "edited_at": null,
-  "category": null,
+  "category": "Other",
   "revision": 1
 }
 ```
 
-The revision starts at 1 and increases whenever the Telegram text or optional
-category changes.
+The revision starts at 1 and increases whenever any constituent Telegram
+message changes.
 
 Only metadata that may be useful outside the server should be stored here.
 
@@ -227,9 +236,12 @@ contacts, polls, payments, games, dice, service events, or comments. Media is
 stored as supplied; transcription, OCR, and scraping are separate future
 processing steps.
 
-A media group is delivered as one item directory, named from its first message
-ID and containing ordered members. Each member identity remains in metadata and
-SQLite so an edit to any member updates the same item.
+A media group is one logical message. It can be combined with nearby notes or
+other messages under the same three-second rule. A grouped item is named from
+its earliest message ID and contains ordered raw payloads, all source IDs, and
+all attachments. When Telegram explicitly marks a forwarded source, that source
+is rendered first and adjacent non-forwarded text appears under `## Note`.
+Otherwise non-empty content is joined chronologically with blank lines.
 
 ---
 
@@ -352,8 +364,8 @@ capture or delivery behavior.
 Steps write only to a revision-specific temporary workspace. `message.md` is
 the processed, laptop-facing result, while `telegram.json` and original media
 preserve the captured source. Storage commits generated output only if the
-claimed revision remains current. A later Telegram edit or category change
-therefore supersedes a slow result without blocking capture.
+claimed revision remains current. A later Telegram edit therefore supersedes a
+slow result without blocking capture.
 
 A URL may require:
 
@@ -384,14 +396,18 @@ The system does not need a general workflow engine. Processing can simply be ord
 
 Telegram edits should be supported.
 
-If an already captured Telegram message is edited, the same `(chat_id, message_id)` is located.
+If an already captured Telegram message is edited, its `(chat_id, message_id)`
+is resolved to the containing item. This may be the edited message itself or the
+earliest message in a grouped capture.
 
 The system then:
 
 ```text
 receive edited message
     ↓
-update message.md
+replace that member's raw payload, content, and attachments
+    ↓
+regenerate the combined message.md
     ↓
 increment the metadata revision
     ↓
@@ -405,7 +421,9 @@ process again
 move back to inbox when finished
 ```
 
-This ensures that edited source information is reprocessed rather than leaving stale output in the inbox.
+Unedited constituent messages and their attachments remain in the item. This
+ensures that edited source information is reprocessed without breaking the
+grouped capture.
 
 The stable item directory name is important here.
 
@@ -413,9 +431,11 @@ The stable item directory name is important here.
 
 # 12. SQLite
 
-SQLite is intentionally small.
-
-It stores **processing state**, not captured content.
+SQLite is intentionally small. It stores processing state, source-to-item
+identity mappings, and the short-lived durable input needed during the grouping
+quiet period. Pending raw payloads are deleted immediately after a batch is
+successfully written to its item directory; ready content is not kept in the
+database.
 
 A minimal table is sufficient:
 
@@ -449,7 +469,10 @@ ready
 failed
 ```
 
-The actual text, HTML, images, documents, and generated outputs remain on disk.
+`item_messages` maps every constituent `(chat_id, message_id)` to the primary
+item. `pending_capture_messages` temporarily holds each message's raw payload,
+rendered content, and attachment specifications until finalization. The actual
+ready text, HTML, images, documents, and generated outputs remain on disk.
 
 SQLite does not need to be synchronized to the laptop.
 
@@ -459,9 +482,9 @@ SQLite does not need to be synchronized to the laptop.
 
 SQLite has only a few responsibilities:
 
-1. Track the current processing state.
-2. Identify Telegram messages by `(chat_id, message_id)`.
-3. Support Telegram message edits.
+1. Durably stage the short grouping window.
+2. Track the current processing state.
+3. Map Telegram source messages to items and support edits.
 4. Store processing errors.
 5. Supply data to the web dashboard.
 
@@ -714,10 +737,13 @@ Anything in `inbox/` is ready.
 # 24. End-to-End Workflow
 
 ```text
-Telegram message
+Telegram message(s)
       │
       ▼
-save item into staging/
+durably wait for the three-second grouping window
+      │
+      ▼
+save grouped item into staging/
       │
       ▼
 SQLite: received
@@ -760,13 +786,13 @@ For an edited Telegram message:
 edited Telegram message
       │
       ▼
-find same (chat_id, message_id)
+resolve (chat_id, message_id) to its grouped item
       │
       ▼
 move inbox item back to staging if necessary
       │
       ▼
-replace/update captured Telegram content
+replace that source and regenerate grouped content
       │
       ▼
 SQLite: received

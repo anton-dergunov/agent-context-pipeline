@@ -121,29 +121,39 @@ class CaptureStore:
             )
             connection.execute(
                 """
-                CREATE TABLE IF NOT EXISTS pending_media_group_members (
+                CREATE TABLE IF NOT EXISTS pending_capture_messages (
                     chat_id INTEGER NOT NULL,
-                    media_group_id TEXT NOT NULL,
                     message_id INTEGER NOT NULL,
+                    media_group_id TEXT,
                     received_at TEXT NOT NULL,
                     edited_at TEXT,
                     content TEXT NOT NULL,
                     raw_json TEXT NOT NULL,
                     attachments_json TEXT NOT NULL,
-                    PRIMARY KEY (chat_id, media_group_id, message_id)
+                    PRIMARY KEY (chat_id, message_id)
                 )
                 """
             )
-            connection.execute(
+            legacy_table = connection.execute(
                 """
-                CREATE TABLE IF NOT EXISTS pending_media_groups (
-                    chat_id INTEGER NOT NULL,
-                    media_group_id TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    PRIMARY KEY (chat_id, media_group_id)
+                SELECT 1 FROM sqlite_master
+                WHERE type = 'table' AND name = 'pending_media_group_members'
+                """
+            ).fetchone()
+            if legacy_table:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO pending_capture_messages (
+                        chat_id, message_id, media_group_id, received_at, edited_at,
+                        content, raw_json, attachments_json
+                    )
+                    SELECT chat_id, message_id, media_group_id, received_at, edited_at,
+                           content, raw_json, attachments_json
+                    FROM pending_media_group_members
+                    """
                 )
-                """
-            )
+                connection.execute("DROP TABLE pending_media_group_members")
+                connection.execute("DROP TABLE IF EXISTS pending_media_groups")
 
     @staticmethod
     def item_name(created_at: str, message_id: int) -> str:
@@ -253,6 +263,7 @@ class CaptureStore:
         edited_at: str | None,
         telegram_payload: dict[str, Any] | list[dict[str, Any]] | None = None,
         attachments: list[DownloadedAttachment] | None = None,
+        replace_attachment_source_ids: set[int] | None = None,
         media_group_id: str | None = None,
         source_message_ids: list[int] | None = None,
     ) -> None:
@@ -262,7 +273,10 @@ class CaptureStore:
         warnings = existing_metadata.get("download_warnings", [])
         if attachments is not None:
             attachment_manifest, warnings = self._write_attachments(
-                item_path, attachments
+                item_path,
+                attachments,
+                existing_metadata.get("attachments", []),
+                replace_attachment_source_ids,
             )
         if telegram_payload is not None:
             atomic_write(
@@ -291,7 +305,11 @@ class CaptureStore:
         )
 
     def _write_attachments(
-        self, item_path: Path, attachments: list[DownloadedAttachment]
+        self,
+        item_path: Path,
+        attachments: list[DownloadedAttachment],
+        existing_manifest: list[dict[str, Any]],
+        replace_source_ids: set[int] | None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
         attachments_dir = item_path / "attachments"
         temporary_dir = item_path / ".attachments.tmp"
@@ -299,23 +317,53 @@ class CaptureStore:
             shutil.rmtree(temporary_dir)
         temporary_dir.mkdir()
         manifest = []
-        warnings = []
-        for index, attachment in enumerate(attachments, start=1):
+        if replace_source_ids is not None:
+            for value in existing_manifest:
+                if value.get("source_message_id") in replace_source_ids:
+                    continue
+                record = dict(value)
+                relative_path = record.get("path")
+                if relative_path:
+                    source = item_path / relative_path
+                    if source.is_file():
+                        shutil.copyfile(source, temporary_dir / source.name)
+                    else:
+                        record["path"] = None
+                        record["download_status"] = "unavailable"
+                        record["warning"] = "Previously downloaded attachment is missing."
+                manifest.append(record)
+
+        next_index = 1
+        existing_indices = []
+        for value in manifest:
+            relative_path = value.get("path")
+            if relative_path:
+                prefix = Path(relative_path).name.split("-", 1)[0]
+                if prefix.isdigit():
+                    existing_indices.append(int(prefix))
+        if existing_indices:
+            next_index = max(existing_indices) + 1
+
+        for attachment in attachments:
             record = attachment.spec.to_dict()
             record["path"] = None
             if attachment.data is None:
                 record["download_status"] = "unavailable"
                 record["warning"] = attachment.warning
-                if attachment.warning:
-                    warnings.append(attachment.warning)
             else:
                 filename = (
-                    f"{index:02d}-{attachment.spec.kind}{attachment.spec.extension}"
+                    f"{next_index:02d}-{attachment.spec.kind}{attachment.spec.extension}"
                 )
+                next_index += 1
                 atomic_write_bytes(temporary_dir / filename, attachment.data)
                 record["path"] = f"attachments/{filename}"
                 record["download_status"] = "downloaded"
             manifest.append(record)
+        warnings = [
+            value["warning"]
+            for value in manifest
+            if value.get("download_status") == "unavailable" and value.get("warning")
+        ]
         if attachments_dir.exists():
             shutil.rmtree(attachments_dir)
         if manifest:
@@ -437,6 +485,7 @@ class CaptureStore:
         received_at: str | None = None,
         telegram_payload: dict[str, Any] | list[dict[str, Any]] | None = None,
         attachments: list[DownloadedAttachment] | None = None,
+        replace_attachment_source_ids: set[int] | None = None,
         media_group_id: str | None = None,
         source_message_ids: list[int] | None = None,
         force_revision: bool = False,
@@ -445,7 +494,7 @@ class CaptureStore:
         with self._lock:
             existing = self.get_item(chat_id, message_id)
             already_known = existing is not None
-            category = existing["category"] if existing else None
+            category = existing["category"] if existing else "Other"
             revision = existing["revision"] if existing else 1
             if existing and (edited_at is not None or force_revision):
                 revision += 1
@@ -479,6 +528,7 @@ class CaptureStore:
                 edited_at,
                 telegram_payload,
                 attachments,
+                replace_attachment_source_ids,
                 media_group_id,
                 source_message_ids,
             )
@@ -708,11 +758,11 @@ class CaptureStore:
             )
             return updated.rowcount == 1
 
-    def stage_media_group_member(
+    def stage_pending_message(
         self,
         chat_id: int,
-        media_group_id: str,
         message_id: int,
+        media_group_id: str | None,
         content: str,
         received_at: str,
         edited_at: str | None,
@@ -722,11 +772,12 @@ class CaptureStore:
         with self._connect() as connection:
             connection.execute(
                 """
-                INSERT INTO pending_media_group_members (
-                    chat_id, media_group_id, message_id, received_at, edited_at,
+                INSERT INTO pending_capture_messages (
+                    chat_id, message_id, media_group_id, received_at, edited_at,
                     content, raw_json, attachments_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(chat_id, media_group_id, message_id) DO UPDATE SET
+                ON CONFLICT(chat_id, message_id) DO UPDATE SET
+                    media_group_id = excluded.media_group_id,
                     received_at = excluded.received_at,
                     edited_at = excluded.edited_at,
                     content = excluded.content,
@@ -735,8 +786,8 @@ class CaptureStore:
                 """,
                 (
                     chat_id,
-                    media_group_id,
                     message_id,
+                    media_group_id,
                     received_at,
                     edited_at,
                     content,
@@ -744,125 +795,85 @@ class CaptureStore:
                     json.dumps([spec.to_dict() for spec in specs], ensure_ascii=False),
                 ),
             )
-            connection.execute(
-                """
-                INSERT INTO pending_media_groups (chat_id, media_group_id, updated_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(chat_id, media_group_id) DO UPDATE SET
-                    updated_at = excluded.updated_at
-                """,
-                (chat_id, media_group_id, now_iso()),
-            )
 
-    def pending_media_groups(self) -> list[tuple[int, str]]:
+    def pending_chat_ids(self) -> list[int]:
         with self._connect() as connection:
             return [
-                (row["chat_id"], row["media_group_id"])
+                row["chat_id"]
                 for row in connection.execute(
-                    "SELECT chat_id, media_group_id FROM pending_media_groups"
+                    "SELECT DISTINCT chat_id FROM pending_capture_messages"
                 )
             ]
 
-    def media_group_capture(
-        self, chat_id: int, media_group_id: str
-    ) -> dict[str, Any] | None:
+    def pending_messages(self, chat_id: int) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT * FROM pending_media_group_members
-                WHERE chat_id = ? AND media_group_id = ? ORDER BY message_id
+                SELECT * FROM pending_capture_messages
+                WHERE chat_id = ? ORDER BY received_at, message_id
                 """,
-                (chat_id, media_group_id),
+                (chat_id,),
             ).fetchall()
-            if not rows:
-                return None
-            existing = connection.execute(
-                """
-                SELECT item_message_id FROM item_messages
-                WHERE chat_id = ? AND media_group_id = ? LIMIT 1
-                """,
-                (chat_id, media_group_id),
-            ).fetchone()
-
-        existing_payloads: dict[int, dict[str, Any]] = {}
-        existing_specs: dict[int, list[AttachmentSpec]] = {}
-        item = None
-        item_path = None
-        if existing:
-            item = self.get_item(chat_id, existing["item_message_id"])
-            if item:
-                item_path = self._path_for_row(item)
-                payload_path = item_path / "telegram.json"
-                if payload_path.exists():
-                    payload = json.loads(payload_path.read_text(encoding="utf-8"))
-                    for message in payload.get("messages", []):
-                        existing_payloads[message["message_id"]] = message
-                for value in self._read_metadata(item_path).get("attachments", []):
-                    spec = AttachmentSpec.from_dict(value)
-                    existing_specs.setdefault(spec.source_message_id, []).append(spec)
-
-        staged = {row["message_id"]: row for row in rows}
-        payloads = dict(existing_payloads)
-        payloads.update(
+        return [
             {
-                message_id: json.loads(row["raw_json"])
-                for message_id, row in staged.items()
-            }
-        )
-        ordered_ids = sorted(payloads)
-        if not ordered_ids:
-            return None
-        specs = []
-        for message_id in ordered_ids:
-            if message_id in staged:
-                specs.extend(
+                "chat_id": row["chat_id"],
+                "message_id": row["message_id"],
+                "media_group_id": row["media_group_id"],
+                "received_at": row["received_at"],
+                "edited_at": row["edited_at"],
+                "content": row["content"],
+                "payload": json.loads(row["raw_json"]),
+                "specs": [
                     AttachmentSpec.from_dict(value)
-                    for value in json.loads(staged[message_id]["attachments_json"])
-                )
-            else:
-                specs.extend(existing_specs.get(message_id, []))
-        contents = [
-            staged[message_id]["content"]
-            for message_id in ordered_ids
-            if message_id in staged
+                    for value in json.loads(row["attachments_json"])
+                ],
+            }
+            for row in rows
         ]
-        if existing_payloads and item is not None and item_path is not None:
-            contents = [
-                original_content(
-                    item["category"],
-                    (item_path / "message.md").read_text(encoding="utf-8"),
+
+    def item_bundle(self, chat_id: int, message_id: int) -> dict[str, Any] | None:
+        item = self.get_item(chat_id, message_id)
+        if item is None:
+            return None
+        item_path = self._path_for_row(item)
+        metadata = self._read_metadata(item_path) if item_path.is_dir() else {}
+        payloads = []
+        payload_path = item_path / "telegram.json"
+        if payload_path.is_file():
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict) and isinstance(payload.get("messages"), list):
+                payloads = payload["messages"]
+            elif isinstance(payload, list):
+                payloads = payload
+            else:
+                payloads = [payload]
+        with self._connect() as connection:
+            source_ids = [
+                row["message_id"]
+                for row in connection.execute(
+                    """
+                    SELECT message_id FROM item_messages
+                    WHERE chat_id = ? AND item_message_id = ? ORDER BY message_id
+                    """,
+                    (chat_id, message_id),
                 )
             ]
-            for row in staged.values():
-                if row["content"]:
-                    contents = [row["content"]]
-                    break
         return {
-            "message_id": ordered_ids[0],
-            "source_message_ids": ordered_ids,
-            "received_at": min((row["received_at"] for row in rows), default=now_iso()),
-            "edited_at": max(
-                (row["edited_at"] for row in rows if row["edited_at"]), default=None
-            ),
-            "content": next((content for content in contents if content), ""),
-            "payload": {"messages": [payloads[value] for value in ordered_ids]},
-            "specs": specs,
-            "force_revision": existing is not None,
+            "item": dict(item),
+            "metadata": metadata,
+            "payloads": payloads,
+            "source_message_ids": source_ids or [message_id],
         }
 
-    def clear_media_group(self, chat_id: int, media_group_id: str) -> None:
+    def clear_pending_messages(self, chat_id: int, message_ids: list[int]) -> None:
+        if not message_ids:
+            return
         with self._connect() as connection:
+            placeholders = ",".join("?" for _ in message_ids)
             connection.execute(
-                """
-                DELETE FROM pending_media_group_members
-                WHERE chat_id = ? AND media_group_id = ?
+                f"""
+                DELETE FROM pending_capture_messages
+                WHERE chat_id = ? AND message_id IN ({placeholders})
                 """,
-                (chat_id, media_group_id),
-            )
-            connection.execute(
-                """
-                DELETE FROM pending_media_groups
-                WHERE chat_id = ? AND media_group_id = ?
-                """,
-                (chat_id, media_group_id),
+                (chat_id, *message_ids),
             )

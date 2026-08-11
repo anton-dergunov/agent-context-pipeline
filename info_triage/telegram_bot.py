@@ -1,4 +1,4 @@
-"""Telegram capture, media download, albums, and optional labels."""
+"""Telegram capture, durable message batching, and media download."""
 
 import asyncio
 import json
@@ -7,22 +7,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
+from telegram import Message, Update
 from telegram.error import TelegramError
 from telegram.ext import (
     Application,
-    CallbackQueryHandler,
     ContextTypes,
     MessageHandler,
     filters,
 )
 
-from .models import CATEGORIES, AttachmentSpec, DownloadedAttachment
+from .models import AttachmentSpec, DownloadedAttachment
 from .processing import ProcessingCoordinator
 from .storage import CaptureStore
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
-MEDIA_GROUP_SETTLE_SECONDS = 1.0
+# Consecutive logical messages at or below this Telegram timestamp gap become one item.
+CAPTURE_GROUP_MAX_GAP_SECONDS = 3.0
+CAPTURE_GROUP_SETTLE_SECONDS = CAPTURE_GROUP_MAX_GAP_SECONDS + 1.0
 logger = logging.getLogger("info_triage")
 
 
@@ -174,20 +175,6 @@ async def download_attachments(
     return attachments
 
 
-def category_keyboard(message_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    category,
-                    callback_data=f"label|{message_id}|{category}",
-                )
-            ]
-            for category in CATEGORIES
-        ]
-    )
-
-
 def is_authorized(update: Update, allowed_user_id: int) -> bool:
     user = update.effective_user
     authorized = user is not None and user.id == allowed_user_id
@@ -199,71 +186,218 @@ def is_authorized(update: Update, allowed_user_id: int) -> bool:
     return authorized
 
 
-def schedule_media_group_finalization(
-    application: Application, chat_id: int, media_group_id: str
-) -> None:
-    tasks: dict[tuple[int, str], asyncio.Task] = application.bot_data.setdefault(
-        "media_group_tasks", {}
+def _payload_order(payload: dict[str, Any]) -> tuple[int, int]:
+    return int(payload.get("date", 0)), int(payload["message_id"])
+
+
+def _is_forwarded(payload: dict[str, Any]) -> bool:
+    return any(
+        payload.get(key) is not None
+        for key in (
+            "forward_origin",
+            "forward_from",
+            "forward_from_chat",
+            "forward_sender_name",
+        )
     )
-    key = (chat_id, media_group_id)
-    task = tasks.get(key)
+
+
+def render_capture_payloads(payloads: list[dict[str, Any]]) -> str:
+    """Render ordered raw Telegram messages, identifying only explicit forwards."""
+    ordered = sorted(payloads, key=_payload_order)
+    parts = [
+        (payload, capture_content(Message.de_json(payload, None)) or "")
+        for payload in ordered
+    ]
+    forwarded = [content for payload, content in parts if _is_forwarded(payload)]
+    notes = [content for payload, content in parts if not _is_forwarded(payload)]
+    if forwarded and notes:
+        source_text = "\n\n".join(value for value in forwarded if value)
+        note_text = "\n\n".join(value for value in notes if value)
+        if note_text:
+            return "\n\n".join(
+                value for value in (source_text, f"## Note\n\n{note_text}") if value
+            )
+    return "\n\n".join(content for _, content in parts if content)
+
+
+def _logical_units(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    albums: dict[str, list[dict[str, Any]]] = {}
+    units = []
+    for row in rows:
+        media_group_id = row["media_group_id"]
+        if media_group_id:
+            albums.setdefault(media_group_id, []).append(row)
+        else:
+            units.append([row])
+    units.extend(albums.values())
+    logical_units = []
+    for members in units:
+        ordered = sorted(
+            members,
+            key=lambda value: (
+                datetime.fromisoformat(value["received_at"]),
+                value["message_id"],
+            ),
+        )
+        logical_units.append(
+            {
+                "rows": ordered,
+                "start": datetime.fromisoformat(ordered[0]["received_at"]),
+                "end": max(datetime.fromisoformat(row["received_at"]) for row in ordered),
+            }
+        )
+    return sorted(
+        logical_units,
+        key=lambda unit: (unit["start"], unit["rows"][0]["message_id"]),
+    )
+
+
+def group_new_messages(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """Group logical messages while every consecutive gap stays within the limit."""
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    previous_end = None
+    for unit in _logical_units(rows):
+        gap = (
+            (unit["start"] - previous_end).total_seconds()
+            if previous_end is not None
+            else None
+        )
+        if current and gap is not None and gap > CAPTURE_GROUP_MAX_GAP_SECONDS:
+            batches.append(current)
+            current = []
+        current.extend(unit["rows"])
+        previous_end = max(previous_end, unit["end"]) if previous_end else unit["end"]
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _pending_batches(
+    store: CaptureStore, chat_id: int
+) -> list[tuple[int | None, list[dict[str, Any]]]]:
+    existing: dict[int, list[dict[str, Any]]] = {}
+    new_rows = []
+    for row in store.pending_messages(chat_id):
+        item = store.item_for_source_message(chat_id, row["message_id"])
+        if item is None:
+            new_rows.append(row)
+        else:
+            existing.setdefault(item["message_id"], []).append(row)
+    batches = [(message_id, rows) for message_id, rows in existing.items()]
+    batches.extend((None, rows) for rows in group_new_messages(new_rows))
+    return sorted(
+        batches,
+        key=lambda value: min(
+            datetime.fromisoformat(row["received_at"]) for row in value[1]
+        ),
+    )
+
+
+def schedule_capture_finalization(application: Application, chat_id: int) -> None:
+    tasks: dict[int, asyncio.Task] = application.bot_data.setdefault(
+        "capture_group_tasks", {}
+    )
+    task = tasks.get(chat_id)
     if task and not task.done():
         task.cancel()
-    tasks[key] = application.create_task(
-        finalize_media_group(application, chat_id, media_group_id),
-        name=f"media-group-{chat_id}-{media_group_id}",
+    tasks[chat_id] = application.create_task(
+        finalize_pending_chat(application, chat_id),
+        name=f"capture-group-{chat_id}",
     )
 
 
-async def finalize_media_group(
-    application: Application, chat_id: int, media_group_id: str
+async def _finalize_batch(
+    application: Application,
+    chat_id: int,
+    item_message_id: int | None,
+    rows: list[dict[str, Any]],
 ) -> None:
-    try:
-        await asyncio.sleep(MEDIA_GROUP_SETTLE_SECONDS)
-        store: CaptureStore = application.bot_data["store"]
-        coordinator: ProcessingCoordinator = application.bot_data["coordinator"]
-        bundle = store.media_group_capture(chat_id, media_group_id)
-        if bundle is None:
-            return
-        attachments = await download_attachments(application.bot, bundle["specs"])
-        item = store.capture(
-            chat_id,
-            bundle["message_id"],
-            bundle["content"],
-            edited_at=bundle["edited_at"],
-            received_at=bundle["received_at"],
-            telegram_payload=bundle["payload"],
-            attachments=attachments,
-            media_group_id=media_group_id,
-            source_message_ids=bundle["source_message_ids"],
-            force_revision=bundle["force_revision"],
-        )
-        store.clear_media_group(chat_id, media_group_id)
-        coordinator.submit(item)
-        if item.category or item.already_known:
-            return
-        warnings = [value.warning for value in attachments if value.warning]
-        text = "Saved."
-        if warnings:
-            text += (
-                " Some attachments could not be downloaded; "
-                "details are in metadata.json."
-            )
-        await application.bot.send_message(
-            chat_id,
-            f"{text} Optional label:",
-            reply_markup=category_keyboard(bundle["message_id"]),
-        )
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        logger.exception("Failed to capture Telegram media group %s", media_group_id)
-
-
-async def recover_pending_media_groups(application: Application) -> None:
     store: CaptureStore = application.bot_data["store"]
-    for chat_id, media_group_id in store.pending_media_groups():
-        schedule_media_group_finalization(application, chat_id, media_group_id)
+    coordinator: ProcessingCoordinator = application.bot_data["coordinator"]
+    staged_payloads = {row["message_id"]: row["payload"] for row in rows}
+    existing_bundle = (
+        store.item_bundle(chat_id, item_message_id)
+        if item_message_id is not None
+        else None
+    )
+    payloads_by_id = {}
+    if existing_bundle:
+        payloads_by_id.update(
+            {payload["message_id"]: payload for payload in existing_bundle["payloads"]}
+        )
+    payloads_by_id.update(staged_payloads)
+    payloads = sorted(payloads_by_id.values(), key=_payload_order)
+    if not payloads:
+        return
+
+    if item_message_id is None:
+        item_message_id = payloads[0]["message_id"]
+        received_at = min(row["received_at"] for row in rows)
+        source_message_ids = [payload["message_id"] for payload in payloads]
+        replace_source_ids = None
+        media_group_ids = {row["media_group_id"] for row in rows}
+        media_group_id = (
+            next(iter(media_group_ids))
+            if len(media_group_ids) == 1 and None not in media_group_ids
+            else None
+        )
+    else:
+        received_at = existing_bundle["item"]["created_at"]
+        source_message_ids = sorted(
+            set(existing_bundle["source_message_ids"]) | set(payloads_by_id)
+        )
+        replace_source_ids = set(staged_payloads)
+        media_group_id = existing_bundle["metadata"].get("media_group_id")
+
+    specs = [spec for row in rows for spec in row["specs"]]
+    attachments = await download_attachments(application.bot, specs)
+    edited_at = max(
+        (row["edited_at"] for row in rows if row["edited_at"]), default=None
+    )
+    telegram_payload = payloads[0] if len(payloads) == 1 else {"messages": payloads}
+    item = store.capture(
+        chat_id,
+        item_message_id,
+        render_capture_payloads(payloads),
+        edited_at=edited_at,
+        received_at=received_at,
+        telegram_payload=telegram_payload,
+        attachments=attachments,
+        replace_attachment_source_ids=replace_source_ids,
+        media_group_id=media_group_id,
+        source_message_ids=source_message_ids,
+    )
+    coordinator.submit(item)
+    store.clear_pending_messages(chat_id, [row["message_id"] for row in rows])
+
+
+async def finalize_pending_chat(application: Application, chat_id: int) -> None:
+    try:
+        await asyncio.sleep(CAPTURE_GROUP_SETTLE_SECONDS)
+        store: CaptureStore = application.bot_data["store"]
+        for item_message_id, rows in _pending_batches(store, chat_id):
+            try:
+                await _finalize_batch(application, chat_id, item_message_id, rows)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Failed to finalize Telegram capture group")
+                if item_message_id is None:
+                    await application.bot.send_message(
+                        chat_id, "Could not save this item. Check the server log."
+                    )
+    finally:
+        tasks = application.bot_data.get("capture_group_tasks", {})
+        if tasks.get(chat_id) is asyncio.current_task():
+            tasks.pop(chat_id, None)
+
+
+async def recover_pending_captures(application: Application) -> None:
+    store: CaptureStore = application.bot_data["store"]
+    for chat_id in store.pending_chat_ids():
+        schedule_capture_finalization(application, chat_id)
 
 
 async def handle_message(
@@ -273,7 +407,6 @@ async def handle_message(
     is_edit: bool,
 ) -> None:
     store: CaptureStore = context.application.bot_data["store"]
-    coordinator: ProcessingCoordinator = context.application.bot_data["coordinator"]
     allowed_user_id: int = context.application.bot_data["allowed_user_id"]
     if not is_authorized(update, allowed_user_id):
         return
@@ -291,56 +424,22 @@ async def handle_message(
         edited_at = edit_date.isoformat()
 
     raw_payload = json.loads(message.to_json())
-    specs = attachment_specs(message)
-    if message.media_group_id:
-        store.stage_media_group_member(
+    try:
+        store.stage_pending_message(
             message.chat_id,
-            message.media_group_id,
             message.message_id,
+            message.media_group_id,
             content,
             message.date.isoformat(),
             edited_at,
             raw_payload,
-            specs,
+            attachment_specs(message),
         )
-        schedule_media_group_finalization(
-            context.application, message.chat_id, message.media_group_id
-        )
-        return
-
-    try:
-        attachments = await download_attachments(context.application.bot, specs)
-        item = store.capture(
-            message.chat_id,
-            message.message_id,
-            content,
-            edited_at=edited_at,
-            received_at=message.date.isoformat(),
-            telegram_payload=raw_payload,
-            attachments=attachments,
-        )
-        coordinator.submit(item)
+        schedule_capture_finalization(context.application, message.chat_id)
     except Exception:
-        logger.exception("Failed to capture Telegram message")
+        logger.exception("Failed to stage Telegram message")
         if not is_edit:
             await message.reply_text("Could not save this item. Check the server log.")
-        return
-
-    if item.category:
-        logger.info("Updated Telegram message %s", message.message_id)
-        return
-    if not item.already_known:
-        warnings = [value.warning for value in attachments if value.warning]
-        prefix = "Saved."
-        if warnings:
-            prefix += (
-                " Some attachments could not be downloaded; "
-                "details are in metadata.json."
-            )
-        await message.reply_text(
-            f"{prefix} Optional label:",
-            reply_markup=category_keyboard(message.message_id),
-        )
 
 
 async def handle_new_message(
@@ -355,45 +454,6 @@ async def handle_edited_message(
     await handle_message(update, context, is_edit=True)
 
 
-async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if query is None:
-        return
-    allowed_user_id: int = context.application.bot_data["allowed_user_id"]
-    if not is_authorized(update, allowed_user_id):
-        await query.answer()
-        return
-
-    try:
-        _, message_id_text, category = (query.data or "").split("|", 2)
-        message_id = int(message_id_text)
-        if category not in CATEGORIES or query.message is None:
-            raise ValueError
-        chat_id = query.message.chat.id
-    except ValueError:
-        await query.answer("Invalid category button", show_alert=True)
-        return
-
-    store: CaptureStore = context.application.bot_data["store"]
-    coordinator: ProcessingCoordinator = context.application.bot_data["coordinator"]
-    try:
-        item = store.categorize(chat_id, message_id, category)
-        coordinator.submit(item)
-    except FileNotFoundError:
-        await query.answer()
-        await query.edit_message_text(
-            "This capture no longer exists.", reply_markup=None
-        )
-        return
-    except Exception:
-        logger.exception("Failed to categorize Telegram message")
-        await query.answer("Could not save this item", show_alert=True)
-        return
-
-    await query.answer()
-    await query.edit_message_text(f"✅ Updated as: {category}", reply_markup=None)
-
-
 def build_application(
     bot_token: str,
     allowed_user_id: int,
@@ -404,7 +464,7 @@ def build_application(
         Application.builder()
         .token(bot_token)
         .concurrent_updates(False)
-        .post_init(recover_pending_media_groups)
+        .post_init(recover_pending_captures)
         .build()
     )
     application.bot_data["store"] = store
@@ -421,5 +481,4 @@ def build_application(
             handle_edited_message,
         )
     )
-    application.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^label\|"))
     return application
