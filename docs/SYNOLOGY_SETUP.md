@@ -653,7 +653,10 @@ info-triage/
 ├── compose.yaml
 ├── Dockerfile
 ├── deploy.sh
-├── requirements.txt
+├── pyproject.toml
+├── uv.lock
+├── info_triage/
+├── docker/
 ├── run.sh
 └── sync.sh
 ```
@@ -688,27 +691,15 @@ rather than `127.0.0.1`, so Docker can expose it outside the container.
 
 ## 12. Dockerfile
 
-`Dockerfile`:
+The repository Dockerfile is a multi-stage Python 3.12 build. It installs the
+single locked uv project, then preloads and validates the reviewed portable
+RapidOCR and multilingual `faster-whisper` small models. The runtime stage
+contains `curl` for the health check and `libgomp1` for ONNX Runtime, operates
+with network model loading disabled, runs as `1026:100`, and still starts
+`python app.py`.
 
-``` dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app.py .
-
-CMD ["python", "app.py"]
-```
-
-`curl` is installed inside the image because the Compose health check
-uses it.
+Surya/PyTorch and Apple-Silicon MLX remain optional workstation dependencies;
+they are deliberately absent from the Synology Linux image.
 
 ------------------------------------------------------------------------
 
@@ -723,13 +714,22 @@ services:
     container_name: info-triage
     restart: unless-stopped
     user: "1026:100"
+    cpus: 1.0
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpu_shares: 512
 
     env_file:
       - .env
 
     environment:
       DATA_DIR: /app/data
+      INSTAGRAM_OCR_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_BACKEND: faster-whisper
+      INSTAGRAM_TRANSCRIPTION_MODEL: small
+      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
       PORT: "8000"
+      TZ: Europe/London
 
     volumes:
       - ./data:/app/data

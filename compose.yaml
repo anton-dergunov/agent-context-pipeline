@@ -5,12 +5,24 @@ services:
     restart: unless-stopped
     user: "1026:100"
 
+    # The reviewed portable OCR/transcription configuration uses one CPU and
+    # stays below a 2 GB hard limit while leaving capacity for DSM.
+    cpus: 1.0
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpu_shares: 512
+
     env_file:
       - .env
 
     environment:
       DATA_DIR: /app/data
+      INSTAGRAM_OCR_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_BACKEND: faster-whisper
+      INSTAGRAM_TRANSCRIPTION_MODEL: small
+      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
       PORT: "8000"
+      TZ: Europe/London
 
     volumes:
       - ./data:/app/data

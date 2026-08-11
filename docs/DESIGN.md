@@ -342,6 +342,13 @@ Processing steps are ordinary ordered Python functions. The initial step list
 is empty. Expected future steps are text normalization, shortened-URL
 resolution, OCR or transcription where applicable, and final cleanup.
 
+The repository already contains reusable implementations for cautious text
+cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
+and transcription, and anonymous public LinkedIn extraction. These live below
+`info_triage.utilities` and `info_triage.extractors`, but none is registered in
+`PROCESSING_STEPS` yet. Their presence therefore does not alter the prototype's
+capture or delivery behavior.
+
 Steps write only to a revision-specific temporary workspace. `message.md` is
 the processed, laptop-facing result, while `telegram.json` and original media
 preserve the captured source. Storage commits generated output only if the

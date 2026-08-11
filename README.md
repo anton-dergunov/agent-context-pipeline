@@ -52,6 +52,21 @@ revision-specific workspace. Raw Telegram data remains in `telegram.json`, and
 original downloaded media remains in `attachments/`. A result is committed
 only if its source revision is still current.
 
+Reusable processing components are available under `info_triage.extractors`
+and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
+public LinkedIn extraction, cautious text cleaning, and bounded URL resolution.
+They retain standalone console commands but are not yet enabled in
+`PROCESSING_STEPS`, so installing them does not change capture behavior. See
+[`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
+[`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md).
+
+Install the portable stack with `uv sync`. On a Mac workstation, Surya and
+Apple-Silicon MLX remain available with:
+
+```bash
+uv sync --extra surya --extra mac-transcription
+```
+
 Create a local `.env` (it is ignored by Git):
 
 ```dotenv
@@ -65,6 +80,10 @@ Run locally in Docker:
 ./run.sh
 curl http://localhost:8000/health
 ```
+
+The unified image preloads the reviewed Linux production models (RapidOCR and
+multilingual `faster-whisper` small) during the build and runs offline at
+runtime. The Surya and MLX extras are intentionally not installed in Docker.
 
 The read-only processing dashboard is available at `http://localhost:8000/`
 locally and `http://192.168.1.10:8000/` on the NAS.

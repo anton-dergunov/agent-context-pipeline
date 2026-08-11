@@ -1,10 +1,74 @@
 [project]
 name = "info-triage"
 version = "0.1.0"
-description = "Minimal self-hosted Telegram information capture service"
+description = "Self-hosted Telegram capture and local content extraction utilities"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 dependencies = [
+    "av>=12,<17",
+    "beautifulsoup4>=4.12,<5",
+    "browser-cookie3>=0.20.1",
+    "emoji>=2.14,<3",
+    "faster-whisper>=1.2.1,<2",
+    "huggingface-hub>=0.27,<2",
+    "instaloader>=4.14.2",
+    "jieba>=0.42.1,<1",
+    "numpy>=2.1",
+    "onnxruntime>=1.28.0",
+    "opencv-python-headless>=4.10",
+    "pillow>=10.2,<11",
     "python-dotenv==1.0.1",
     "python-telegram-bot==21.7",
+    "pyobjc-framework-quartz>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
+    "pyobjc-framework-vision>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
+    "rapidfuzz>=3.10",
+    "rapidocr>=3.9.2",
+    "requests>=2.32,<3",
+    "urllib3>=2.2,<3",
 ]
+
+[project.optional-dependencies]
+# The more accurate still-image engine remains available for workstation use,
+# but is intentionally excluded from the portable Linux production image.
+surya = [
+    "surya-ocr==0.17.0",
+    "transformers>=4.56.1,<5",
+]
+# MLX executes Whisper on the Apple Silicon GPU and cannot run on the NAS.
+mac-transcription = [
+    "mlx-whisper>=0.4.3,<1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
+[project.scripts]
+info-triage-clean-text = "info_triage.utilities.text_cleaning:main"
+info-triage-resolve-urls = "info_triage.utilities.url_resolution:main"
+instagram-extract = "info_triage.extractors.instagram.cli:main"
+instagram-ocr-bench = "info_triage.extractors.instagram.bench:main"
+instagram-transcription-bench = "info_triage.extractors.instagram.transcription_bench:main"
+linkedin-extract = "info_triage.extractors.linkedin.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.uv]
+# rapidocr declares the GUI OpenCV distribution even though this application
+# deliberately uses the headless build. Avoid installing both distributions,
+# which provide the same cv2 module.
+override-dependencies = ["opencv-python; python_version < '3.0'"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["info_triage"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
