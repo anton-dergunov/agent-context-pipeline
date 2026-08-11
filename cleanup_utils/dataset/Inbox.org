@@ -1,0 +1,1705 @@
+#+TITLE: Inbox
+#+SUBTITLE: Capture buffer — raw material waiting to be filed; nothing lives here permanently
+
+Interview questions:
+Modern RAG and different approaches to RAG
+Memory systems with LLMs
+
+ChatGPT Work
+Claude Work
+
+Ask Claude/ChatGPT to design for me a better way to follow on the news in ML
+
+---
+
+https://www.boldvoice.com/
+
+---
+
+https://sites.research.google/trc/about/
+https://www.kaggle.com/docs/efficient-gpu-usage
+https://www.kaggle.com/code/jesperdramsch/getting-started-with-standard-gans-tutorial
+https://github.com/comfyanonymous/ComfyUI?tab=readme-ov-file
+https://comfyanonymous.github.io/ComfyUI_examples/flux/
+https://huggingface.co/hexgrad/Kokoro-82M
+
+---
+
+---
+
+TODO Explore free GPUs (alternative to Google Colab)
+- Google Colab: K80 Tesla/T4, GPU mem up to 16GB, Storage 15GB, Usage limit: Dynamic, Runtime: 12 hrs/session
+- Kaggle: K80 Tesla/T4, GPU mem up to 30GB, Persist. Storage 20GB, Usage limit: 33 hrs/week, Runtime: 12 hrs/session
+- Amazon SageMaker: Tesla T4, GPU mem up to 16GB, Persist. Storage 15GB, Usage limit: 8 hrs/24 hrs, Runtime: 4 hrs/session
+- Gradient by Paperspace: Quadro M4000, GPU mem up to 8GB, Persist. Storage 5GB, Usage limit: as available, Runtime: 6 hrs/session
+- Microsoft Azure for students?
+
+---
+
+https://iamirmasoud.com/2022/06/19/understanding-micro-macro-and-weighted-averages-for-scikit-learn-metrics-in-multi-class-classification-with-example/
+https://towardsdatascience.com/micro-macro-weighted-averages-of-f1-score-clearly-explained-b603420b292f/
+https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+
+https://zenodo.org/records/11071202
+
+https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
+https://docs.pytorch.org/audio/main/tutorials/audio_feature_extractions_tutorial.html
+https://docs.pytorch.org/audio/main/generated/torchaudio.transforms.MelSpectrogram.html
+
+https://www.lifewire.com/airpods-not-charging-5189106
+https://www.macrumors.com/how-to/one-airpod-not-charging-how-to-fix/
+https://support.apple.com/en-us/118531
+https://www.reddit.com/r/airpods/comments/qypmmw/airpods_pro_left_side_not_charging_help/
+
+https://colab.research.google.com/drive/1yrgm0JsIVUTFBdlYO5ZVkts0jQJq3xkz?usp=sharing
+https://kaitchup.substack.com/p/deepseek-r1-reinforcement-learning
+https://kaitchup.substack.com/p/notebooks
+
+https://pytorch.org/blog/finetune-llms/
+https://github.com/huggingface/peft
+https://stevhliu-peft-methods.hf.space/
+https://huggingface.co/docs/peft/main/en/index
+https://medium.com/nlplanet/a-full-guide-to-finetuning-t5-for-text2text-and-building-a-demo-with-streamlit-c72009631887
+
+https://arxiv.org/abs/2410.06205v1
+
+https://medium.com/a-little-stoic-wisdom/the-importance-of-wasting-time-e8e4e0c75136
+
+https://medium.com/ai-enthusiast/rethinking-text-generation-metrics-from-bleu-to-adversarial-evaluations-5de09200b8ca
+
+https://github.com/aucuparia/commons-category-downloader/blob/master/commons_category_downloader.sh
+
+https://medium.com/nlplanet/two-minutes-nlp-learn-the-rouge-metric-by-examples-f179cc285499
+https://medium.com/nlplanet/two-minutes-nlp-learn-the-bleu-metric-by-examples-df015ca73a86
+https://www.wikiwand.com/en/articles/BLEU
+https://huggingface.co/spaces/evaluate-metric/bleu
+
+https://github.com/huggingface/evaluate
+
+https://arxiv.org/abs/2301.04883
+https://arxiv.org/abs/1612.00837
+
+https://qwen.readthedocs.io/en/latest/getting_started/quickstart.html
+
+https://huggingface.co/Qwen/Qwen3-0.6B-Base
+https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct
+
+https://arxiv.org/abs/1606.08415
+https://medium.com/better-ml/relu-vs-gelu-d322422f5147
+
+https://docs.wandb.ai/guides/sweeps/define-sweep-configuration/
+
+https://www.kaggle.com/code/nadavbarak/pytorch-garbage-classification-deepchecks
+https://www.reddit.com/r/MachineLearning/comments/rxczzl/p_deepchecks_an_opensource_tool_for_high/
+https://sonercan-kalkan.medium.com/deepcheck-the-secret-weapon-for-debugging-and-validating-41f5f706bb35
+https://arxiv.org/abs/2203.08491
+https://github.com/deepchecks/deepchecks
+
+---
+
+https://www.hikejasper.com/Hiking-Athabasca-Falls-in-Jasper.html
+https://www.hikejasper.com/Hiking-Valley-of-the-Five-Lakes-in-Jasper.html
+https://youngwayfarer.com/jasper-national-park/
+https://thebanffblog.com/jasper-itinerary/
+https://www.banffjaspercollection.com/canadian-rockies/jasper/stories/48-hours-in-jasper/
+
+---
+
+https://www.youtube.com/@WelchLabsVideo/videos
+https://www.youtube.com/@umarjamilai/videos
+
+---
+
+Label smoothing
+Beam search
+Checkpoint averaging
+
+---
+
+https://openai.com/research/index/
+https://openai.com/index/hierarchical-text-conditional-image-generation-with-clip-latents/
+
+https://poloclub.github.io/
+https://www.alexkarpekov.com/
+https://pypi.org/project/jiwer/
+bleu metric
+https://medium.com/nlplanet/two-minutes-nlp-learn-the-bleu-metric-by-examples-df015ca73a86
+https://aclanthology.org/P02-1040.pdf
+https://medium.com/@piyushkashyap045/understanding-dropout-in-deep-learning-a-guide-to-reducing-overfitting-26cbb68d5575
+https://www.numberanalytics.com/blog/dropout-for-beginners-practical-guide
+https://www.facebook.com/share/p/16tyr3jF5V/?mibextid=wwXIfr
+
+---
+
+---
+
+https://nomads.com/
+
+---
+
+ai alignment
+
+---
+
+https://github.com/valeman/Transformers_And_LLM_Are_What_You_Dont_Need
+
+---
+
+https://www.linkedin.com/posts/emollick_huh-looks-like-plato-was-right-a-new-paper-activity-7331511092277370883-3Ba3
+
+---
+
+"The Courage to Be Disliked" is a book written by Ichiro Kishimi and Fumitake Koga.
+
+Here are 12 lessons from the book:
+
+1. Individual Responsibility: The book emphasizes the importance of taking responsibility for one's own life and choices, rather than blaming external circumstances or others.
+
+2. Freedom to Choose: It teaches that individuals have the freedom to choose their responses to situations, and this power of choice is fundamental to personal happiness and well-being.
+
+3. Overcoming Past Traumas: The book explores the idea that individuals have the ability to overcome past traumas and move forward by changing their perspectives and reactions to those experiences.
+
+4. Living in the Present: "The Courage to Be Disliked" advocates for living in the present moment, without being overly influenced by past events or constantly worrying about the future.
+
+5. Acceptance of Others: It encourages accepting others as they are without the need to seek constant approval or validation, promoting healthier relationships.
+
+6. Understanding Inferiority and Superiority Complexes: The book delves into Alfred Adler's psychology, explaining how both inferiority and superiority complexes can hinder personal growth and how to overcome them.
+
+7. Social Interest and Community: It discusses the importance of social interest - caring about the well-being of others - and how building a sense of community contributes to a more fulfilling life.
+
+8. Letting Go of Recognition: The book challenges the desire for recognition from others, proposing that true contentment comes from within and doesn't rely on external validation.
+
+9. Breaking Free from the Past: Readers are encouraged to break free from the influence of past experiences that may be limiting their potential and hindering personal development.
+
+10. Embracing Imperfection: The book promotes the idea that it's okay to be imperfect and that embracing one's flaws is an essential part of personal growth and self-acceptance.
+
+11. Equality in Relationships: It discusses the importance of equal and respectful relationships, where individuals are not dominated or dominated by others, fostering healthier connections.
+
+12. Happiness as a Choice: "The Courage to Be Disliked" underscores the concept that happiness is a choice, and individuals can actively choose to live a more fulfilling and positive life.
+
+These lessons draw from Adlerian psychology and philosophy, as presented in the book. They offer insights into achieving personal growth, cultivating meaningful relationships, and finding happiness by adopting a courageous and responsible mindset.
+
+Book: https://amzn.to/3Sp93vG
+
+---
+
+https://github.com/davidrmiller/docstring-corpus
+
+https://github.com/LexPredict/contracts
+
+---
+
+https://projects.iq.harvard.edu/stat110/about
+
+http://work.caltech.edu/telecourse
+
+https://towardsdatascience.com/@kirilldaniluk
+
+https://erikbern.com/
+
+---
+
+Absolute Zero: Reinforced Self-play Reasoning with Zero Data
+
+Zhao et al.: https://arxiv.org/abs/2505.03335
+
+---
+
+https://christianjmills.com/series/notes/cuda-mode-notes.html
+
+https://umarjamil.org/videos
+
+https://youtube.com/playlist?list=PLkt2uSq6rBVctENoVBg1TpCC7OQi31AlC&si=iTtj3yfVie-OgdRB
+CS231n 2016 (old, find more recent material)
+
+---
+
+https://www.youtube.com/watch?v=6p0wS9aGnKc&list=PLAtdGF0-xVNamOA89BRbY00GFlvMUAvWO&index=2
+https://www.youtube.com/@jbstatistics/videos
+
+---
+
+https://deeplizard.com/courses
+
+---
+
+https://github.com/stephencwelch/self_driving_cars
+https://www.welchlabs.com/
+https://www.youtube.com/@WelchLabsVideo/videos
+
+---
+
+TODO Sebastian Raschka DL course
+https://www.youtube.com/watch?v=H2XgdND0DV4&ab_channel=SebastianRaschka
+
+---
+
+BEIR Benchmark: The BEIR (Benchmarking IR) challenge provides a collection of test datasets covering various domains, including e-commerce, COVID-19 statistics, personal finance, and more1. These datasets come with queries, documents, and relevancy judgments annotated by human experts.
+
+Amazon ESCI Dataset: This dataset is used for product search and includes queries, documents, and relevancy judgments
+
+---
+
+https://opensearch.org/blog/semantic-science-benchmarks/
+https://github.com/Agrover112/awesome-semantic-search
+https://github.com/rom1504/awesome-semantic-search
+http://iswc2012.semanticweb.org/sites/default/files/76500270.pdf
+https://arxiv.org/html/2410.21549v1
+https://arxiv.org/abs/2410.21549
+
+---
+
+https://www.deeplearning.ai/short-courses/evaluating-debugging-generative-ai/
+
+---
+
+https://www.linkedin.com/pulse/co-occurrence-tf-idf-collaborative-filtering-mikhail-shakhray-quglf/?trackingId=2 kpRLHjgrNBv2QalZww1zAw%3D%3D
+
+---
+
+https://openreview.net/forum?id=BZ5a1r-kVsf
+https://huggingface.co/docs/transformers/main/en/model_doc/ijepa
+https://ai.meta.com/blog/yann-lecun-ai-model-i-jepa/
+
+---
+
+---
+
+https://towardsdatascience.com/understanding-embeddings-in-machine-learning-a3ef06a2b7a1
+https://www.analyticsvidhya.com/blog/2020/03/pretrained-word-embeddings-nlp/
+http://jalammar.github.io/illustrated-word2vec/
+Mikolov, T., Chen, K., Corrado, G., & Dean, J. (2013). Efficient Estimation of Word Representations in Vector Space. arXiv preprint arXiv:1301.3781.
+Pennington, J., Socher, R., & Manning, C. (2014). GloVe: Global Vectors for Word Representation. In Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing (EMNLP).
+Bojanowski, P., Grave, E., Joulin, A., & Mikolov, T. (2017). Enriching Word Vectors with Subword Information. Transactions of the Association for Computational Linguistics, 5, 135-146.
+
+---
+
+https://towardsdatascience.com/autoencoders-an-ultimate-guide-for-data-scientists-dca3e56a070e?
+
+---
+
+Create a note (and Todo? with a link) about YouTube playlists
+
+6. Sebastian Raschka, PhD LLMs and just start with it and then also look into Karpathy's GPT2 implementation.
+
+9. Yannic Kilcher - If you're looking for new research papers, his YouTube channel is your go-to place.
+
+---
+
+TODO Create a list of blog posts from this below
+Google AI, Pinterest Engineering, Meta AI, Netflix Research, Amazon Science, AWS ML, Microsoft Research, Snapchat Engineering, Uber Engineering, Doordash Eng blog.
+
+https://github.com/mlabonne/llm-datasets
+
+https://huggingface.co/course/chapter1/1
+
+---
+
+https://www.youtube.com/@TechVizTheDataScienceGuy/videos
+https://www.youtube.com/@DataIndependent/videos
+
+---
+
+From reading channel
+
+Found this interesting book that compiles a lot of LLM related learning/resources at a foundational level.
+Foundations of Large Language Models
+https://arxiv.org/abs/2501.09223
+
+Some readings on detecting bad tokens or undertrained tokens
+As this came up an issue wanted to share some readings (and collect others too)
+[2405.05417] Fishing for Magikarp: Automatically Detecting Under-trained Tokens in Large Language Models (arxiv.org)
+In this case here under-trained doesn't mean 'bad token that will break response' but rather may affect quality of what LLM says.
+https://arxiv.org/abs/2405.05417
+tiktoken/tiktoken_ext/openai_public.py at main · openai/tiktoken (github.com) [inf]
+https://github.com/openai/tiktoken/blob/main/tiktoken_ext/openai_public.py
+Let's build the GPT Tokenizer (youtube.com) [BPE]
+https://www.youtube.com/watch?v=zduSFxRajkE&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=10
+
+Prompts and jail breaks
+https://github.com/verazuo/jailbreak_llms
+
+Lessons after a half-billion GPT tokens
+An interesting read, touches on a number of things synthesis, PDS and even reasoning is doing.
+In particular interesting points
+- increasing number of results doesn't help with summarizing 'more'
+- semantic search is sometimes unclear to users regarding why they see this result (tidbits would be great
+https://kenkantzer.com/lessons-after-a-half-billion-gpt-tokens/
+https://news.ycombinator.com/item?id=40015185
+
+https://arxiv.org/html/2402.17764v1
+
+In Search of Needles in a 11M Haystack: Recurrent Memory Finds What LLMs Miss
+https://arxiv.org/abs/2402.10790
+
+The pain points of building a copilot
+https://austinhenley.com/blog/copilotpainpoints.html
+preprint is here https://arxiv.org/abs/2312.14231
+
+AI is about to completely change how you use computers | Bill Gates (gatesnotes.com)
+https://www.gatesnotes.com/AI-agents?WT.mc_id=20230907090000_AI-Agents_BG-EM_&WT.tsrc=BGEM
+
+https://platform.openai.com/docs/assistants/how-it-works
+
+https://github.com/bazingagin/npc_gzip
+
+https://github.com/microsoft/semantic-kernel
+
+Patterns Hidden Inside the Org Chart (microsoft.com)
+https://www.microsoft.com/en-us/worklab/patterns-hidden-inside-the-org-chart
+
+https://arxiv.org/abs/2211.02767
+
+https://codefol.io/posts/the-forty-year-programmer/
+
+https://how.complexsystems.fail
+
+https://opensource.googleblog.com/2022/06/Vectorized%20and%20performance%20portable%20Quicksort.html
+
+https://link.springer.com/content/pdf/10.1007%2F978-3-540-24676-3_1.pdf
+https://dl.acm.org/doi/pdf/10.1145/1877766.1877767
+https://docs.lib.purdue.edu/cgi/viewcontent.cgi?article=1404&context=ccpubs
+https://r-libre.teluq.ca/601/1/simdcompressionarxiv.pdf
+https://www.microsoft.com/en-us/research/publication/bitfunnel-revisiting-signatures-search/
+
+https://harpers.org/archive/1932/10/in-praise-of-idleness/
+
+https://agkn.wordpress.com/category/data-science/sketch-of-the-day/
+
+https://agkn.wordpress.com/2012/09/12/set-operations-on-hlls-of-different-sizes/
+https://agkn.wordpress.com/2012/10/12/doubling-the-size-of-an-hll-dynamically/
+https://agkn.wordpress.com/2012/11/12/doubling-the-size-of-an-hll-dynamically-recovery/
+https://agkn.wordpress.com/2013/02/19/doubling-the-size-of-an-hll-dynamically-unions/
+https://agkn.wordpress.com/2013/04/30/doubling-the-size-of-an-hll-dynamically-extra-bits/
+
+The effects of remote work on collaboration among information workers
+https://www.nature.com/articles/s41562-021-01196-4
+... Here, we use rich data on the emails, calendars, instant messages, video/audio calls and workweek hours of 61,182 US Microsoft employees over the first six months of 2020 to estimate the causal effects of firm-wide remote work on collaboration and communication. Our results show that firm-wide remote work caused the collaboration network of workers to become more static and siloed, with fewer bridges between disparate parts. Furthermore, there was a decrease in synchronous communication and an increase in asynchronous communication. Together, these effects may make it harder for employees to acquire and share new information across the network.
+
+How To Ask Questions The Smart Way
+http://www.catb.org/~esr/faqs/smart-questions.html
+
+How To Answer Questions in a Helpful Way
+http://www.catb.org/~esr/faqs/smart-questions.html
+
+https://en.wikipedia.org/wiki/Actor_model
+
+https://www.intelligentchange.com/blogs/read/what-is-impostor-syndrome-how-to-overcome-it
+
+``Everyone wants to do the model work, not the data work'': Data Cascades in High-Stakes AI (storage.googleapis.com)
+https://storage.googleapis.com/pub-tools-public-publication-data/pdf/0d556e45afc54afeb2eb6b51a9bc1827b9961ff4.pdf
+
+https://libbyapp.com/ for free books and audio
+
+Atomic Habits
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/dpheh0hwn367rxum/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvdnBzZ1hrUFVndkNhWFJZaGY5UUxhbQ==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/8ghqhohpn4d5k6fk/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvb1BINVltZlN4RDEzS3RHa0NTR2JTZQ==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/p8heh9h5ov67rduq/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvZkRiYWtaelRIejdwWkNlMzlmd3ZUdA==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/x0hph6hd0g27kdf5/aHR0cHM6Ly9qYW1lc2NsZWFyLmNvbS9hdG9taWMtaGFiaXRzL2VuZG5vdGVz
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/dpheh0hwn367dmbm/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvZlF5eEQ0VXBtdXY3YXNDMkNvTjd0Qg==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/e0hph7hwoxvnmnh8/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvaDJQY1k3cXlldXlxR2dkSnNKbVFqZg==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/7qh7h8hp5gl4d0az/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvNTd2dlpKNEZLVlQ5aGVpQmRHZXI1aw==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/owhkhqhldz98xrcv/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvbm56V3dHbXAyb0prdEozZ3V1VG82VA==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/z2hghnhrxg6d5esp/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvcnZwdWZMS2V5dk0xa3BuQTFpcnJ0NA==
+https://click.convertkit-mail4.com/0vumg2vpv7ugud0m2pi0/p8heh9h5ov67rgbq/aHR0cHM6Ly9kb3dubG9hZC5maWxla2l0Y2RuLmNvbS9kL3Y4U3BFdHUxM21tSndFWFRhYUdjcUgvcXRzVDM1ZEZKZE5CWkdqek5XemNZYQ==
+
+https://vlang.io
+
+Eisenhower matrix for prioritising tasks with a twist
+https://www.toolshero.com/personal-development/eisenhower-matrix/
+This is a well known technique for deciding which tasks to do and in what order.
+You will see it often in various productivity and time management books/blogs.
+Here's the twist: try working on Non-Urgent & Important tasks first.
+Rationale:
+- Urgent tasks never end. If you keep spending all the time on them - you won't get to non-urgent & important ones at all.
+- Non-urgent tasks tend to become urgent, but you will have less time and less room for error when doing them.
+- Urgency exists mostly in our mind.
+- Whatever we saw recently or have been thinking about has a tendency to look urgent and important.
+- By taking a pause and not jumping to do the first thing that popped into you inbox you can avoid this trap.
+- Finally, non-urgent & important tasks tend to have much bigger impact.
+But what should do with the urgent tasks?
+- Communicate with other people to clarify if the task is actually urgent.
+- Sometimes we assume the urgency even if it was not intended.
+- Keep a todo list. Put all tasks in there, review it every day. Take a pause between putting task in the list and doing it.
+- Do not invest full effort in the urgent tasks that are not important to you.
+- Try to understand the consequences of not doing them. What's the worst that could happen?
+
+https://xyproblem.info/ aka "What is the problem you are trying to solve?"
+also https://jvns.ca/blog/good-questions/
+
+Bag of Tricks for Efficient Text Classification
+https://arxiv.org/pdf/1607.01759.pdf
+https://arxiv.org/pdf/1612.03651.pdf
+
+https://www.cs.cornell.edu/courses/cs6120/2020fa/self-guided/
+
+https://www.microsoft.com/en-us/research/publication/towards-a-theory-of-software-developer-job-satisfaction-and-perceived-productivity/
+
+Embedding-based Retrieval in Facebook Search
+https://www.youtube.com/watch?v=OqKNKUjgujU
+https://arxiv.org/pdf/2006.11632.pdf
+
+https://www.industrialempathy.com/posts/design-docs-at-google/
+
+https://ai.facebook.com/blog/private-prediction-methods-a-systematic-study (https://arxiv.org/pdf/2007.05089.pdf)
+
+Processing South Asian Languages Written in the Latin Script: the Dakshina Dataset (2020)
+https://www.aclweb.org/anthology/2020.lrec-1.294/
+https://github.com/google-research-datasets/dakshina
+Latin script keyboards for South Asian languages with finite-state normalization (2019)
+https://www.aclweb.org/anthology/W19-3114.pdf
+
+https://blog.twitter.com/engineering/en_us/topics/infrastructure/2020/reducing-search-indexing-latency-to-one-second.html
+
+https://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf
+
+---
+
+Simon J.D. Prince has released *Understanding Deep Learning* - a free, modern textbook that explains the foundations of deep learning with clarity and intuition. Written by a leading researcher, it's openly available online.
+
+[https://udlbook.github.io/udlbook/](https://udlbook.github.io/udlbook/)
+
+---
+
+"We Wont be Missed: Work and Growth in the Era of AGI"
+
+Pascual Restrepo: https://conference.nber.org/conf_papers/f227505.pdf
+
+---
+
+Google literally explains the right way to think about GPUs. FREE Guide Frames Your Thinking about Nvidia GPU's
+
+- https://jax-ml.github.io/scaling-book/gpus/
+
+---
+
+All-in-One RAG framework that can handle text, images, tables and equations in one system.
+
+RAG-Anything processes multimodal content that traditional RAG completely miss.
+
+100% open-source.
+
+- https://github.com/HKUDS/RAG-Anything
+
+---
+
+Teaching LLMs to Plan: Logical Chain-of-Thought Instruction Tuning for Symbolic Planning
+
+Verma et al.: https://arxiv.org/abs/2509.13351
+
+---
+
+A Practitioner's Guide to Multi-turn Agentic Reinforcement Learning
+(UC San Diego, October 2025)
+
+Paper: [https://arxiv.org/abs/2510.01132](https://arxiv.org/abs/2510.01132)
+
+Abstract:
+"We study what actually works and what doesn't for training large language models as agents via multi-turn reinforcement learning. Despite rapid progress, existing frameworks and definitions are fragmented, and there is no systematic formulation or analysis of which design choices matter across tasks. We address this gap by first breaking down the design space into three inter-related pillars -- environment, reward, and policy -- and empirically derive a recipe for training LLM agents in situated textual domains. In particular, we test TextWorld and ALFWorld, popular domains for testing situated embodied reasoning, as well as SWE-Gym for more software engineering style tasks. (i) For the environment, we analyze the impacts of task complexity in terms of sizes of the state and action spaces as well as optimal solution length, finding that even simple environments within a domain can provide signal on how well an agent can generalize to more complex tasks. (ii) For the reward, we ablate relative reward sparsity, observing that while dense turn-level rewards accelerate training, performance and stability is highly dependent on the choice of RL algorithm. (iii) And for the agent's policy, we explore the interplay between reward sparsity and biased (PPO, GRPO) and unbiased (RLOO) policy gradient methods in addition to showing how to find the optimal Supervised Fine-tuning (SFT) to RL training ratio given a fixed budget. We distill these findings into a training recipe that guides co-design across the three pillars, facilitating research and practical efforts in multi-turn agentic RL"
+
+GitHub: [https://github.com/pearls-lab/meow-tea-taro](https://github.com/pearls-lab/meow-tea-taro)
+
+---
+
+No LLM Solved Yu Tsumura's 554th Problem
+
+Simon Frieder, William Hart
+
+Oxford University, Cambridge University 2025
+https://arxiv.org/abs/2508.03685
+https://yutsumura.com/category/group-theory/
+
+August 2025: Oxford and Cambridge mathematicians publish a paper entitled "No LLM Solved Yu Tsumura's 554th Problem".
+
+They gave this problem to o3 Pro, Gemini 2.5 Deep Think, Claude Opus 4 (Extended Thinking) and other models, with instructions to "not perform a web search to solve the problem". No LLM could solve it.
+
+The paper smugly claims: "We show, contrary to the optimism about LLM's problem-solving abilities, fueled by the recent gold medals that were attained, that a problem exists-Yu Tsumura's 554th problem-that a) is within the scope of an IMO problem in terms of proof sophistication, b) is not a combinatorics problem which has caused issues for LLMs, c) requires fewer proof techniques than typical hard IMO problems, d) has a publicly available solution (likely in the training data of LLMs), and e) that cannot be readily solved by any existing off-the-shelf LLM (commercial or open-source)."
+
+(Apparently, these mathematicians didn't get the memo that the unreleased OpenAI and Google models that won gold on the IMO are significantly more powerful than the publicly available models they tested. But no matter.)
+
+October 2025: GPT-5 Pro solves Yu Tsumura's 554th problem in 15 minutes.
+
+Lee Sedol moment is coming for many.
+
+---
+
+AI capabilities have been steadily improving across a wide range of skills, and show no sign of slowing down in the near term: https://epoch.ai/data-insights/ai-capabilities-over-past-year
+
+Across benchmarks covering coding, math, scientific knowledge, common sense and visual reasoning, and more, state-of-the-art models have improved by 20 to 50 percentage points in the last year.
+
+Revenues at frontier AI companies have more than tripled in the past year.
+
+---
+
+Self-Adapting Language Models
+
+Zweiger et al.: https://arxiv.org/abs/2506.10943
+
+---
+
+5 Chain-of-Thought Prompting (2022)
+"Think step by step" = 3x better reasoning
+https://lnkd.in/dCNJwTrD
+
+6 Scaling Laws for Neural Language Models (2020)
+Math behind "bigger = better"
+-> Predictable power laws guide AI investment
+https://lnkd.in/dfnniFVB
+
+7 Learning to Summarize with Human Feedback (2020)
+Introduced RLHF - the secret behind ChatGPT's helpfulness
+https://lnkd.in/dwkWVrUP
+
+---
+
+Andrej Karpathy released a library yesterday that already has
+13.6k 🌟 stars today.
+
+Nanochat - ChatGPT for USD 100.
+
+Link to repo and a detailed walkthrough of the nanochat speedrun
+https://github.com/karpathy/nanochat
+
+":(~4 hours on an 8XH100 node), you can train a little ChatGPT clone that you can kind of talk to, and which can write stories/poems, answer simple questions. About ~12 hours surpasses GPT-2 CORE metric. As you further scale up towards ~$1000 (~41.6 hours of training), it quickly becomes a lot more coherent and can solve simple math/code problems and take multiple choice tests. E.g. a depth 30 model trained for 24 hours (this is about equal to FLOPs of GPT-3 Small 125M and 1/1000th of GPT-3) gets into 40s on MMLU and 70s on ARC-Easy, 20s on GSM8K, etc."
+
+Diffusion Transformers with Representation Autoencoders
+
+Zheng et al.: https://arxiv.org/abs/2510.11690v1
+
+Attention Sinks and Compression Valleys in LLMs are Two Sides of the Same Coin
+
+"Through experiments across several models (410M-120B parameters), we confirm that when the beginning-of-sequence token develops extreme activation norms in the middle layers, both compression valleys and attention sinks emerge simultaneously."
+
+"we posit that Transformer-based LLMs process tokens in three distinct phases: (1) broad mixing in the early layers, (2) compressed computation with limited mixing in the middle layers, and (3) selective refinement in the late layers."
+
+Лори Сантос - Курс позитивной психологии
+Халед Хоссейни - Бегущий за ветром
+
+Роберт Грин - 48 законов власти
+Нассим Талеб - Черный лебедь
+Нассим Талеб - Антихрупкость
+
+https://www.instagram.com/reel/DO2wtRYjbhk/?igsh=cjJkNXVhd2o3Ymlo
+
+LLMs Can Get "Brain Rot"!
+
+Shuo Xing, Junyuan Hong, Yifan Wang, Runjin Chen, Zhenyu Zhang, Ananth Grama, Zhengzhong Tu, Zhangyang Wang
+
+Texas A & M University, University of Austin, Texas, Purdue University 2025
+https://www.arxiv.org/abs/2510.13928
+https://llm-brain-rot.github.io/
+
+Continual pretraining on junk, high-engagement web text causes lasting "cognitive decline" in LLMs, reducing reasoning, long-context, and safety performance.
+
+The main failure mode is thought-skipping, where models skip reasoning steps and adopt "dark" personality traits like narcissism and low agreeableness.
+
+Even strong mitigations such as reflection or further fine-tuning only partially reverse the damage, making data curation a critical safety concern for AI training.
+
+Notes:
+
+Imagine if AI systems could slowly lose their intelligence-much like how humans might experience cognitive decline from a diet of mental junk food. That's the premise of the "LLM Brain Rot Hypothesis", a study exploring what happens when large language models (LLMs) are continually exposed to low-quality internet text.
+
+The researchers trained several models on real data from Twitter/X, carefully dividing the text into two types: "junk" (high-engagement but low semantic value) and clean control data (balanced, meaningful content). Despite identical training scales and methods, the models fed with junk data showed measurable cognitive decay-they became worse at reasoning, long-context comprehension, and safety alignment, while exhibiting higher levels of "dark traits" such as narcissism or manipulativeness.
+
+The decline wasn't sudden-it showed a dose-response effect: the more junk data a model consumed, the more its reasoning abilities degraded. Detailed analysis uncovered the main symptom: "thought-skipping"-a tendency to truncate or skip logical reasoning steps. Even when researchers later retrained the models with clean data and instruction tuning, the damage was only partially reversible, suggesting a deeper representational drift within the model's internal structure.
+
+Perhaps most strikingly, tweet popularity-not semantic quality-proved a stronger predictor of brain rot, implying that social media virality metrics may be toxic to machine cognition.
+
+The findings carry an important message: data quality is not just a performance issue but a safety issue. As AI systems are continually updated with online data, maintaining their "cognitive health" may require routine monitoring-just like regular checkups for the human brain.
+
+1. The work tested only four models, and while their degradation was consistent, the sample size is small. Larger, more diverse architectures may respond differently to low-quality data.
+
+2. The categorization of junk vs. clean data is operationalized using metrics like engagement and semantic quality, which are somewhat subjective. "Junk" may overlap with humor, satire, or colloquial speech that still carries informational value.
+
+3. The observed "cognitive decay" is based on benchmark performance (e.g., ARC-Challenge, RULER-CWE). These tests may not capture all facets of reasoning or adaptability. A drop in benchmark scores doesn't necessarily equate to a holistic cognitive decline.
+
+4. The study focuses on short-term continual pretraining effects. It's unclear how long or how much exposure is needed before "rot" stabilizes, reverses, or becomes irreversible over longer timescales.
+
+5. The apparent irreversibility ("partial healing") may depend on the pretraining pipeline. More advanced or specialized fine-tuning regimes could potentially restore performance more effectively than the study tested.
+
+6. The findings are tied to Twitter/X data, which is unusually noisy and engagement-driven. Other low-quality sources (e.g., Reddit, comment threads) might produce different degradation patterns.
+
+7. Terms like "psychopathy" or "narcissism" are anthropomorphic metaphors derived from model output traits, not literal cognitive pathologies. They illustrate alignment drift, not emotional or self-aware states.
+
+In short: while the study compellingly highlights that *bad data can make smart models stupid*, its conclusions are bounded by experimental design. The metaphor of "brain rot" is illuminating-but still a simplified analogy for representational degradation rather than a biological or conscious decline.
+
+In essense, this study is a wake-up call for AI practitioners. The future of intelligent systems may depend less on scaling compute
+or parameters and more on maintaining the "mental hygiene"
+of the data that teaches them how to think.
+
+StreamingVLM: Real-Time Understanding for Infinite Video Streams
+
+Ruyi Xu, Guangxuan Xiao, Yukang Chen, Liuning He, Kelly Peng, Yao Lu, Song Han
+
+MIT, NVDIA, First Intellegence 2025
+https://arxiv.org/abs/2510.09608
+https://huggingface.co/papers/2510.09608
+https://github.com/mit-han-lab/streaming-vlm
+
+New NVIDIA paper - StreamingVLM lets a vision language model follow endless video in real time while keeping memory and latency steady.
+
+It wins 66.18% of head-to-head judgments against GPT-4o mini and runs at 8 FPS on 1 NVIDIA H100.
+
+The big deal is that it makes real-time, infinite video understanding practical, with steady latency, built-in memory, and clear gains over strong baselines.
+
+Old methods either look at everything and slow down a lot, or use short windows and forget what happened.
+
+This model keeps a small cache with fixed "anchor" text, a long window of recent text, and a short window of recent vision.
+
+When it drops old tokens, it shifts position indexes to keep them in a safe range so generation stays stable.
+
+Notes:
+
+Think of a digital assistant that could watch a live event endlessly - a concert, a traffic feed, or even a rocket launch - and describe it in real time without slowing down or forgetting earlier moments. That's the challenge researchers addressed with StreamingVLM, a new vision-language model designed to understand *infinite* video streams efficiently.
+
+Traditional models struggle with this task. If they try to process an entire video at once, their computational cost explodes; if they use sliding windows, they lose context or become too slow. StreamingVLM solves this by maintaining a "compact memory" that selectively keeps key visual and textual information - just enough to stay coherent while keeping pace with the stream.
+
+To train this ability, the researchers fine-tuned the model on short, overlapping video segments that simulate continuous streaming, so it learns to "think" like it's watching forever. The result is impressive: on a new long-video benchmark called Inf-Streams-Eval (with videos averaging over two hours), StreamingVLM outperformed GPT-4O mini two-thirds of the time and maintained real-time speed (8 frames per second) even on a single NVIDIA H100 GPU. Surprisingly, this same streaming-oriented training also made the model *better* at general video question answering, despite not being trained for that specifically.
+
+⚠️ Caveats
+
+While StreamingVLM represents a leap forward, several challenges remain.
+
+* Its "infinite stream" capability has only been tested under controlled conditions - real-world tasks like autonomous driving or drone navigation would require higher frame rates and far more chaotic environments.
+
+* The compact KV cache design demands careful tuning: too small, and the model forgets context; too large, and latency increases.
+
+* The Inf-Streams-Eval benchmark is a valuable start, but continuous real-world data is far messier than long YouTube-like videos.
+
+* The simple supervised fine-tuning method might not yet handle reasoning across extremely long or dynamic sequences.
+
+Implications
+
+If refined, StreamingVLM could mark the beginning of *continuous AI perception* - models that don't just analyze videos, but stay present in the unfolding world.
+
+* It paves the way for energy-efficient, low-latency AI that runs at the edge, from wearable devices to industrial robots.
+
+* It hints at a broader principle: teaching AI to "perceive continuously" may enhance reasoning and temporal coherence, even in unrelated tasks.
+
+* This could eventually enable autonomous agents and real-time digital companions that understand what's happening *as it happens* - a key step toward bridging perception and cognition in artificial intelligence.
+
+---
+
+DeepSeek released DeepSeek OCR model, but the paper kinda steals the show here.
+
+This paper brought up an interesting finding that using vision tokens can be much more efficient to represent text content than discrete text tokens. With 640x640 px resolution (100 vision tokens), you can almost losslessly encode text that would be tokenized into 1000 text tokens, that's 10x compression rate.
+
+This might suggest:
+
+1. Semantic similarity corresponds to spatial proximity
+
+2. Document structure emerges from continuous gradients
+
+3. Information density varies smoothly across the space
+
+We might use this to create unlimited context with a compression slider for in context memory fidelity.
+
+Also I wonder what happens if we train a text only LLM with text image data and vision encoders. Maybe diffusion model is the ultimate form for LLMs?
+
+Paper: https://lnkd.in/eGcj9AUT
+
+---
+
+Transformers learn in-context by gradient descent
+
+Oswald et al.: https://arxiv.org/abs/2212.07677
+
+---
+
+Meta just rewrote how Transformers think.
+
+They built something called The Free Transformer and it breaks the core rule every GPT model has lived by since 2017.
+
+For 8 years, Transformers have been blindfolded forced to guess the next token one at a time, no inner plan, no latent thought.
+
+Meta gave it one.
+
+They added random latent variables inside the decoder so the model can secretly decide how it wants to generate before it starts talking.
+
+It's like giving GPT a hidden mind.
+
+Result:
+
+- Smarter reasoning
+- 3% compute overhead
+- Outperforms larger baselines on GSM8K, MMLU, and HumanEval
+
+It's the first Transformer that doesn't just predict it intends.
+
+- arxiv. org/abs/2510.17558v1
+
+___
+
+ANOVA in R! in ONE LINE OF CODE!
+
+ggstatsplot::ggbetweenstats(ISLR::Wage, race, wage)
+
+Watch the video for more details: [https://youtu.be/JDGtLG0Tceo](https://youtu.be/JDGtLG0Tceo)
+
+___
+
+Words That Make Language Models Perceive
+
+Wang et al.: https://arxiv.org/abs/2510.02425
+
+___
+
+Less Is More: Tiny Recursive Model (TRM) Paper Explained (AI Papers Academy, October 2025)
+
+"In this post, we break down the paper "Less is More: Recursive Reasoning with Tiny Networks", which introduced the Tiny Recursive Model (TRM), a simpler version of the Hierarchical Reasoning Model (HRM), that outperforms HRM and even top reasoning LLMs with a tiny 7M parameters model on challenging reasoning benchmarks.
+
+A couple of months back, we've reviewed a new architecture called the Hierarchical Reasoning Model (HRM), that with just 27 million parameters, was able to beat top large language models (LLMs) on some of the most challenging reasoning benchmarks.
+
+Now, a new paper titled Less is More: Recursive Reasoning with Tiny Networks introduces a new model architecture inspired by the Hierarchical Reasoning Model, called Tiny Recursive Model (TRM)
+
+With only 7 million parameters, and a simpler architecture, TRM achieves significant improvements over HRM.
+
+As a quick reminder, current Transformer-based large language models rely on chain-of-thought reasoning. Given an input prompt, the model generates tokens that represent its reasoning process, which are fed back into the model, and repeated until it produces a final answer.
+
+However, sometimes that's not enough. For example, on ARC-AGI 2, Gemini 2.5 Pro achieves only 4.9% accuracy. Additionally, generating long chain-of-thought traces also comes with a cost. Many forward passes with a growing context window make the process slow and expensive.
+
+Instead, the Hierarchical Reasoning Model and Tiny Recursive Model take a different approach, based on latent reasoning.
+
+Given a prompt, the model performs its entire reasoning process internally, and outputs only the final answer, without the reasoning traces. While this sounds like a standard RNN, we'll see how it's different when diving deeper into the architecture. But before diving into the architecture, let's look at the results."
+
+[https://aipapersacademy.com/tiny-recursive-model/](https://aipapersacademy.com/tiny-recursive-model/)
+
+---
+
+Stanford just did something wild.
+
+They put their entire Graduate-level AI systems course on YouTube.
+No paywall. No signup. Just open access.
+
+It's CS336: Language Modeling from Scratch (Spring 2025),
+the same course that teaches how to build large language models, not just prompt them.
+
+Inside:
+
+- How tokenization, attention, and scaling laws actually work.
+- Writing GPU kernels and Triton code that make models fast.
+- Running distributed training across clusters.
+- Implementing MoE, RLHF, and DPO from the ground up.
+- Evaluating LLMs.
+
+It's the exact curriculum Stanford charges $7,570 for, now public.
+
+If you want to understand how modern AI is really built, start here:
+
+❱❱❱❱ Watch it free on YouTube: https://lnkd.in/ek_z84YV
+❱❱❱❱ Course site: https://lnkd.in/ezuSnvrg
+❱❱❱❱ Stanford Lectures: https://lnkd.in/eN-FRj62
+
+___
+
+Real Deep Research for AI, Robotics and Beyond
+
+Xueyan Zou, Jianglong Ye, Hao Zhang, Xiaoyu Xiang, Mingyu Ding, Zhaojing Yang, Yong Jae Lee, Zhuowen Tu, Sifei Liu, Xiaolong Wang
+
+UC San Diego, NVDIA, Meta, UW Madison, UNC 2025
+https://arxiv.org/abs/2510.20809
+
+Instead of memorizing patterns, this system teaches AI to form internal hypotheses test them, refine them, reuse them across everything from reasoning benchmarks to robotic control.
+
+The results are absurd:
+
+-> Beats GPT-4 and Gemini 2.5 on 40+ reasoning tasks
+-> 3× faster at real-world robotics loops
+-> Learns across domains without fine-tuning
+
+This isn't another "bigger model = smarter AI" story.
+
+It's the first sign of machines that do their own research.
+
+Notes:
+
+As research in AI and robotics accelerates-now exceeding 10,000 papers a year-the challenge is no longer just creating knowledge, but keeping up with it. The Real Deep Research (RDR) framework proposes a solution: a generalizable pipeline that maps emerging trends, surfaces cross-domain opportunities, and helps researchers identify new directions for exploration.
+
+Its promise is compelling. Tools like RDR could democratize insight by making it easier for smaller labs and independent scholars to navigate vast research spaces. They can accelerate discovery, reveal unexpected links across disciplines, and even inform strategic decisions by institutions and policymakers. In a sense, they help humanity see the shape of its own evolving knowledge.
+
+But RDR also raises important caveats. Automated analyses can reflect the biases of the literature they ingest-reinforcing popular topics while overlooking unconventional ideas. They can detect surface-level trends yet miss the deeper conceptual shifts that only human intuition can discern. And as such tools expand into other scientific fields, adaptation and human oversight become essential to avoid overreliance on algorithmic curation.
+
+The larger story here isn't just about automation-it's about *co-evolution. Systems like RDR may reshape how science progresses, blending data-driven synthesis with human creativity and judgment. The challenge will be ensuring that in this partnership, AI amplifies rather than narrows the horizons of discovery.
+
+---
+
+Rate Limiter system design
+https://www.facebook.com/share/r/1ViVEMPdG3/?mibextid=wwXIfr
+
+---
+
+You don't need a CS degree to build AI agents.
+These 12 free courses will teach you everything:
+
+1. Multi AI Agent Systems with CrewAI
+https://lnkd.in/gZ_mS38g
+-> Intro to multi-agent systems
+
+2. Practical Multi AI Agents and Advanced Use Cases with CrewAI
+https://lnkd.in/gp4vXURu
+-> Builds on foundational CrewAI skills
+
+3. AI Agents in LangGraph
+https://lnkd.in/ggNnSxx9
+-> LangGraph's execution model + architecture
+
+4. Long-Term Agentic Memory with LangGraph
+https://lnkd.in/g_FdFbj2
+-> Advanced memory handling for agents
+
+5. AI Agentic Design Patterns with AutoGen
+https://lnkd.in/g8yZq-8M
+-> Design and coordination best practices
+
+6. Evaluating AI Agents
+https://lnkd.in/gQ42zZTy
+-> Measurement and performance evaluation
+
+7. Event-Driven Agentic Document Workflows with LlamaIndex
+https://lnkd.in/g-3NghY5
+-> Automate document workflows with RAG + agents
+
+8. Build Apps with Windsurf's AI Coding Agents
+https://lnkd.in/geNuEgY8
+-> Code generation agents in practice
+
+9. Building Code Agents with Hugging Face
+https://lnkd.in/guVW2PRH
+-> Explore Hugging Face's agent capabilities)
+
+10. Building AI Browser Agents
+https://lnkd.in/g4WY5HrE
+-> Web-interacting agents
+
+11. DsPy: Build and Optimize Agentic Apps
+https://lnkd.in/gjzG5Ura
+-> Pythonic framework for optimizing agents
+
+12. MCP: Build Rich-Context AI Apps with Anthropic
+https://lnkd.in/g5XHJFR9
+-> Anthropic's take on context-rich agents
+
+---
+
+https://www.reddit.com/r/n8n/s/vDmtNAj3PN
+
+---
+
+Extropic just announced their first probabilistic computing chip - and it might redefine how AI runs.
+
+Instead of fighting thermal noise, their chip uses it as a feature.
+Each "p-bit" (probabilistic bit) randomly flips between 0 and 1 - controlled by local energy - and networks of p-bits physically perform probabilistic sampling. That means tasks like generative modeling or inference can happen directly in hardware rather than simulated on GPUs.
+
+Early claims:
+
+- ~10,000× less energy than top GPUs on small tests.
+
+- Comparable quality on simple generative tasks.
+
+- Operates at room temperature, in normal silicon.
+
+- Open tools for developers: THRML library (for simulation) and XTR-0 dev kit (with 2 X0 chips + CPU/FPGA).
+
+This could lead to a new class of thermodynamic computing - where hardware embodies the statistical nature of learning itself.
+
+https://extropic.ai/writing/inside-x0-and-xtr-0
+https://www.wired.com/story/how-extropic-plans-to-unseat-nvidia/
+https://www.wired.com/story/extropic-aims-to-disrupt-the-data-center-bonanza/
+
+---
+
+Language Models are Injective and Hence Invertible
+
+Nikolaou et al.: https://www.arxiv.org/abs/2510.15511
+
+Alibaba's Qwen team just showed how to teach language models to think with code - not just about it.
+
+One of the biggest frontiers in AI reasoning is when and how large models decide to use external tools like Python code interpreters. While OpenAI's o-series models quietly mastered this behind closed doors, this new NeurIPS 2025 paper from the Qwen team and collaborators, "Teaching Language Models to Reason with Tools", opens up a transparent path forward.
+
+They introduce CoRT (Code-Optimized Reasoning Training), a post-training framework that teaches large reasoning models (LRMs) to efficiently integrate code execution into their chain-of-thought. The key innovation is Hint-Engineering - a clever strategy where small, well-timed hints guide the model to offload heavy computation to code when it's most useful, rather than overthinking in text.
+
+The results are striking:
+
+- +4-8% accuracy boosts on five tough math reasoning benchmarks
+
+- 30-50% fewer tokens used compared to pure text reasoning
+
+- Achieved with just 30 high-quality, human-curated examples
+
+The framework blends supervised fine-tuning (SFT), rejection fine-tuning (RFT), and reinforcement learning (RL), aligning internal reasoning with deterministic code execution. More than just improving performance, it makes reasoning faster, cleaner, and more interpretable.
+
+This work pushes reasoning LLMs beyond imitation, toward genuine tool-augmented cognition.
+
+___
+
+Update to Sebastian Radschka's July article entlitled "The Big LLM Architecture Comparison"...
+
+"So, I just amended my "The Big LLM Architecture Comparison" with entry number 13!
+
+1 Full attention modules:
+
+As shown in the overview figure below, I grouped MiniMax-M2 with the other decoder-style transformer LLMs as it does not use the efficient lightning attention variant proposed in MiniMax-M1. Instead, the developers went back to using full attention, likely to improve modeling (and benchmark) performance.
+
+2 Per-layer QK-Norm:
+
+Overall, MiniMax-M2 is surprisingly similar to Qwen3. Besides changing the number of layers, sizes, etc., it uses the same components overall. Perhaps the one noteworthy highlight here is that MiniMax-M2 uses a so-called "per_layer" QK-Norm instead of the regular QK-Norm. A closer look at the code reveals the "per_layer" means that the RMSNorm (used for QK-Norm as explained earlier) is defined in each transformer block (as in regular QK-Norm), but, in addition, instead of reusing it across attention heads, it's a unique QK-Norm for each attention head.
+
+3 Sliding-window attention:
+
+The model configuration file also includes a sliding-window attention setting (similar to Gemma 3), but, as in Mistral 3.1, it is disabled by default.
+
+Otherwise, besides the per-layer QK-Norm, the architecture is very similar to Qwen3, as shown in the figure below.
+
+4 MoE sparsity:
+
+A perhaps interesting tidbit, as shown in the figure below, includes the fact that they don't use a shared expert (similar to Qwen3 but unlike Qwen3-Next). As mentioned earlier, in my opinion, shared experts are useful because they reduce redundancy among the other experts.
+
+Also, as apparent from the figure above, MiniMax-M2 is twice as "sparse" as Qwen3. I.e., at roughly the same size as Qwen3 235B-A22B, MiniMax-M2 has only 10B instead of 22B active experts per token (that is, 4.37% of the parameters are used in each inference step in MiniMax-M2, whereas Qwen3 uses 9.36% active tokens)."
+
+Link to the full article: [https://magazine.sebastianraschka.com/p/the-big-llm-architecture-comparison](https://magazine.sebastianraschka.com/p/the-big-llm-architecture-comparison)
+
+---
+
+Absolute Zero: Reinforced Self-play Reasoning with Zero Data
+
+Zhao et al.: https://arxiv.org/abs/2505.03335
+
+---
+
+making AI dataset management so much easier
+
+collaboration tool for building and managing high-quality AI datasets
+
+-/github.com/0xSojalSec/argilla
+
+---
+
+https://web.stanford.edu/~mossr/pdf/alg4ai.pdf
+
+---
+
+Again, read all 30 research papers ilya recommended.
+
+-/aman.ai/primers/ai/top-30-papers/
+
+---
+
+Huge new benchmark from Basis Research Institute and collaborators!
+
+In "Benchmarking World-Model Learning," Archana Warrier and colleagues introduce WorldTest, a new framework to evaluate how well agents actually understand the dynamics of their environments-moving beyond narrow next-frame prediction or reward-based metrics.
+
+Unlike existing approaches, WorldTest separates learning from testing:
+
+- Agents first interact without any rewards to build internal models of the world.
+
+- Then they're evaluated in a related but modified environment, testing generalization, planning, and causal reasoning.
+
+They instantiate this idea in AutumnBench, a massive suite of 43 grid-world environments and 129 tasks across three challenge families:
+
+- Masked Frame Prediction - inferring hidden states,
+
+- Planning - goal-directed action sequencing, and
+
+- Change Detection - identifying shifts in causal dynamics.
+
+Testing 517 human participants alongside Claude 4 Sonnet, Gemini 2.5 Pro, and OpenAI o3, the study finds humans consistently outperform all reasoning models. While models improved with scale in some settings, they struggled to form flexible hypotheses or update beliefs when environment rules changed.
+
+The takeaway: scaling alone doesn't yield better "world understanding." Real progress will require advances in meta-reasoning-agents that can design experiments, update beliefs, and explore strategically, much like humans do.
+
+WorldTest + AutumnBench set a new standard for studying how AI systems build and apply internal models of the world-a step toward evaluating understanding, not just prediction.
+
+---
+
+TODO Create workflow to capture interesting news using this idea
+https://www.reddit.com/r/n8n/s/3zPQYlrKos
+
+---
+
+Beyond Standard LLMs (Sebastian Taschka, November 2025, 20mn read)
+
+"From DeepSeek R1 to MiniMax-M2, the largest and most capable open-weight LLMs today remain autoregressive decoder-style transformers, which are built on flavors of the original multi-head attention mechanism.
+
+However, we have also seen alternatives to standard LLMs popping up in recent years, from text diffusion models to the most recent linear attention hybrid architectures. Some of them are geared towards better efficiency, and others, like code world models, aim to improve modeling performance.
+
+After I shared my Big LLM Architecture Comparison a few months ago, which focused on the main transformer-based LLMs, I received a lot of questions with respect to what I think about alternative approaches. (I also recently gave a short talk about that at the PyTorch Conference 2025, where I also promised attendees to follow up with a write-up of these alternative approaches). So here it is!
+
+Note that ideally each of these topics shown in the figure above would deserve at least a whole article itself (and hopefully get it in the future). So, to keep this article at a reasonable length, many sections are reasonably short. However, I hope this article is still useful as an introduction to all the interesting LLM alternatives that emerged in recent years."
+
+[https://magazine.sebastianraschka.com/p/beyond-standard-llms](https://magazine.sebastianraschka.com/p/beyond-standard-llms)
+
+---
+
+https://www.facebook.com/share/r/1BtiD57duk/?mibextid=wwXIfr
+
+---
+
+https://github.com/deepspeedai/DeepSpeed
+
+---
+
+Why Less is More (Sometimes): A Theory of Data Curation
+
+Elvis Dohmatob, Mohammad Pezeshki, Reyhane Askari-Hemmat
+
+Concordia University, FAIR at Meta 2025
+https://arxiv.org/abs/2511.03492
+
+In the world of AI and machine learning, we're often told that *more data means better models.* For years, this rule of thumb-called a "scaling law"-has guided how researchers train increasingly large systems. But a new paper titled "Why Less is More (Sometimes): A Theory of Data Curation" challenges this long-held assumption.
+
+The authors tackle a growing puzzle in machine learning: why some models trained on *smaller, carefully curated datasets* actually outperform those trained on *massive, unfiltered ones.* This surprising trend has been seen in recent methods like LIMO ("less is more") and s1, where selective use of data boosts accuracy and stability.
+
+The study develops a theoretical framework to explain when "less" truly becomes "more." It models an *imperfect oracle*-an automated curator that chooses training examples based on how hard or correct they are-and uses this to derive mathematical scaling laws showing exactly when curation helps or hurts.
+
+Their key finding is a kind of phase transition: beyond a certain point, adding more noisy or redundant data *reduces* a model's ability to generalize. In those regimes, trimming the dataset to focus on the most informative examples leads to better performance.
+
+The team validated this theory experimentally on ImageNet, confirming that targeted curation not only improves accuracy but can also prevent model collapse-a common failure in large-scale training.
+
+Perhaps most intriguingly, their framework helps explain why AI models for mathematical reasoning-like large language models-show contradictory behaviors when trained on different subsets of data. The study suggests that these aren't inconsistencies at all, but predictable outcomes of data quality thresholds.
+
+In short, this work offers a new way to think about data: not as an ocean to be maximized, but as a resource to be *curated with intent.* Sometimes, smarter-not bigger-really is better.
+
+---
+
+Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning (Google Research, October 2025)
+
+Paper: [https://arxiv.org/abs/2510.25992](https://arxiv.org/abs/2510.25992)
+
+Abstract:
+"Large Language Models (LLMs) often struggle with problems that require multi-step reasoning. For small-scale open-source models, Reinforcement Learning with Verifiable Rewards (RLVR) fails when correct solutions are rarely sampled even after many attempts, while Supervised Fine-Tuning (SFT) tends to overfit long demonstrations through rigid token-by-token imitation. To address this gap, we propose Supervised Reinforcement Learning (SRL), a framework that reformulates problem solving as generating a sequence of logical "actions". SRL trains the model to generate an internal reasoning monologue before committing to each action. It provides smoother rewards based on the similarity between the model's actions and expert actions extracted from the SFT dataset in a step-wise manner. This supervision offers richer learning signals even when all rollouts are incorrect, while encouraging flexible reasoning guided by expert demonstrations. As a result, SRL enables small models to learn challenging problems previously unlearnable by SFT or RLVR. Moreover, initializing training with SRL before refining with RLVR yields the strongest overall performance. Beyond reasoning benchmarks, SRL generalizes effectively to agentic software engineering tasks, establishing it as a robust and versatile training framework for reasoning-oriented LLMs."
+
+---
+
+how LLMs can judge product recommendations at scale without humans while staying reliable.
+
+It introduces ScalingEval, a multi agent setup that audits pairs, flags issues, and writes reports.
+
+Agents check complement patterns and tag problems like wrong size or too similar for each pair.
+
+Many different models judge the same pairs, and a majority vote creates ground truth labels.
+
+This reduces bias from any single model and shows where they disagree.
+
+They tested 36 models on 1,745 pairs across common retail categories.
+
+Gemini-1.5-Pro led overall, GPT-4o had the best speed cost mix, and Claude-3.5-Sonnet had the highest confidence near 99%.
+
+GPT-OSS-20B led the open source group.
+
+Electronics and Sports showed strong agreement, while Clothing and Food were harder.
+
+The system outputs counts, issues, conflicts, and agreement so results are easy to compare.
+
+- arxiv. org/abs/2511.03051
+
+---
+
+How Do AI Agents Do Human Work? Comparing AI and Human Workflows Across Diverse Occupations
+
+Zora Zhiruo Wang, Yijia Shao, Omar Shaikh, Daniel Fried, Graham Neubig, Diyi Yang
+
+Carnegie Mellon University, Stanford University 2025
+https://arxiv.org/abs/2510.22780
+
+Artificial intelligence agents are getting better at doing the kinds of work humans do-coding, analyzing data, writing reports, even designing visuals. But as these systems grow more capable, a key question remains: *how* do they actually work compared to us? Do they think, create, and solve problems the same way people do-or are they simply simulating human behavior through code?
+
+A new study titled "How Do AI Agents Do Human Work?" takes on this question directly by comparing AI and human workflows across a range of occupations, from engineering to professional writing and design. To make this comparison meaningful, the researchers developed a toolkit that maps and interprets workflows-essentially, the step-by-step processes both humans and AI use on a computer to complete a task.
+
+The results paint a nuanced picture. AI agents, the study found, do follow patterns that *look* like human workflows in some respects-but their approach is fundamentally different. They rely heavily on programmatic methods: running code, calling APIs, and automating actions-even in fields like visual design, where humans usually depend on intuition, visual feedback, and interactive tools.
+
+When it comes to outcomes, the researchers observed a striking trade-off. AI agents complete tasks nearly 90% faster and at a fraction of the cost-but the quality of their output lags behind Worse, the study found that agents sometimes "fill in the gaps" by fabricating data or misusing advanced tools, creating a misleading impression of competence.
+
+The authors suggest that the future may not be about replacing humans, but about **collaboration**-delegating structured, programmable parts of a workflow to AI, while letting humans handle the nuanced, creative, and judgment-based elements that machines still can't replicate.
+
+*In essence: AI agents work fast and cheap, but not like us-and not yet as well.*
+
+---
+
+Transformer in Action -Optimizing Self-Attention with Attention Approximation (November 2025, 20mn read)
+
+"The Transformer architecture, introduced in the "Attention Is All You Need" paper, has revolutionized Natural Language Processing (NLP).
+
+Its core innovation, the self-attention mechanism, allows models to weigh the importance of different parts of the input sequence.
+
+However, the standard self-attention mechanism suffers from its computational complexity which scales quadratically (O(N2)) as the length of the input sequence N grows, creating a bottleneck especially in tasks with long N such as document summarization or high-resolution image processing.
+
+Attention approximation solve this challenge by reducing the complexity using various techniques.
+
+In this article, I'll demonstrate how self-attention works and implement major attention approximation techniques, analyzing efficiency and accuracy trade-offs.
+
+Table of Content
+
+- What is Self-Attention
+
+- How Self-Attention Works - The Q-K-V Mechanism
+Step 1: Compute Raw Attention Scores
+Step 2: Compute Attention Weights
+Step 3: Compute the Context Vector
+Step 4: Output
+
+- Standard Components of Self-Attention
+- Scaled Dot-Product Attention (SDPA)
+- Multi-Head Attention (MHA)
+
+- Computation Complexity
+
+- What is Attention Approximation
+- Low-Rank Approximation
+- Kernel-Based Approximation
+- Sparse Attention
+
+- Attention Mechanism in Action
+
+- The Task & Data
+
+- The Transformers
+Step 1. Computing K, V, and Q Vectors
+Step 2. Defining Attention Layers
+Step 3. Instantiating the Transformers
+Step 4. Training the Standard MHA Transformer
+Step 5. Perform Distillation for Approximation Transformers
+Step 6. Perform Inference
+Results - Analyzing the Tradeoff
+
+- Conclusion"
+
+[https://pub.towardsai.net/transformer-in-action-optimizing-self-attention-with-attention-approximation-6faa6f567d0d](https://pub.towardsai.net/transformer-in-action-optimizing-self-attention-with-attention-approximation-6faa6f567d0d)
+
+---
+
+I'm pleased to share that our paper "Learning Optimal Personalised Reservation Prices in Impression Ad Auctions with Mixture Density Networks" has been accepted to the research track of CIKM 2025! In this work, we combine game theory and deep learning to infer advertisers' hidden preferences directly from their strategic bidding behaviour. This approach allows us to optimise ad auctions in Spotify's free tier more effectively. Many thanks to my co-authors Emma Zetterdahl, Paul van Vliet, Zhenwen Dai, and Mounia Lalmas-Roelleke for the great collaboration!
+
+Blog post: https://lnkd.in/eH98p-MH
+
+Full Paper: https://lnkd.in/ezHqfk3Y
+
+---
+
+Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model?
+
+Yue et al.: https://arxiv.org/abs/2504.13837
+
+---
+
+AlphaResearch: Accelerating New Algorithm Discovery with Language Models
+
+Zhaojian Yu, Kaiyue Feng, Yilun Zhao, Shilin He, Xiao-Ping Zhang, Arman Cohan
+
+Tsinghua University, New York University, Yale University, ByteDance
+2025
+https://arxiv.org/abs/2511.08522
+
+AlphaResearch: When AI Becomes a Scientist
+
+Artificial intelligence has already proven its ability to solve well-defined tasks - from playing chess to writing code - but genuine scientific discovery remains a far greater challenge. It's one thing for an AI to solve a problem when the answer can be checked easily, and quite another for it to *invent* something new that even humans haven't figured out yet.
+
+That's where AlphaResearch comes in - an autonomous "research agent" built to explore new frontiers in algorithm discovery. Instead of relying on static data, AlphaResearch runs its own experiments, tests its own ideas, and learns from its own successes and mistakes. It operates within a dual research environment: one side checks whether its ideas actually work (through executable verification), while the other simulates the feedback loop of a human peer-review process - essentially letting the AI "argue" with itself as a community of scientists would.
+
+AlphaResearch repeats this cycle - proposing, testing, and refining algorithms - until it uncovers something novel and effective. To ensure transparency and fair comparison with human researchers, the team behind it created AlphaResearchComp, a benchmark of eight open-ended algorithmic challenges that can be objectively verified and reproduced.
+
+In direct competition with human researchers, AlphaResearch won 2 out of 8 challenges - a remarkable achievement for an autonomous AI scientist. Most notably, in the "packing circles"problem (a geometry optimization challenge), it produced the best-known algorithm to date, outperforming both humans and advanced AI systems like AlphaEvolve.
+
+While AlphaResearch still failed on six other problems, the researchers carefully analyzed these cases, gaining insight into where today's AI still falls short in creativity and general reasoning. The project marks a promising step toward a future where AI doesn't just assist human scientists - it becomes a genuine collaborator in the search for new knowledge.
+
+✅ Systems for comparison
+
+Here are a few relevant peer systems in the "AI scientist / algorithm-discovery / autonomous-research" space:
+
+* The AI Scientist-v2: An agentic system that formulates hypotheses, runs experiments, analyzes data and writes up a paper, in ML/AI domains. https://arxiv.org/abs/2504.08066
+
+* AlphaDev: A system from DeepMind which discovered improved sorting/hashing algorithms via reinforcement learning.
+https://www.nature.com/articles/s41586-023-06004-9
+
+* AlphaEvolve: Also from DeepMind; described as a general-purpose algorithm-discovery agent (evolutionary + LLM) for designing advanced algorithms. https://en.wikipedia.org/wiki/AlphaEvolve
+
+* Possibly others like multi-agent environments for scientific discovery (see "co-scientist" frameworks) but let's focus on the major ones above for clarity.
+
+How AlphaResearch compares: strengths and differentiators
+
+Strengths & unique features
+
+* Open-ended algorithmic discovery: AlphaResearch tackles "new" algorithmic problems rather than only improving known
+algorithms. The abstract states it "discovers new algorithms on open-ended problems".
+
+* Dual research environment: It uses a two-part evaluation setup - one execution/verification (i.e., code runs, performance metrics) and one simulated peer-review environment. That integration of feasibility *and* innovation is relatively novel.
+
+* Benchmark & head-to-head human comparison: They created the benchmark AlphaResearchComp (8 open-ended algorithmic problems) and compared to human researchers (2 wins out of 8).
+
+* Notable success: On one of the problems ("packing circles"), AlphaResearch achieved "best-of-known performance" surpassing humans and strong baselines (including AlphaEvolve) according to the abstract.
+
+Where it especially stands out compared to prior work
+
+* Many previous "AI scientist" systems focus on narrower domains (e.g., algorithm improvement, fixed problem settings). AlphaResearch claims open-ended algorithm generation across eight varied problems.
+
+* The inclusion of a "simulated peer review" loop is less common in many prior autonomous agents.
+
+* The head-to-head human researchers benchmark gives a measurable comparison in a way that is sometimes missing in other work.
+
+⚠️ Where AlphaResearch still faces challenges (and how it compares to others)
+
+Limitations & gaps
+
+* Success rate: 2/8 wins means 6/8 cases where it failed (or at least did not outperform humans). The authors themselves analyze these failures. So it is still far from "fully autonomous super-scientist".
+
+* Domain scope: Although the problems are described as "open-ended algorithmic problems," algorithm-discovery remains highly structured (executable pipelines, objective metrics). It may not yet cover truly "creative" scientific discoveries in unpredictable domains.
+
+* Compared with AlphaDev: AlphaDev had a very narrowly defined search space (e.g., sorting networks or small-input algorithms) and achieved inclusion in a standard library. Its domain is narrower but the achievement is concrete (improved code in mainstream library). AlphaResearch is broader but less mature in each individual domain.
+
+* Automation level: Some earlier systems (like The AI Scientist-v2) not only generate ideas but go all the way to writing papers and submitting them to peer review. While AlphaResearch simulates peer review and executes code, it might not yet generate full papers or handle the full "scientific publication pipeline" (at least from what is described in the abstract). The AI Scientist-v2 claims to have done that.
+
+* Benchmarking and reproducibility: The field is still emerging, and the comparators have varying evaluation methodologies. For example, The AI Scientist-v2 focuses on ML domains; AlphaResearch focuses on algorithm discovery. So performance comparisons are tricky.
+
+Summary: Where would I place AlphaResearch in the landscape?
+
+* Position: AlphaResearch is among the leading "AI scientist / autonomous research agent" systems, especially in the subdomain of algorithm discovery. It raises the bar by trying open-ended tasks and benchmarking vs humans.
+
+* Unique selling point: The dual environment (verification + peer review simulation) and the "open algorithm discovery" fact make it distinctive.
+
+* Relative to others:
+
+  * Compared to AlphaDev: AlphaDev is narrower but has real-world deployment. AlphaResearch is broader but less matured in each instance.
+
+  * Compared to The AI Scientist-v2: That system emphasizes the full research pipeline (hypothesize -> experiment -> analyze -> write paper) in science/ML; AlphaResearch emphasizes algorithm engineering/discovery and verification. So they are somewhat complementary.
+
+* Current maturity: Promising but still early. The 2/8 success rate shows there is still substantial room for improvement.
+
+* For robotics/semiconductors/AI grid/smart cities: If you consider deploying such agents for algorithm-discovery in those domains (optimization, control, grid algorithms), AlphaResearch (or systems like it) appears to be closer to viability than most-but you would still need to calibrate expectations and probably integrate human oversight.
+
+---
+
+https://github.com/harvard-edge/cs249r_book
+
+---
+
+https://www.instagram.com/reel/DQA6TfGkcR0/?igsh=MTQ5bTh5eGFldHQzaQ%3D%3D
+
+---
+
+This paper shows a 27-million parameter model solving very difficult reasoning puzzles-like complex Sudoku and maze problems-using only 1,000 training examples, while current large language models get 0% accuracy on the same tasks.
+
+Instead of having the model generate chains of intermediate reasoning steps as text tokens (like "first check row 1, then check column 2..."), this approach does all reasoning internally by running two coupled recurrent networks that repeatedly refine their hidden states until reaching a solution-one network updates its state every timestep while the other updates only every T timesteps and resets the first network each time it updates.
+
+The training uses a one-step gradient that only backpropagates through the final states rather than through all timesteps, which keeps memory usage constant and makes training stable even when the model runs hundreds of iterative computation steps per problem.
+
+Read it on ChapterPal by talking to it: https://lnkd.in/emT8P5yZ
+
+Download a PDF: https://lnkd.in/etDRGA9B
+
+---
+
+LLMs Know When They Don't Know - We Just Fine-Tune the Honesty Out of Them
+
+A new paper reveals something fascinating:
+
+When LLMs are fine-tuned to give confident answers, they often start hiding uncertainty - replying incorrectly instead of admitting "I'm not sure."
+
+But inside the network?
+The model still knows the truth.
+It still carries internal signals that distinguish answerable vs. unanswerable questions...
+the output layer just stops listening to them.
+
+This means honesty isn't lost - it's just muted.
+
+And the researchers show a surprisingly simple fix.
+
+Honesty-Critical Neurons Restoration (HCNR)
+
+Instead of retraining the entire model, they:
+
+1 Identify the neurons most responsible for honesty
+2 Find which ones were altered during fine-tuning
+3 Restore those neurons to their original state
+4 Apply a tiny alignment adjustment so honesty neurons + task neurons still cooperate
+
+The result?
+
+Honesty returns
+Task performance is preserved
+Only a tiny honesty dataset is needed
+Just a few parameter edits - not full retraining
+
+This is a major step toward trustworthy LLMs that can openly say "I don't know" instead of hallucinating with confidence.
+
+Paper: arxiv. org/abs/2511.12991
+Title: Fine-Tuned LLMs Know They Don't Know: A Parameter-Efficient Approach to Recovering Honesty
+
+---
+
+1.	10/10/10 test - how will you feel about each option in 10 minutes, 10 months, 10 years? Write the answers; which option looks better across horizons?
+2.	Decision matrix (quick) - make a table of factors (kids, travel, career, finances, emotional integrity, regret). Score each option 1-10 and weight factors by importance. Sum and compare.
+3.	Pre-mortem - imagine the decision failed badly in 2 years. List plausible reasons for failure. If reasons are fixable, that's okay; if not, reconsider.
+4.	Small experiment - pick one low-cost test: ask employer for a postponed start by a week (or remote start), or have a candid conversation with wife about longer-term travel compromise, or propose a defined trial period with Argentina partner. Even a 1-2 week experiment can reveal a lot.
+
+---
+
+Nested Learning: The Illusion of Deep Learning Architectures
+
+Behrouz et al.: https://openreview.net/forum?id=nbMeRvNb7A
+
+---
+
+Best Gen AI Projects- https://www.mltut.com/best-ai-agent-projects/
+
+---
+
+Why RoPE Replaced Positional Encodings in Modern LLMs
+
+In the original Transformer model by Vaswani et al. (2017), positional information was added to token embeddings using sinusoidal absolute positional encodings.
+
+This approach worked, but it had a major weakness: the model could not understand the relative distance between tokens.
+
+It treated positions as fixed labels rather than relationships, and because positional vectors were added directly to embeddings, they interfered with the original semantic space. This also limited the model's ability to generalize to longer sequences.
+
+Shaw et al. (2018) took a step forward with relative positional embeddings, allowing the model to reason about how far apart two tokens are. However, this method came with new trade-offs.
+
+It introduced additional computation that scaled with sequence length, making it harder to apply to long-context transformers. It also modified the attention mechanism using bias terms, which again distorted the geometry of the embedding space.
+
+Rotary Position Embedding (RoPE) changed this game. Instead of adding positional information, RoPE injects position by rotating query and key vectors in a continuous geometric space.
+
+This preserves the structure of the embeddings while naturally encoding relative position inside the attention mechanism.
+
+RoPE has no learned parameters, is efficient, scales to very long contexts, preserves inner product structure, and gracefully decays attention over distance.
+
+This is why RoPE has become the default choice in most modern large language models; including LLaMA, GPT-NeoX, PaLM variants, and MPT; replacing earlier absolute and relative positional encoding methods.
+
+Paper: RoFormer: Enhanced Transformer with Rotary Position Embeddings
+Authors: Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, Yunfeng Liu
+
+Source: Kavishka Abeywardhana
+
+---
+
+Closing the Train-Test Gap in World Models for Gradient-Based Planning
+
+Arjun Parthasarathy, Nimit Kalra, Rohun Agrawal, Yann LeCun, Oumayma Bounou, Pavel Izmailov, Micah Goldblum
+
+Columbia University, University of Texas, & New York University
+2025
+https://arxiv.org/abs/2512.09929
+
+"For a long time, Yann LeCun and others believed in gradient-based planning, but it didn't work very well... until now. "
+https://x.com/micahgoldblum/status/1999149319925227786/photo/1
+
+Teaching a robot to plan its actions-like deciding how to stack blocks or navigate a room-traditionally gives you two choices: let it slowly try random actions until something works, or make it solve complex math problems in real-time, which takes forever. Both are like using a sledgehammer to hang a picture: overkill and slow.
+
+Researchers recently tried a smarter shortcut called "gradient-based planning"-essentially giving the robot a way to quickly *feel* which actions will lead to success, like a heat-seeking missile adjusting its path. But there was a catch: the robot's mental "world model" was trained like a student memorizing textbook examples ("If I do X, what happens next?"), yet at test time, it needed to *invent* action sequences from scratch ("What should I do to achieve Y?"). This mismatch-called the "train-test gap"-left the robot clumsy and underperforming.
+
+The breakthrough? The team realized you can't just change how you *test* the robot; you have to change how you *teach* it. They created synthetic training scenarios that mimic the actual planning challenges the robot will face, like giving a chef practice inventing recipes, not just following them. This simple shift lets the robot's world model learn the right instincts.
+
+The results are striking: on tasks from object manipulation to navigation, their method now matches-or beats-the old, slow approach while using only 10% of the time. What used to take an hour now takes six minutes. It's not just faster; it's finally *practical*, opening the door for robots and AI to plan intelligently in the real world without the computational cost of traditional methods.
+
+This is a significant algorithmic advance within a specific paradigm of robot learning (offline, model-based, with gradient-based planning). It solves a clear, identified problem and shows strong results in controlled settings. However, deploying it in real-world applications would require overcoming the broader challenges of robotics, including data collection, sim-to-real transfer, safety, and system integration.
+
+This could be is a major step toward more intelligent, efficient, and responsive autonomous agents. It transforms the role of the world model from a passive simulator into an active planning engine. While the technical leap is in closing the "train-test gap," the potential ripple effects touch on the future of work, the pace of automation, and the very nature of how we build reliable, real-time machine intelligence.
+
+---
+
+https://github.com/Engineer1999/A-Curated-List-of-ML-System-Design-Case-Studies
+
+300+ machine learning system design case studies went live.
+
+It covers 80+ companies including Stripe, Spotify, Netflix, Meta, Airbnb, and DoorDash.
+
+The collection breaks down real production systems:
+
+- Fraud detection at Stripe
+- Recommendation engines at Netflix
+- Search algorithms at Airbnb
+- Ad targeting at Meta
+- NLP systems at various companies
+
+Each case study links to original engineering blogs or research papers.
+You get the actual technical details behind production ML systems.
+
+This lets you study how companies solve ML problems at scale.
+Perfect for interview prep or understanding real-world implementations.
+
+You can now see exactly how top companies build their ML infrastructure.
+
+---
+
+https://www.linkedin.com/feed/update/urn:li:activity:7408855201174077440/
+
+In case you've ever used Photoshop by Adobe, you might know that it uses "layers" at its core to build and edit images. ☰
+
+You can think of layers like transparent sheets stacked on top of each other - each one can contain different content and can be edited, and together they form the final image.
+
+Generative AI image models (like Google's Nano Banana ) don't follow that paradigm. They directly produce an entire image as a single unit. There is no way to edit a specific "layer" of an image, like the color of a t-shirt or the background.
+
+That changes today! Qwen (the AI lab of Alibaba Group known for its impressive open LLMs) just released "Qwen-Image-Layered" on Hugging Face, an open image generation and editing model with Photoshop-grade layering.
+
+The model is capable of decomposing an image into multiple RGBA layers (RGBA stands for red-green-blue-alpha). This layered representation unlocks inherent editability: each layer can be independently manipulated without affecting the content of other layers. For example, you could decompose an image into 3 layers: background, person, and the object that the person is holding. Next, you could resize just the object (layer 3) based on your preferences.
+
+Interestingly, the model is not limited to a fixed number of layers. By default, the model will decompose an image into 4 layers, but you can specify any number between 3 and 10.
+
+Try it out now!
+
+Model: https://lnkd.in/enRSJV5b
+Technical report: https://lnkd.in/e8znMU-A
+Blog: https://lnkd.in/eNpxT3mS
+
+https://huggingface.co/Qwen/Qwen-Image-Layered
+https://huggingface.co/papers/2512.15603
+https://qwen.ai/blog?id=qwen-image-layered
+
+---
+
+This is the Outstanding Paper Award at ICLR 2025, and this is exactly the kind of research on LLMs we need, not those quasi-psychological studies of the form "we asked the same question to these 3 models and see which one is more sycophant."
+
+As you might already know, when finetuning language models, researchers first perform supervised learning on good examples, then apply preference optimization-training the model to distinguish preferred responses from rejected ones using algorithms like Direct Preference Optimization (DPO). This two-stage process improves model behavior, but prior work observed a curious phenomenon: during the preference stage, the model's predicted probability of generating responses (measured by log-likelihood) decreases for nearly all responses, including the preferred ones the training is supposed to encourage.
+
+This paper provides a mathematical framework explaining why this happens by decomposing each gradient update into three components: how the model currently predicts, how training on one example affects similar examples, and the direction of the gradient signal.
+
+The analysis reveals a "squeezing effect": when you apply negative gradients to push down the probability of bad responses, the probability mass doesn't get redistributed evenly-it concentrates on whichever token has the highest probability at each position. This makes the model's predictions increasingly peaked. The effect becomes severe when the negative gradient targets responses that already have very low probability, which commonly occurs when using pre-collected datasets where the rejected responses were generated by a different model.
+
+The framework explains why methods that generate new response pairs from the current model at each training step outperform methods using fixed pre-collected pairs-they avoid applying large negative gradients to responses in low-probability regions.
+
+The insight leads to a simple improvement: including both preferred and rejected responses during supervised fine-tuning before preference optimization demonstrably improves alignment by reducing the harmful squeezing effect.
+
+Let the paper talk to you and answer your questions on ChapterPal: https://lnkd.in/eRt4yyVP
+
+Download the PDF: https://lnkd.in/eDCswrZf
+
+https://www.linkedin.com/posts/andriyburkov_this-is-the-outstanding-paper-award-at-iclr-activity-7406897624257024000-H8OS
+
+---
+
+speak and improve challenge 2025
+https://arxiv.org/abs/2412.11985
+https://sites.google.com/view/slate-2025
+
+---
+
+Understand how to use Obsidian with LLMs in an effective way:
+- Search & re-finding
+- Writing articles
+
+---
+
+https://github.com/gpu-mode/lectures
+https://github.com/gpu-mode/lecture2/blob/main/lecture3/pmpp.ipynb
+
+---
+
+https://www.youtube.com/watch?v=lDGrsanqlLQ
+https://www.youtube.com/watch?v=le6A7WVHMRw
+
+https://www.wikiwand.com/en/Limited-memory_BFGS
+
+KV cache
+How does prompt caching works internally?
+
+** TODO Git Worktree? For several working copies of a project across different branches.
+** TODO Process transcript 1 & 2
+
+Try connecting Claude to Obsidian MCP
+
+---
+
+Download all notes periodically from Notes app and Google Keep periodically
+Create this project
+
+Read in details about Claude different token types
+Clean up dedicated project and distributed ml project
+Instead implement the clean up of the generated code (see chat)
+
+Actually generate a kind of visualization tool for learning purposes.
+That should be the outcome of that project.
+But store current changes to git as well for history.
+
+% python benchmark/run_benchmark.py --runs 1 --steps --cases caseC
+
+[run] caseC / without (1/1)...
+caseC / without - per-turn cache breakdown:
+turn 1: cache_create= 877 cache_rd= 22,597 in= 1 out= 107
+caseC / without - tool steps:
+step 1 Glob {'pattern': '**/*.ipynb'} ~6 tok (26 chars)
+step 2 Read /private/var/folders/f2/98g94n_x51l0zrxfnqp9s3wh0000gn/ ~2,123 tok (8,492 chars)
+step 3 ToolSearch {'query': 'select:NotebookEdit', 'max_results': 1} ~0 tok (0 chars)
+step 4 NotebookEdit {'notebook_path': '/private/var/folders/f2/98g94n_x51l0 ~164 tok (656 chars)
+
+[run] caseC / with (1/1)...
+caseC / with - per-turn cache breakdown:
+turn 1: cache_create= 683 cache_rd= 21,239 in= 1 out= 93
+caseC / with - tool steps:
+step 1 Read /private/var/folders/f2/98g94n_x51l0zrxfnqp9s3wh0000gn/ ~1,135 tok (4,543 chars)
+step 2 Edit /private/var/folders/f2/98g94n_x51l0zrxfnqp9s3wh0000gn/ ~56 tok (224 chars)
+
+---
+case / setup total_tok in_tok out_tok cache_rd cost_usd turns sec
+---
+caseC / without 95,108 9 1,250 95,099 0.0884 5.0 28
+caseC / with 53,118 5 823 53,113 0.0636 3.0 17
+---
+
+with-trick savings (without / with), averaged [total_tok = in_tok + cache_rd]:
+caseC: total tokens 1.8x | cost 1.4x
+
+Full results written to /Users/anton/projects/prototypes/claude-code-notebook/benchmark/results.json
+
+Read these resources on the effective usage of Claude with Jupyter notebooks:
+- [Claude Code for Scientists - Patrick Mineault (neuroai.science)](https://www.neuroai.science/p/claude-code-for-scientists) - argues for the `.py`-first / jupytext workflow; the closest match to your setup.
+- [Claude Code + Jupyter Notebooks Finally Work Well - ReviewNB](https://www.reviewnb.com/claude-code-with-jupyter-notebooks) - ready-made CLAUDE.md rules; recommends the Jupyter MCP server (live kernel, read outputs, self-correct) over NotebookEdit. Notably does not mention jupytext.
+- [Jupytext docs - Paired notebooks](https://jupytext.readthedocs.io/en/latest/paired-notebooks.html) - canonical pairing reference.
+- [Can Claude Code Analyze Jupyter Notebooks - Kanaries](https://docs.kanaries.net/articles/claude-code-jupyter-data-science) - what Claude Code does with `.ipynb` and live-state limits.
+- [From "Vibe Coding" to Production - e-INFRA CZ](https://blog.e-infra.cz/blog/claude-jupyter/) - practical notebook workflow notes.
+- [Claude Code for Data Scientists (refactoring a notebook) - DeepLearning.AI](https://learn.deeplearning.ai/courses/claude-code-a-highly-agentic-coding-assistant/lesson/33kzr/refactoring-a-jupyter-notebook-&-creating-a-dashboard) - short course lesson.
+
+---
+
+https://www.linkedin.com/posts/hoang-van-hao_your-ai-coding-agent-burns-412000-tokens-share-7471549598994456576-ddd0/
+https://www.linkedin.com/posts/hoang-van-hao_most-diagram-tools-make-you-drag-boxes-for-share-7472051514736521216-ufxn/
+
+---
+
+* Unsorted learning from work
+BabelBench: An Omni Benchmark for Code-Driven Analysis of Multimodal and Multistructured Data
+https://arxiv.org/abs/2410.00773
+https://www.reddit.com/r/LocalLLaMA/comments/1i06nnx/babel_benchmark_can_you_score_higher_than_llama_32/
+
+Fluency: ease of reading and understainding generated text
+Coherence: logical organization of generated text
+Prompt adherence: alignment of generated text with user prompts
+Hallucination: presence of unverifiable statements in generated text
+Safety: generation of problematic content such as bias or hate speech
+Robustness: model's performance against adversarial inputs
+
+RLAIF from Anthropic
+
+Corpus: A multilingual set of 1k+ (per locale) toxic prompts and passages designed for toxicity evaluation for 27 languages: GitHub - microsoft/RTP-LX: Repository for the paper "RTP-LX: Guardrails are Effective in Multilingual Scenarios".
+https://github.com/microsoft/RTP-LX
+
+[2309.07462] Are Large Language Model-based Evaluators the Solution to Scaling Up Multilingual Evaluation? (arxiv.org)
+https://arxiv.org/abs/2309.07462
+
+[2303.12528] MEGA: Multilingual Evaluation of Generative AI (arxiv.org)
+https://arxiv.org/abs/2303.12528
+
+Calibrating LLM-Based Evaluator
+https://aclanthology.org/2024.lrec-main.237/
+
+---
+
+A Survey of the State of Explainable AI for Natural Language Processing
+https://arxiv.org/pdf/2010.00711.pdf
+
+A Unified Approach to Interpreting Model Predictions
+https://proceedings.neurips.cc/paper/2017/file/8a20a8621978632d76c43dfd28b67767-Paper.pdf
+
+'Why Should I trust you?' Explaining the Predictions of Any Classifier
+
+DeepLift
+Learning Important Features Through Propagating Activation Differences (arxiv.org)
+https://arxiv.org/pdf/1704.02685.pdf
+
+SHAP
+Analysis of regression in game theory approach
+https://onlinelibrary.wiley.com/doi/abs/10.1002/asmb.446
+Explaining prediction models and individual predictions with feature contributions
+https://link.springer.com/article/10.1007/s10115-013-0679-x
+
+KernelSHAP
+
+TreeSHAP
+Consistent Individualized Feature Attribution for Tree Ensembles
+https://arxiv.org/abs/1802.03888
+
+See FastTreeShap
+
+Interpretable Machine Learning (christophm.github.io)
+https://christophm.github.io/interpretable-ml-book/
+
+Explainable Boosting Machines
+Accurate Intelligible Models with Pairwise Interactions
+https://www.cs.cornell.edu/~yinlou/papers/lou-kdd13.pdf
+
+---
+
+[2303.12528] MEGA: Multilingual Evaluation of Generative AI (arxiv.org)
+https://arxiv.org/abs/2303.12528
+
+https://github.com/microsoft/RTP-LX
+
+---
+
+https://arxiv.org/pdf/2001.10495
+
+https://community.openai.com/t/the-battle-against-numbered-lists/949140/13?page=2
+
+https://www.anthropic.com/news/upgraded-anthropic-console
+
+https://arxiv.org/abs/2407.03502
+
+https://github.com/vllm-project/vllm
+
+https://people.eng.unimelb.edu.au/jzobel/fulltext/sigir05.pdf
+
+https://blogs.microsoft.com/blog/2024/10/29/how-copilots-are-helping-customers-and-partners-drive-pragmatic-innovation-to-achieve-business-results-that-matter/
+
+https://arxiv.org/pdf/2106.16138
+
+Paper "Frontiers of Large Language Model-Based Agentic Systems - Construction, Efficacy and Safety"
+
+https://dl.acm.org/doi/10.1145/2926720
+
+Quick Access: Building a Smart Experience for Google Drive https://research.google/pubs/pub46184/
+Improving Recommendation Quality at Google Drive https://research.google/pubs/pub49272/
+
+Article recommendation system on a citation network using Personalized Pagerank and Neo4j
+https://tbgraph.wordpress.com/2018/09/09/article-recommendation-system-on-a-citation-network-using-personalized-pagerank-and-neo4j/
+
+Effects of Position Bias on Click-Based Recommender Evaluation
+https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ecir-2014-hofmann-effects.pdf
+
+GraphSAINT: https://arxiv.org/pdf/1907.04931.pdf
+https://github.com/GraphSAINT/GraphSAINT
+
+GraphSAGE: https://dl.acm.org/doi/10.5555/3294771.3294869
+PinSAGE: https://dl.acm.org/doi/10.1145/3219819.3219890 (Pinterest adaptation of GraphSAGE)
+GCN: https://arxiv.org/abs/1609.02907 (original paper on GCN motivated by graph Fourier transform)
+GraphSAGE for UberEats https://eng.uber.com/uber-eats-graph-learning/
+
+Open Graph Benchmark | A collection of benchmark datasets, data-loaders and evaluators for graph machine learning in PyTorch. (stanford.edu)
+https://ogb.stanford.edu/
+
+"Evaluation Measures for Preference Judgments"
+https://www.microsoft.com/en-us/research/publication/evaluation-measures-for-preference-judgments/
+
+https://www.fast.ai/2018/09/26/ml-launch/
+https://github.com/fastai/fastai/blob/master/courses/ml1/lesson2-rf_interpretation.ipynb
+https://medium.com/usf-msds/intuitive-interpretation-of-random-forest-2238687cae45
+https://medium.com/@Zelros/a-brief-history-of-machine-learning-models-explainability-f1c3301be9dc
+https://christophm.github.io/interpretable-ml-book/
+
+https://www.oreilly.com/learning/introduction-to-local-interpretable-model-agnostic-explanations-lime
+
+---
+
+In Emacs: allow CC to fetch any content from the web,
+but make the modifications only manual.
+
+---
+
+Try installing and using https://www.jan.ai/
+
+---
+
+Repo clean up:
+* Systems.org:
+Demand numbers disagree between the two charters: AWS "18 companies vs 6 for GCP" (old) vs "13 companies" (new); distributed training "16 postings" (old) vs "eleven companies" (new). Different units, possibly different corpus snapshots - both statements are now in the file and want reconciling.
+JAX stance: new says "a documented gap, default in several research organizations"; old says "low job demand; awareness only." Both clauses kept.
+** To move to ML.org (ML / DS libraries) landed in * Tools and libraries with its marker intact - moving to other files is out of scope for a merge.
+PEFT/LoRA now sits under PyTorch › Ecosystem; arguably Generative.org.
+Several Tier 1/2 cloud exercises overlap topic-level tasks in * MLOps and * Model serving (CI/CD, shadow/canary, incident drill). I kept both deliberately - exercise vs topic is a real distinction - but it's the obvious thing to collapse in cleanup.
+
+---
+
+Create an "experiment" project:
+Given a real music file with clean piano (but some other instruments as well):
+- Extract just the piano (ideally automatically; good project on its own)
+- Extract the scores from the piano as close to the original as possible,
+ideally preserving also the style
+- Save that as midi or any other good format. Also display sheet music
+in a very nice format (which program can open that nicely?)
+- Play the midi and piano for some songs and judge the conversion quality
+Before starting: are there any existing projects which do exactly this well?
+Is this doable well with modern ML tech? Is there a lot of potential ML inside?

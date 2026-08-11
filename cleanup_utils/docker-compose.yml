@@ -1,0 +1,52 @@
+# A Dockerfile cannot set CPU or memory limits - image build and runtime
+# resource control are separate concerns. They belong here (or on `docker run`,
+# or in the Synology Container Manager UI).
+#
+# Synology's Container Manager still reads the v2 compose spec, so the limits
+# use the top-level `cpus` / `mem_limit` keys rather than `deploy.resources`,
+# which only applies under Swarm.
+services:
+  instagram-extract:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: instagram-extractor:latest
+    container_name: instagram-extract
+
+    # The NAS is a 2-core / 4-thread Ryzen R1600. The requested one-CPU
+    # default leaves DSM and other processing ample capacity.
+    cpus: "1.0"
+
+    # Whisper small measured 1,347 MB peak RSS; sequential OCR avoids combining
+    # that with OCR's 566 MB peak. 2g is the reviewed 1.5x rounded allowance.
+    # exceeding it means the kernel OOM-kills the process (exit 137), so do not
+    # trim it close to the measurement.
+    mem_limit: 2g
+    memswap_limit: 2g
+
+    # Long OCR batches are CPU-bound background work; yield to DSM under contention.
+    cpu_shares: 512
+
+    environment:
+      INSTAGRAM_OCR_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
+      INSTAGRAM_TRANSCRIPTION_BACKEND: "faster-whisper"
+      INSTAGRAM_TRANSCRIPTION_MODEL: "small"
+      TZ: "Europe/London"
+
+    volumes:
+      - ./instagram_output:/data/instagram_output
+      - ./dataset:/data/dataset:ro
+      # Instagram session cookies. Treat as a secret; keep out of the image.
+      - ./secrets/instagram-cookies.txt:/data/cookies.txt:ro
+
+    # Batch job, not a service.
+    restart: "no"
+
+    command:
+      - --input-file
+      - /data/dataset/instagram_urls.txt
+      - --cookies-file
+      - /data/cookies.txt
+      - --output-dir
+      - /data/instagram_output
