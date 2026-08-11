@@ -7,8 +7,8 @@ services:
 
     # CPU-heavy OCR/transcription libraries are pinned to one thread. Shares
     # lower their relative CPU priority without requiring a CFS quota.
-    mem_limit: 2g
-    memswap_limit: 2g
+    mem_limit: 8g
+    memswap_limit: 8g
     cpu_shares: 512
 
     env_file:

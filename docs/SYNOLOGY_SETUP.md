@@ -736,8 +736,8 @@ services:
     container_name: info-triage
     restart: unless-stopped
     user: "1026:100"
-    mem_limit: 2g
-    memswap_limit: 2g
+    mem_limit: 8g
+    memswap_limit: 8g
     cpu_shares: 512
 
     env_file:
@@ -770,6 +770,9 @@ services:
 it is not a hard CPU limit. Do not add Compose `cpus` on this Synology: its
 kernel does not expose the CFS scheduler support Docker needs for `NanoCPUs`.
 The one-thread extraction settings above bound the CPU-heavy library work.
+The 8 GB memory limit is a ceiling, not a reservation, and leaves roughly 12 GB
+of the upgraded NAS's 20 GB for DSM, filesystem cache, and other containers.
+Keeping `memswap_limit` equal to `mem_limit` prevents additional swap usage.
 
 The mapping:
 

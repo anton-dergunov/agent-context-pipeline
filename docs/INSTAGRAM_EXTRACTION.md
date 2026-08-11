@@ -225,10 +225,14 @@ during contention; it is not a hard one-CPU limit. ONNX Runtime, CTranslate2,
 and OpenMP can size thread pools from the **host** CPU count, so the image also
 pins both OCR and transcription to one thread.
 
-Defaults are tuned for the NAS (2-core/4-thread Ryzen R1600): lower relative
-CPU priority, 2 GB memory, and one compute thread. Whisper small measured 1,347
-MB peak RSS on the benchmark Mac; 2 GB is its 1.5x rounded allowance. OCR and
-transcription models are loaded sequentially so their peaks do not add together.
+Defaults are tuned for the upgraded NAS (2-core/4-thread Ryzen R1600, 20 GB
+memory): lower relative CPU priority, an 8 GB hard memory ceiling, and one
+compute thread. The limit is a ceiling rather than a reservation and leaves
+roughly 12 GB for DSM, filesystem cache, and other containers. Setting
+`memswap_limit` to the same value prevents additional container swap usage.
+Whisper small measured 1,347 MB peak RSS on the benchmark Mac; the extra
+headroom supports larger future workflows. OCR and transcription models are
+loaded sequentially so their peaks do not add together.
 
 ## Output
 
