@@ -5,9 +5,8 @@ services:
     restart: unless-stopped
     user: "1026:100"
 
-    # The reviewed portable OCR/transcription configuration uses one CPU and
-    # stays below a 2 GB hard limit while leaving capacity for DSM.
-    cpus: 1.0
+    # CPU-heavy OCR/transcription libraries are pinned to one thread. Shares
+    # lower their relative CPU priority without requiring a CFS quota.
     mem_limit: 2g
     memswap_limit: 2g
     cpu_shares: 512

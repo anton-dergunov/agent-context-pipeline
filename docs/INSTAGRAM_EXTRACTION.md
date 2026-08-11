@@ -215,19 +215,20 @@ Whisper checkpoint.
 ### Resource limits
 
 A **Dockerfile cannot set CPU or memory limits** — image build and runtime
-resource control are separate concerns. They live in `compose.yaml`
-(`cpus`, `mem_limit`), on `docker run --cpus/--memory`, or in the Synology
-Container Manager UI.
+resource control are separate concerns. They live in `compose.yaml`, in
+`docker run` options, or in the Synology Container Manager UI.
 
-Limits alone are not enough. ONNX Runtime, CTranslate2, and OpenMP size thread
-pools from the **host** CPU count and ignore the cgroup quota. The image pins
-both OCR and transcription to one thread, matching the Compose `cpus: "1.0"`
-limit.
+The Synology kernel does not expose the CPU CFS scheduler support required by
+Docker's `NanoCPUs` quota, so the Compose configuration does not set `cpus`.
+Instead, `cpu_shares: 512` gives the container a lower relative CPU priority
+during contention; it is not a hard one-CPU limit. ONNX Runtime, CTranslate2,
+and OpenMP can size thread pools from the **host** CPU count, so the image also
+pins both OCR and transcription to one thread.
 
-Defaults are tuned for the NAS (2-core/4-thread Ryzen R1600): 1 CPU, 2 GB
-memory, 1 thread. Whisper small measured 1,347 MB peak RSS on the benchmark Mac;
-2 GB is its 1.5x rounded allowance. OCR and transcription models are loaded
-sequentially so their peaks do not add together.
+Defaults are tuned for the NAS (2-core/4-thread Ryzen R1600): lower relative
+CPU priority, 2 GB memory, and one compute thread. Whisper small measured 1,347
+MB peak RSS on the benchmark Mac; 2 GB is its 1.5x rounded allowance. OCR and
+transcription models are loaded sequentially so their peaks do not add together.
 
 ## Output
 

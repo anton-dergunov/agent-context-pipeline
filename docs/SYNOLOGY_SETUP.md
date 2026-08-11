@@ -736,7 +736,6 @@ services:
     container_name: info-triage
     restart: unless-stopped
     user: "1026:100"
-    cpus: 1.0
     mem_limit: 2g
     memswap_limit: 2g
     cpu_shares: 512
@@ -766,6 +765,11 @@ services:
       retries: 3
       start_period: 5s
 ```
+
+`cpu_shares` lowers the container's relative CPU priority during contention;
+it is not a hard CPU limit. Do not add Compose `cpus` on this Synology: its
+kernel does not expose the CFS scheduler support Docker needs for `NanoCPUs`.
+The one-thread extraction settings above bound the CPU-heavy library work.
 
 The mapping:
 
