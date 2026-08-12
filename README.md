@@ -62,12 +62,15 @@ only if its source revision is still current.
 
 Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
-public LinkedIn extraction, cautious text cleaning, and bounded URL resolution.
-The local speech-transcription engine is reused for Telegram voice notes. The
-other components retain standalone console commands and are not automatic item
-processors, so installing them does not change capture behavior. See
+public LinkedIn extraction, layered Medium article extraction, cautious text
+cleaning, and bounded URL resolution. The local speech-transcription engine is
+reused for Telegram voice notes. The other components retain standalone console
+commands and are not automatic item processors, so installing them does not
+change capture behavior. See
 [`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
-[`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md).
+[`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md), plus the Medium
+access decision and commands in
+[`docs/MEDIUM_EXTRACTION.md`](docs/MEDIUM_EXTRACTION.md).
 
 Install the portable stack with `uv sync`. On a Mac workstation, Surya and
 Apple-Silicon MLX remain available with:

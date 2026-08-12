@@ -1,0 +1,8 @@
+# Member-only examples: RSS exposes a preview only while the story remains in the rolling feed.
+https://ai.plainenglish.io/openai-shocks-the-world-with-gpt-6-dc54b0db5d04
+https://greysonferguson.medium.com/9-countries-that-make-you-a-citizen-in-under-a-year-2e2cf411d4f9
+https://medium.com/macoclock/qwen3-6-35b-runs-on-a-16-gb-m4-mac-mini-fully-in-memory-no-tricks-1ec4b5bcec35
+
+# Public examples: RSS exposes full HTML while the story remains in the rolling feed.
+https://medium.com/the-leading-indicator/three-shifts-coming-to-ai-in-the-next-12-months-dc2e9c207d00
+https://medium.com/the-leading-indicator/comparing-different-llm-models-for-data-extraction-f067d56bed54
