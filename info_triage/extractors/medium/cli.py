@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from .direct import DirectClient
-from .downloader import DownloadOptions, download_article
+from .downloader import DownloadOptions, ExtractionMethod, download_article, parse_methods
 from .feed import MediumFeedClient
 from .urls import ArticleReference, parse_article_url, with_feed_url
 
@@ -42,7 +42,7 @@ def _references(values: list[str]) -> tuple[list[ArticleReference], list[str]]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Extract Medium articles directly, with RSS fallback and optional cookies."
+        description="Extract Medium articles with ordered methods and optional cookies."
     )
     parser.add_argument("urls", nargs="*", help="Medium article URLs")
     parser.add_argument("--input-file", type=Path, help="file containing one URL per line")
@@ -67,9 +67,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="import a local browser's logged-in Medium session",
     )
     parser.add_argument(
-        "--rss-only",
-        action="store_true",
-        help="skip direct page/structured retrieval and use documented RSS only",
+        "--methods",
+        default="rss,browser",
+        help="ordered comma-separated methods; default: rss,browser",
     )
     return parser
 
@@ -95,26 +95,30 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    try:
+        methods = parse_methods(args.methods)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     client = MediumFeedClient(timeout=args.timeout)
     try:
         direct_client = (
-            None
-            if args.rss_only
-            else DirectClient(
+            DirectClient(
                 timeout=args.timeout,
                 cookie_file=args.cookie_file,
                 cookies_from_browser=args.cookies_from_browser,
             )
+            if ExtractionMethod.BROWSER in methods
+            else None
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    options = DownloadOptions(output_dir=args.output_dir)
+    options = DownloadOptions(output_dir=args.output_dir, methods=methods)
     successful = 0
-    previous_feed: str | None = None
-    for reference in references:
-        if previous_feed is not None and reference.feed_url != previous_feed:
+    for index, reference in enumerate(references):
+        if index:
             time.sleep(args.request_delay)
         article_dir, ok = download_article(
             client,
@@ -125,7 +129,6 @@ def main(argv: list[str] | None = None) -> int:
         status = "saved" if ok else "unavailable"
         print(f"{reference.article_id}: {status} -> {article_dir}")
         successful += int(ok)
-        previous_feed = reference.feed_url
     return 0 if successful == len(references) and not errors else 1
 
 

@@ -7,10 +7,11 @@ assessment, not legal advice.
 
 Info Triage uses a layered, sequential retrieval strategy:
 
-1. Fetch Medium's story-ID JSON response and normal article page with a
-   Chrome-compatible TLS/HTTP fingerprint.
-2. Keep whichever representation yields more useful Markdown.
-3. Use the story's RSS feed as a fallback or an explicitly selected conservative mode.
+1. Check the derived Medium RSS feed and stop if it contains either a full story or a
+   member preview.
+2. If RSS misses or fails, fetch Medium's story-ID JSON response and normal article
+   page with a Chrome-compatible TLS/HTTP fingerprint.
+3. Keep whichever direct representation yields more useful Markdown.
 4. Retain `sk` Friend Link tokens and support a local browser session or mounted cookie
    file for access already granted to the user.
 
@@ -65,8 +66,8 @@ its author's feed.
 
 | Route | Public story | Member-only story | Suitable here |
 | --- | --- | --- | --- |
-| Direct story HTML/JSON | Full HTML and structured paragraphs | Several opening paragraphs anonymously; full body with an authorized session | Primary |
-| Documented RSS feed | Full HTML when the story remains in the rolling feed | Title, image, and normally a one-sentence preview | Fallback |
+| Documented RSS feed | Full HTML when the story remains in the rolling feed | Title, image, and normally a one-sentence preview | First |
+| Browser-compatible story HTML/JSON | Full HTML and structured paragraphs | Several opening paragraphs anonymously; full body with an authorized session | Second |
 | Official Medium API | No read-story endpoint | No read-story endpoint | No |
 | Medium mobile offline mode | Full story for a signed-in member | Full story for a signed-in member | Manual use only; no Markdown export |
 | Manually supplied HTML | Whatever the user lawfully supplies | Whatever the user lawfully supplies | Yes; conversion makes no network request |
@@ -84,7 +85,7 @@ normal browser can work while superficially similar automation fails.
 
 ## Supplied URL results
 
-The live RSS check produced these results:
+The complete live extraction produced these results:
 
 | Article ID | Result |
 | --- | --- |
@@ -93,6 +94,12 @@ The live RSS check produced these results:
 | `1ec4b5bcec35` | Anonymous preview: title and opening paragraphs, about 264 words |
 | `dc2e9c207d00` | Full article, about 1,544 words |
 | `f067d56bed54` | Full article, about 1,521 words |
+
+For the two public stories, RSS and browser extraction were compared after removing
+Markdown markers and normalizing whitespace. Both comparisons had identical word
+counts, sequence similarity `1.0000`, and vocabulary similarity `1.0000`. Their small
+raw-character differences come from Markdown heading/formatting choices, not missing
+article content. RSS is therefore the better first method for these cases.
 
 The five URLs are kept in `tests/fixtures/medium_urls.txt`. Generated bodies live under
 the ignored `medium_output/` directory rather than being committed as test fixtures.
@@ -117,21 +124,29 @@ uv sync
 uv run medium-extract --input-file tests/fixtures/medium_urls.txt
 ```
 
-Use RSS alone when desired:
+The default method list is explicitly `rss,browser`. The first successful result wins,
+including an RSS member preview. Customize or reverse the order with `--methods`:
 
 ```bash
-uv run medium-extract --rss-only --input-file tests/fixtures/medium_urls.txt
+uv run medium-extract --methods rss 'ARTICLE_URL'
+uv run medium-extract --methods browser 'ARTICLE_URL'
+uv run medium-extract --methods browser,rss 'ARTICLE_URL'
 ```
+
+Method names cannot be repeated and an unknown method fails before network access.
+This ordered list is intentionally represented independently of the CLI so it can be
+moved into the future project-wide processor/extractor configuration without changing
+the downloader.
 
 Each article ID gets a status file. Available items also get:
 
 ```text
-response.html      direct page response when available
-article.html       exact fallback RSS full/preview fragment when RSS was used
+response.html      browser-method page response when available
+article.html       exact RSS full/preview fragment when RSS was used
 article.md         Trafilatura Markdown output
 metadata.json      title, author, dates, tags, source, and full/preview label
 metadata_raw.json  structured Medium story payload
-status.json        complete, preview, not_found_in_feed, or failed
+status.json        configured ordered methods, attempts, winning method, and outcome
 ```
 
 ## Membership authentication
@@ -139,8 +154,11 @@ status.json        complete, preview, not_found_in_feed, or failed
 On a workstation where Chrome is already signed in to Medium:
 
 ```bash
-uv run medium-extract --cookies-from-browser chrome 'ARTICLE_URL'
+uv run medium-extract --methods browser --cookies-from-browser chrome 'ARTICLE_URL'
 ```
+
+The explicit browser-only method matters here because an RSS preview counts as a
+successful first result in the default method list.
 
 This reads the local browser cookie store; it can prompt for the macOS Keychain. It
 does not read or store the Medium password.
@@ -169,7 +187,8 @@ into chat or commit it. Store it outside the repository with mode `0600`, mount 
 read-only into the container, and pass only its path:
 
 ```bash
-MEDIUM_COOKIE_FILE=/run/secrets/medium-cookies.json uv run medium-extract 'ARTICLE_URL'
+MEDIUM_COOKIE_FILE=/run/secrets/medium-cookies.json \
+  uv run medium-extract --methods browser 'ARTICLE_URL'
 ```
 
 The status remains `preview` if Medium does not accept or authorize the supplied
