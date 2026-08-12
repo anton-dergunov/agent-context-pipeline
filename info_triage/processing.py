@@ -25,8 +25,8 @@ class ProcessingStep(Protocol):
     ) -> None: ...
 
 
-# Add implemented steps here in their required order. The intended future order is
-# text normalization, shortened-URL resolution, OCR/transcription, final cleanup.
+# The runtime entry point injects its registered production steps. An empty default
+# keeps the pipeline reusable for callers that deliberately want pass-through capture.
 PROCESSING_STEPS: tuple[ProcessingStep, ...] = ()
 
 

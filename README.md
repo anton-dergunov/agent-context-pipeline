@@ -39,20 +39,23 @@ silently receive the `Other` category. Editing any constituent Telegram message
 updates the same stable item directory.
 
 The capture layer deliberately ignores Telegram interaction content such as
-stickers, contacts, polls, payments, games, dice, and service events. It stores
-original media only: there is no transcription, OCR, image analysis, or web
-page extraction. Files above Telegram's hosted Bot API download limit are
-recorded in metadata with a warning but cannot be copied locally.
+stickers, contacts, polls, payments, games, dice, and service events. Original
+media is retained. Telegram voice notes are transcribed locally into
+`Voice note: <recognized text>`; other media has no automatic OCR, image
+analysis, transcription, or web-page extraction. Files above Telegram's hosted
+Bot API download limit are recorded in metadata with a warning but cannot be
+copied locally. The complete behaviour matrix is in
+[`docs/PREPROCESSING.md`](docs/PREPROCESSING.md).
 
 The Python runtime remains deliberately small. `app.py` only wires together
 the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
-processes at most one item at a time. There are currently no processing steps,
-so captured items normally move from staging to inbox when the short grouping
-period ends.
+processes at most one item at a time. Items containing voice notes enter that
+worker for transcription; items without an applicable processing step move
+directly from staging to inbox.
 
-Future processors will produce the laptop-facing `message.md` in a temporary
+Processors produce the laptop-facing `message.md` in a temporary
 revision-specific workspace. Raw Telegram data remains in `telegram.json`, and
 original downloaded media remains in `attachments/`. A result is committed
 only if its source revision is still current.
@@ -60,8 +63,9 @@ only if its source revision is still current.
 Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
 public LinkedIn extraction, cautious text cleaning, and bounded URL resolution.
-They retain standalone console commands but are not yet enabled in
-`PROCESSING_STEPS`, so installing them does not change capture behavior. See
+The local speech-transcription engine is reused for Telegram voice notes. The
+other components retain standalone console commands and are not automatic item
+processors, so installing them does not change capture behavior. See
 [`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
 [`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md).
 

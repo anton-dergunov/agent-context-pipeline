@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -202,13 +203,24 @@ def _is_forwarded(payload: dict[str, Any]) -> bool:
     )
 
 
-def render_capture_payloads(payloads: list[dict[str, Any]]) -> str:
+def render_capture_payloads(
+    payloads: list[dict[str, Any]],
+    *,
+    voice_transcripts: Mapping[int, Sequence[str]] | None = None,
+) -> str:
     """Render ordered raw Telegram messages, identifying only explicit forwards."""
     ordered = sorted(payloads, key=_payload_order)
-    parts = [
-        (payload, capture_content(Message.de_json(payload, None)) or "")
-        for payload in ordered
-    ]
+    parts = []
+    for payload in ordered:
+        content = capture_content(Message.de_json(payload, None)) or ""
+        transcripts = (voice_transcripts or {}).get(payload["message_id"], ())
+        voice_content = "\n\n".join(f"Voice note: {text}" for text in transcripts)
+        parts.append(
+            (
+                payload,
+                "\n\n".join(value for value in (voice_content, content) if value),
+            )
+        )
     forwarded = [content for payload, content in parts if _is_forwarded(payload)]
     notes = [content for payload, content in parts if not _is_forwarded(payload)]
     if forwarded and notes:

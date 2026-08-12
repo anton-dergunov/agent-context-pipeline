@@ -172,7 +172,7 @@ https://example.com/article
 
 The initial capture does not rewrite or summarize this content. When no
 processing step applies, `message.md` therefore remains equivalent to the text
-captured from Telegram. Future processing may clean or enrich it and may add
+captured from Telegram. Processing may clean or enrich it and may add
 other generated files to the same item directory.
 
 The complete original Telegram payload remains in `telegram.json`, and
@@ -180,7 +180,8 @@ downloaded source media remains in `attachments/`.
 
 For a location or venue, it also contains a small readable location block with
 the coordinates and a maps link. It remains empty for media that has neither a
-caption nor a location.
+caption nor a location, except that a voice note is rendered as
+`Voice note: <recognized text>` after transcription.
 
 ---
 
@@ -237,8 +238,9 @@ The capture layer preserves useful references: text and links, forwarded source
 context, documents, photos, videos, animations, voice/audio/video notes,
 locations, venues, and mixed media albums. It does not archive stickers,
 contacts, polls, payments, games, dice, service events, or comments. Media is
-stored as supplied; transcription, OCR, and scraping are separate future
-processing steps.
+stored as supplied. Voice notes are transcribed automatically; OCR, scraping,
+and transcription of other media remain future processing steps. See
+[`PREPROCESSING.md`](PREPROCESSING.md) for the authoritative behaviour matrix.
 
 A media group is one logical message. It can be combined with nearby notes or
 other messages under the same three-second rule. A grouped item is named from
@@ -354,16 +356,18 @@ item at a time. SQLite is the durable queue; there is no separate queue table or
 in-memory-only job list. On restart, an interrupted `processing` item still in
 staging returns to `received`.
 
-Processing steps are ordinary ordered Python functions. The initial step list
-is empty. Expected future steps are text normalization, shortened-URL
-resolution, OCR or transcription where applicable, and final cleanup.
+Processing steps are ordinary ordered Python functions. The first registered
+step transcribes Telegram voice attachments and rebuilds `message.md` with each
+transcript at its source message's logical position. Expected future steps are
+text normalization, shortened-URL resolution, OCR or other transcription where
+applicable, and final cleanup.
 
 The repository already contains reusable implementations for cautious text
 cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
 and transcription, and anonymous public LinkedIn extraction. These live below
-`info_triage.utilities` and `info_triage.extractors`, but none is registered in
-`PROCESSING_STEPS` yet. Their presence therefore does not alter the prototype's
-capture or delivery behavior.
+`info_triage.utilities` and `info_triage.extractors`. The local transcription
+engine is reused by the Telegram voice step; the remaining standalone tools do
+not alter capture or delivery behavior.
 
 Steps write only to a revision-specific temporary workspace. `message.md` is
 the processed, laptop-facing result, while `telegram.json` and original media

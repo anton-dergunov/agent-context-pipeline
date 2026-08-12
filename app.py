@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telegram import Update
 
+from info_triage.preprocessing import VoiceTranscriptionStep
 from info_triage.processing import (
     ProcessingCoordinator,
     ProcessingPipeline,
@@ -31,10 +32,16 @@ def main() -> None:
     bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
     allowed_user_id = int(os.environ["ALLOWED_USER_ID"])
     data_dir = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
+    transcription_model_cache = Path(
+        os.environ.get(
+            "INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR",
+            BASE_DIR / ".whisper_models",
+        )
+    )
     port = int(os.environ.get("PORT", "8000"))
 
     store = CaptureStore(data_dir)
-    pipeline = ProcessingPipeline()
+    pipeline = ProcessingPipeline([VoiceTranscriptionStep(transcription_model_cache)])
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
     asyncio.set_event_loop(asyncio.new_event_loop())
