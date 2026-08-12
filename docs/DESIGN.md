@@ -40,9 +40,13 @@ Server
             │ bidirectional synchronization
             ▼
 Laptop inbox/
+   ├── generated inbox.md
+   │     consolidated read-only view
    │
-   ▼
-Manual processing
+   └── self-contained item directories
+            │
+            ▼
+      Manual processing
    │
    ▼
 Item removed from laptop inbox
@@ -544,6 +548,8 @@ After synchronization:
 - items removed from the laptop are removed from the server.
 - an item with a revision newer than the last laptop revision appears again,
   even if the older local revision was removed.
+- `inbox.md` is regenerated from the item directories as a consolidated,
+  oldest-first processing view.
 
 There is no separate archive or acknowledgement protocol.
 
@@ -563,6 +569,23 @@ For example:
 ```
 
 The user processes these items one by one.
+
+The synchronization command also generates:
+
+```text
+~/info-triage-inbox/inbox.md
+```
+
+This file contains one section per current item, ordered by its UTC
+`received_at`. Each section contains a human-readable timestamp, a blockquoted
+list of user-facing `message.md` front-matter fields, a relative link to the
+item directory, and the processed Markdown body. It deliberately excludes
+operational metadata such as Telegram identities, revisions, and attachment
+internals.
+
+`inbox.md` is a derived snapshot rather than acknowledgement state. It is
+replaced atomically after every successful sync, so edits to it are not
+preserved. The linked item directories remain the authoritative inbox.
 
 Once an item has been dealt with, it is moved elsewhere in the user's own system or removed from the Info Triage inbox.
 
@@ -599,9 +622,12 @@ Possible tools include:
 - Syncthing
 - another simple bidirectional file synchronizer
 
-The initial implementation uses `rsync` plus a small local manifest mapping each
-item ID to its last delivered revision. This is the minimum state needed to
-distinguish an unchanged processed item from a newer server update.
+The implementation uses a small Python synchronization command, launched by
+`sync.sh`, to orchestrate `ssh` and `rsync`. A local manifest maps each item ID
+to its last delivered revision. This is the minimum state needed to distinguish
+an unchanged processed item from a newer server update. Python keeps the state
+transitions and generated Markdown parsing directly testable while `sync.sh`
+remains the stable user-facing command.
 
 The desired laptop experience should be approximately:
 

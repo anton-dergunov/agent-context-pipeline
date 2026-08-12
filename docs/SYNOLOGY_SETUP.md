@@ -980,8 +980,15 @@ Run this from the project on the laptop whenever you want to synchronize:
 
 New and edited NAS items are copied to `~/info-triage-inbox/`. The script keeps
 only each delivered item ID and revision in
-`~/.local/state/info-triage/delivered-items`; it does not keep a second content
-snapshot. Existing one-column manifests are migrated automatically.
+`~/.local/state/info-triage/delivered-items`; it does not use a hidden content
+snapshot for deletion tracking. Existing one-column manifests are migrated
+automatically.
+
+After a successful sync, the command atomically regenerates
+`~/info-triage-inbox/inbox.md`. It is an oldest-first Markdown view containing
+the capture time, user-facing metadata, a link to each item directory, and the
+message body. It is overwritten on every sync and should not be edited as a way
+to acknowledge items.
 
 Moving or deleting a delivered item directory from the laptop inbox marks its
 current revision processed. The next sync deletes the matching NAS directory.

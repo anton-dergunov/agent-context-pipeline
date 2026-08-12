@@ -23,7 +23,7 @@ Telegram message
     -> category: Other
     -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
-    -> ~/info-triage-inbox/
+    -> ~/info-triage-inbox/ item directories + generated inbox.md
 ```
 
 The directory date is the UTC creation date supplied by Telegram.
@@ -114,6 +114,12 @@ under `~/.local/state/info-triage/`. Removing a delivered item directory from
 `~/info-triage-inbox/` marks that revision processed; the next sync removes its
 NAS copy. If a constituent Telegram message is edited later, its higher revision
 is downloaded again.
+
+After each successful sync, `~/info-triage-inbox/inbox.md` is regenerated as a
+single oldest-first view of the current items. Each section has the UTC capture
+time, user-facing metadata, a link to the self-contained item directory, and the
+processed Markdown message. The file is derived and overwritten on every sync;
+moving or deleting an item directory remains the only way to mark it processed.
 
 ## Example Inputs
 
