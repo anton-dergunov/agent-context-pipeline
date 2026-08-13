@@ -133,6 +133,24 @@ def test_meta_refresh_and_literal_javascript_redirects_are_followed(monkeypatch)
     assert result == Resolution("https://example.com/final", True)
 
 
+def test_avantlink_consent_page_uses_the_no_cookie_destination():
+    response = _response(
+        "https://classic.avantlink.com/click.php?shortened_url_id=abc123",
+        b"""
+        <form action="/click.php" method="get">
+          <input type="hidden" name="cookie_consent" value="1">
+          <input type="hidden" name="shortened_url_id" value="abc123">
+          <input type="checkbox" name="no_consent_checkbox">
+        </form>
+        """,
+    )
+
+    assert url_resolution._html_destination(response.content, response) == (
+        "https://classic.avantlink.com/click.php?"
+        "cookie_consent=1&shortened_url_id=abc123&no_consent_checkbox=on"
+    )
+
+
 def test_page_level_redirect_loop_is_rejected(monkeypatch):
     monkeypatch.setattr(url_resolution, "_unsafe_url_message", lambda _url: None)
 
@@ -249,6 +267,14 @@ def test_challenge_and_generic_service_titles_are_rejected(title):
     assert url_resolution._html_title(f"<title>{title}</title>".encode(), response) is None
 
 
+def test_host_only_title_is_rejected():
+    response = _response("https://www.amazon.com/product")
+    assert url_resolution._html_title(b"<title>Amazon.com</title>", response) is None
+
+    branded = _response("https://graphviz.org/")
+    assert url_resolution._html_title(b"<title>Graphviz</title>", branded) == "Graphviz"
+
+
 def test_link_resolution_follows_http_redirect_once_and_extracts_title(monkeypatch):
     monkeypatch.setattr(url_resolution, "_unsafe_url_message", lambda _url: None)
 
@@ -303,6 +329,107 @@ def test_pdf_metadata_title_is_supported(monkeypatch):
     )
 
     assert result == LinkResolution("https://example.com/paper.pdf", "PDF document title")
+
+
+def test_pdf_filename_metadata_falls_back_to_prominent_first_page_text(monkeypatch):
+    class Page:
+        def extract_text(self, *, visitor_text):
+            visitor_text("Feature Engineering and\n", [], [1, 0, 0, 1, 72, 700], None, 18)
+            visitor_text("Classifier Ensemble\n", [], [1, 0, 0, 1, 72, 678], None, 18)
+            visitor_text("Alice Example\n", [], [1, 0, 0, 1, 72, 630], None, 11)
+            return "Feature Engineering and\nClassifier Ensemble\nAlice Example\n"
+
+    class Metadata(dict):
+        title = "paper-source.dvi"
+
+    class Reader:
+        metadata = Metadata({"/Title": "paper-source.dvi"})
+        xmp_metadata = None
+        pages = [Page()]
+
+    monkeypatch.setattr(url_resolution, "PdfReader", lambda *_args, **_kwargs: Reader())
+
+    assert url_resolution._pdf_title(b"fake") == (
+        "Feature Engineering and Classifier Ensemble",
+        None,
+    )
+
+
+def test_pdf_plain_text_fallback_handles_documents_without_font_sizes(monkeypatch):
+    class Page:
+        def extract_text(self, *, visitor_text):
+            visitor_text("How teams use\n", [], [1, 0, 0, 1, 72, 700], None, 1)
+            visitor_text("the coding assistant\n", [], [1, 0, 0, 1, 72, 680], None, 1)
+            return "How teams use\nthe coding assistant\nLong descriptive body paragraph.\n"
+
+    class Reader:
+        metadata = None
+        xmp_metadata = None
+        pages = [Page()]
+
+    monkeypatch.setattr(url_resolution, "PdfReader", lambda *_args, **_kwargs: Reader())
+
+    assert url_resolution._pdf_title(b"fake") == (
+        "How teams use the coding assistant",
+        None,
+    )
+
+
+def test_pdf_title_does_not_absorb_a_prominent_author_line(monkeypatch):
+    class Page:
+        def extract_text(self, *, visitor_text):
+            visitor_text("A USEFUL PAPER\n", [], [1, 0, 0, 1, 72, 700], None, 1)
+            visitor_text(
+                "Alice Example1, Bob Example2, Carol Example3\n",
+                [],
+                [1, 0, 0, 1, 72, 678],
+                None,
+                1,
+            )
+            return "A USEFUL PAPER\nAlice Example1, Bob Example2, Carol Example3\n"
+
+    class Reader:
+        metadata = None
+        xmp_metadata = None
+        pages = [Page()]
+
+    monkeypatch.setattr(url_resolution, "PdfReader", lambda *_args, **_kwargs: Reader())
+
+    assert url_resolution._pdf_title(b"fake") == ("A USEFUL PAPER", None)
+
+
+def test_browser_compatible_session_retries_a_blocked_page(monkeypatch):
+    monkeypatch.setattr(url_resolution, "_unsafe_url_message", lambda _url: None)
+
+    class Session:
+        def __init__(self, response):
+            self.response = response
+            self.calls = []
+
+        def get(self, url, **_kwargs):
+            self.calls.append(url)
+            return self.response
+
+    ordinary = Session(_response("https://example.com/article", status=403))
+    browser = Session(
+        _response(
+            "https://example.com/article",
+            b'<meta property="og:title" content="Accessible article">',
+        )
+    )
+
+    result = resolve_link(
+        "https://example.com/article",
+        ordinary,
+        timeout=1,
+        max_html_bytes=1024,
+        max_pdf_bytes=2048,
+        browser_session=browser,
+    )
+
+    assert result == LinkResolution("https://example.com/article", "Accessible article")
+    assert ordinary.calls == ["https://example.com/article"]
+    assert browser.calls == ["https://example.com/article"]
 
 
 def test_expected_link_failures_have_stable_reasons(monkeypatch):
@@ -396,6 +523,7 @@ def test_cli_enriches_by_default_and_exposes_compatibility_limits():
     compatibility = parse_args(["input.txt", "--urls-only", "--all", "--max-pdf-bytes", "1234"])
 
     assert not args.urls_only
+    assert args.max_html_bytes == 20 * 1024 * 1024
     assert args.max_pdf_bytes == 20 * 1024 * 1024
     assert compatibility.urls_only
     assert compatibility.all

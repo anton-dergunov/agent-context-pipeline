@@ -66,7 +66,9 @@ cleaning.
 
 Voice transcription first materializes the complete segmented body in
 `source.md`. URL/title enrichment converts bare links to `[page title](URL)`
-Markdown where public HTML or PDF metadata provides a trustworthy title. Text
+Markdown where bounded public HTML or PDF metadata/first-page text provides a
+trustworthy title. Blocked ordinary requests get one anonymous
+Chrome-compatible HTTP retry. Text
 cleaning then produces the laptop-facing `message.md`; category front matter is
 added only after those body transforms.
 Raw Telegram data remains in `telegram.json`, and original downloaded media

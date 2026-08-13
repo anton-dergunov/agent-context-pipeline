@@ -28,7 +28,7 @@ def test_complete_url_title_corpus_is_processed():
     resolver = URLResolver(
         timeout=15,
         retries=0,
-        max_html_bytes=2 * 1024 * 1024,
+        max_html_bytes=20 * 1024 * 1024,
         max_pdf_bytes=20 * 1024 * 1024,
     )
     for url in urls:

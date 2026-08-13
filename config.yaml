@@ -57,9 +57,9 @@ processing:
       timeout_seconds: 30.0
       # Retry transient connection, throttling, and server failures this many times.
       retries: 4
-      # Inspect at most 2 MiB of HTML for redirects and title metadata.
-      max_html_bytes: 2097152
-      # Download at most 20 MiB when reading PDF document-title metadata.
+      # Inspect at most 20 MiB of HTML for redirects and title metadata.
+      max_html_bytes: 20971520
+      # Download at most 20 MiB for PDF metadata and first-page title text.
       max_pdf_bytes: 20971520
       resolve_all: false
 

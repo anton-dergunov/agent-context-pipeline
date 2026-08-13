@@ -99,12 +99,14 @@ not fetched. URLs in code, image links, raw HTML attributes, and Markdown
 reference definitions are not title-enriched.
 
 Titles come from bounded public HTML metadata (`og:title`, Twitter metadata,
-Article/WebPage JSON-LD, `<title>`, then `<h1>`) or PDF document/XMP metadata.
-HTML inspection is capped at 2 MiB and PDF downloads at 20 MiB by the shipped
-configuration. Every redirect hop must remain public HTTP(S); credential-bearing
-and private-network destinations are rejected. The resolver does not execute
-JavaScript, use browser automation, authenticate, derive titles from filenames,
-or guess from PDF page text.
+Article/WebPage JSON-LD, `<title>`, then `<h1>`). PDFs prefer document/XMP
+metadata and otherwise infer a title from the first page's prominent text; file
+names and document body text are not used. HTML and PDF downloads are each
+capped at 20 MiB by the shipped configuration. Every redirect hop must remain
+public HTTP(S); credential-bearing and private-network destinations are rejected.
+When an ordinary request encounters a block or unusable response, the resolver
+retries anonymously with the same Chrome-compatible HTTP client used by the
+Medium extractor. It does not run a browser, execute JavaScript, or authenticate.
 
 If a destination resolves but has no trustworthy title, the final URL remains
 as bare text. Request, redirect, content-type, size, safety, and missing-title

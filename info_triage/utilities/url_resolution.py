@@ -21,13 +21,15 @@ import sys
 import tempfile
 import unicodedata
 from collections import Counter
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
-from urllib.parse import parse_qs, unquote, urljoin, urlsplit
+from typing import Any, Callable, Iterable
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlsplit
 
 import requests
 from bs4 import BeautifulSoup
+from curl_cffi import requests as browser_requests
 from pypdf import PdfReader
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -87,6 +89,7 @@ SHORTENER_HOSTS = frozenset(
         "9qr.de",
         "a.co",
         "adf.ly",
+        "alnk.to",
         "aka.ms",
         "amzn.eu",
         "amzn.to",
@@ -183,6 +186,9 @@ MAX_TITLE_CHARACTERS = 500
 GENERIC_ERROR_TITLES = frozenset(
     {
         "access denied",
+        "amazon.com",
+        "amazon.co.uk",
+        "are you a robot?",
         "attention required! | cloudflare",
         "before you continue to youtube",
         "client challenge",
@@ -192,8 +198,23 @@ GENERIC_ERROR_TITLES = frozenset(
         "not found",
         "page not found",
         "perplexity",
+        "sciencedirect",
         "spotify",
         "- youtube",
+    }
+)
+
+PDF_FILENAME_TITLE_RE = re.compile(
+    r"(?:^|\s)(?:microsoft (?:word|powerpoint)\s*-\s*)?.+\.(?:dvi|docx?|pdf|pptx?|ps|tex)$",
+    re.IGNORECASE,
+)
+PDF_LIGATURES = str.maketrans(
+    {
+        "ﬀ": "ff",
+        "ﬁ": "fi",
+        "ﬂ": "fl",
+        "ﬃ": "ffi",
+        "ﬄ": "ffl",
     }
 )
 
@@ -266,6 +287,14 @@ def make_session(retries: int) -> requests.Session:
     session.mount("https://", adapter)
     session.max_redirects = 20
     return session
+
+
+def make_browser_session() -> browser_requests.Session:
+    """Return the Chrome-compatible HTTP client used by the Medium extractor."""
+    return browser_requests.Session(
+        impersonate="chrome",
+        headers={"Accept-Language": "en-GB,en;q=0.9"},
+    )
 
 
 def _decoded_http_url(value: str) -> str | None:
@@ -373,6 +402,27 @@ def _html_destination(body: bytes, response: requests.Response) -> str | None:
         if link:
             return urljoin(response.url, html.unescape(str(link["href"])))
 
+    # AvantLink's public shortener currently stops at a consent page. Its GET
+    # form explicitly offers a no-cookie route, which can be followed without
+    # accepting tracking or executing page scripts. Keep this narrowly scoped
+    # to the known host and expected hidden fields rather than submitting
+    # arbitrary forms found on the web.
+    if host == "classic.avantlink.com":
+        form = soup.find(
+            "form", action=True, method=lambda value: not value or value.lower() == "get"
+        )
+        if form:
+            fields = {
+                str(element.get("name")): str(element.get("value", ""))
+                for element in form.find_all("input", attrs={"name": True})
+                if element.get("type", "").lower() == "hidden"
+            }
+            if fields.get("cookie_consent") == "1" and fields.get("shortened_url_id"):
+                fields["no_consent_checkbox"] = "on"
+                action = urljoin(response.url, html.unescape(str(form["action"])))
+                separator = "&" if urlsplit(action).query else "?"
+                return f"{action}{separator}{urlencode(fields)}"
+
     for meta in soup.find_all("meta"):
         equiv = meta.get("http-equiv")
         content = meta.get("content")
@@ -410,27 +460,29 @@ def resolve_url(
     """Resolve one URL through network and page-level redirect mechanisms."""
     original = html.unescape(url)
     current = original
-    seen: set[str] = set()
+    visits: Counter[str] = Counter()
 
     try:
         for _ in range(max_rounds):
-            if current in seen:
+            visits[current] += 1
+            if visits[current] > 2:
                 return Resolution(current, False, "redirect loop detected")
-            seen.add(current)
 
             embedded = embedded_destination(current)
-            if embedded and embedded not in seen:
+            if embedded and not visits[embedded]:
                 current = embedded
                 continue
 
             if unsafe := _unsafe_url_message(current):
                 return Resolution(current, False, f"unsafe URL: {unsafe}")
 
-            with session.get(
-                current,
-                allow_redirects=False,
-                timeout=(min(timeout, 15.0), timeout),
-                stream=True,
+            with closing(
+                session.get(
+                    current,
+                    allow_redirects=False,
+                    timeout=(min(timeout, 15.0), timeout),
+                    stream=True,
+                )
             ) as response:
                 network_url = response.url or current
                 if unsafe := _unsafe_url_message(network_url):
@@ -770,6 +822,13 @@ def _normalize_title(value: object) -> str | None:
     return title
 
 
+def _title_matches_host(title: str, url: str) -> bool:
+    """Reject labels which only repeat the destination's host name."""
+    host = _normalized_host(url).rstrip(".")
+    normalized = title.casefold().removeprefix("www.").rstrip("./ ")
+    return normalized == host
+
+
 def _json_ld_title(soup: BeautifulSoup) -> str | None:
     accepted_types = {"article", "blogposting", "creativework", "newsarticle", "webpage"}
     for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -812,16 +871,130 @@ def _html_title(body: bytes, response: requests.Response) -> str | None:
     )
     for selector in selectors:
         element = soup.select_one(selector)
-        if element and (title := _normalize_title(element.get("content"))):
+        if (
+            element
+            and (title := _normalize_title(element.get("content")))
+            and not _title_matches_host(title, response.url)
+        ):
             return title
-    if title := _json_ld_title(soup):
+    if (title := _json_ld_title(soup)) and not _title_matches_host(title, response.url):
         return title
-    if soup.title and (title := _normalize_title(soup.title.get_text(" "))):
+    if (
+        soup.title
+        and (title := _normalize_title(soup.title.get_text(" ")))
+        and not _title_matches_host(title, response.url)
+    ):
         return title
     heading = soup.find("h1")
-    if heading and (title := _normalize_title(heading.get_text(" "))):
+    if (
+        heading
+        and (title := _normalize_title(heading.get_text(" ")))
+        and not _title_matches_host(title, response.url)
+    ):
         return title
     return None
+
+
+def _normalize_pdf_text(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    return _normalize_title(unicodedata.normalize("NFKC", value.translate(PDF_LIGATURES)))
+
+
+def _pdf_metadata_title(value: object) -> str | None:
+    title = _normalize_pdf_text(value)
+    if not title or PDF_FILENAME_TITLE_RE.search(title) or title.casefold() == "untitled":
+        return None
+    return title
+
+
+def _join_pdf_fragments(fragments: list[tuple[str, float, float, float, int]]) -> str | None:
+    """Infer the title from the largest, compact text block on page one."""
+    usable = [fragment for fragment in fragments if fragment[0].strip() and fragment[1] > 0]
+    if not usable:
+        return None
+    sizes = [fragment[1] for fragment in usable]
+    largest = max(sizes)
+    if largest - min(sizes) < 1.0:
+        return None
+
+    prominent = [fragment for fragment in usable if fragment[1] >= largest * 0.8]
+    rows = sorted({round(fragment[3], 1) for fragment in prominent}, reverse=True)
+    clusters: list[list[float]] = []
+    for row in rows:
+        if not clusters or clusters[-1][-1] - row > 28:
+            clusters.append([row])
+        else:
+            clusters[-1].append(row)
+
+    candidates: list[tuple[float, int, str]] = []
+    for cluster in clusters:
+        upper, lower = cluster[0] + 1, cluster[-1] - 1
+        selected = [fragment for fragment in prominent if lower <= round(fragment[3], 1) <= upper]
+        selected.sort(key=lambda fragment: fragment[4])
+        value = " ".join(fragment[0].strip() for fragment in selected)
+        value = re.sub(r"\bO\s+VERVIEW\b", "OVERVIEW", value)
+        if title := _normalize_pdf_text(value):
+            if len(title) >= 12 and not title.casefold().startswith("arxiv:"):
+                candidates.append((max(fragment[1] for fragment in selected), len(title), title))
+    return max(candidates, default=(0, 0, None), key=lambda item: (item[0], item[1]))[2]
+
+
+def _pdf_page_title(reader: PdfReader) -> str | None:
+    if not reader.pages:
+        return None
+    page = reader.pages[0]
+    fragments: list[tuple[str, float, float, float, int]] = []
+
+    def visitor(
+        text: str,
+        _current_matrix: list[float],
+        text_matrix: list[float],
+        _font: dict[str, Any] | None,
+        font_size: float,
+    ) -> None:
+        for line in text.splitlines() or [text]:
+            if line.strip():
+                fragments.append(
+                    (
+                        line,
+                        float(font_size),
+                        float(text_matrix[4]),
+                        float(text_matrix[5]),
+                        len(fragments),
+                    )
+                )
+
+    lines = [
+        normalized
+        for line in (page.extract_text(visitor_text=visitor) or "").splitlines()
+        if (normalized := _normalize_pdf_text(line))
+    ]
+    if title := _join_pdf_fragments(fragments):
+        if lines and title.startswith(lines[0]) and len(lines) > 1:
+            possible_authors = lines[1]
+            if possible_authors.count(",") >= 2:
+                return lines[0]
+        return title
+
+    # Some generated PDFs expose no usable font-size information. In those
+    # documents, the first one or two short lines before prose are the most
+    # conservative text-based title candidate.
+    candidates: list[str] = []
+    for line in lines[:4]:
+        lowered = line.casefold()
+        if candidates and (
+            lowered.startswith(("abstract", "authors?", "keywords"))
+            or "@" in line
+            or line.count(",") >= 2
+            or len(line) > 120
+            or (len(line) > 60 and line.endswith((".", ":")))
+        ):
+            break
+        candidates.append(line)
+        if len(candidates) == 2:
+            break
+    return _normalize_pdf_text(" ".join(candidates)) if candidates else None
 
 
 def _pdf_title(body: bytes) -> tuple[str | None, str | None]:
@@ -841,9 +1014,9 @@ def _pdf_title(body: bytes) -> tuple[str | None, str | None]:
             else:
                 candidates.append(dc_title)
         for candidate in candidates:
-            if title := _normalize_title(candidate):
+            if title := _pdf_metadata_title(candidate):
                 return title, None
-        return None, None
+        return _pdf_page_title(reader), None
     except Exception as error:  # pypdf exposes several parser-specific exception classes
         return None, f"could not parse PDF metadata: {error}"
 
@@ -905,38 +1078,39 @@ def _looks_like_html(body: bytes) -> bool:
     return prefix.startswith((b"<!doctype html", b"<html")) or b"<head" in prefix
 
 
-def resolve_link(
+def _resolve_link_once(
     url: str,
-    session: requests.Session,
+    session: Any,
     *,
     timeout: float,
     max_html_bytes: int,
     max_pdf_bytes: int,
     max_rounds: int = 10,
 ) -> LinkResolution:
-    """Resolve one public URL and extract a bounded HTML or PDF title."""
     current = html.unescape(url)
-    seen: set[str] = set()
+    visits: Counter[str] = Counter()
 
     try:
         for _ in range(max_rounds):
-            if current in seen:
+            visits[current] += 1
+            if visits[current] > 2:
                 return LinkResolution(current, None, "redirect-loop", "redirect loop detected")
-            seen.add(current)
 
             embedded = embedded_destination(current)
-            if embedded and embedded not in seen:
+            if embedded and not visits[embedded]:
                 current = embedded
                 continue
 
             if unsafe := _unsafe_url_message(current):
                 return LinkResolution(current, None, "unsafe-url", f"unsafe URL: {unsafe}")
 
-            with session.get(
-                current,
-                allow_redirects=False,
-                timeout=(min(timeout, 15.0), timeout),
-                stream=True,
+            with closing(
+                session.get(
+                    current,
+                    allow_redirects=False,
+                    timeout=(min(timeout, 15.0), timeout),
+                    stream=True,
+                )
             ) as response:
                 response_url = response.url or current
                 if unsafe := _unsafe_url_message(response_url):
@@ -1034,8 +1208,70 @@ def resolve_link(
             "redirect-limit",
             f"exceeded {max_rounds} page-level redirects",
         )
-    except requests.RequestException as error:
+    except (requests.RequestException, browser_requests.RequestsError) as error:
         return LinkResolution(current, None, "request-error", str(error))
+
+
+def resolve_link(
+    url: str,
+    session: Any,
+    *,
+    timeout: float,
+    max_html_bytes: int,
+    max_pdf_bytes: int,
+    max_rounds: int = 10,
+    browser_session: Any | None = None,
+) -> LinkResolution:
+    """Resolve one public URL, retrying blocked pages with browser-compatible HTTP."""
+    result = _resolve_link_once(
+        url,
+        session,
+        timeout=timeout,
+        max_html_bytes=max_html_bytes,
+        max_pdf_bytes=max_pdf_bytes,
+        max_rounds=max_rounds,
+    )
+    if (
+        result.title
+        or browser_session is None
+        or result.reason
+        in {
+            "unsafe-url",
+            "unsupported-content",
+        }
+    ):
+        return result
+
+    browser_result = _resolve_link_once(
+        url,
+        browser_session,
+        timeout=timeout,
+        max_html_bytes=max_html_bytes,
+        max_pdf_bytes=max_pdf_bytes,
+        max_rounds=max_rounds,
+    )
+    if browser_result.title:
+        return browser_result
+    quality = {
+        "title-not-found": 4,
+        "response-too-large": 3,
+        "unsupported-content": 3,
+        "destination-not-found": 2,
+        "http-error": 1,
+        "request-error": 1,
+        "redirect-loop": 1,
+        "redirect-limit": 1,
+        "unsafe-url": 0,
+    }
+    if quality.get(browser_result.reason, 0) > quality.get(result.reason, 0):
+        return browser_result
+    if (
+        result.url == url
+        and browser_result.url != url
+        and not is_redirector_url(browser_result.url)
+    ):
+        return browser_result
+    return result
 
 
 def _cached_url(value: CacheValue | None) -> str | None:
@@ -1065,6 +1301,7 @@ class URLResolver:
         self.verbose = verbose
         self.resolve_all = resolve_all
         self.session = make_session(retries)
+        self.browser_session = make_browser_session()
         self.failures: list[tuple[str, str]] = []
         self.failure_reasons: list[str] = []
         self._link_results: dict[str, LinkResolution] = {}
@@ -1112,13 +1349,17 @@ class URLResolver:
             self._link_results[url] = result
             return result
 
-        start_url = _cached_url(cached) or url
+        # A titleless cache entry may contain an interstitial or incomplete
+        # redirect destination from an older run. Retry from the source URL so
+        # improved redirect/browser handling can recover the full chain.
+        start_url = url
         result = resolve_link(
             start_url,
             self.session,
             timeout=self.timeout,
             max_html_bytes=self.max_html_bytes,
             max_pdf_bytes=self.max_pdf_bytes,
+            browser_session=self.browser_session,
         )
         self._link_results[url] = result
         cache_value = {"url": result.url}
@@ -1243,14 +1484,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-html-bytes",
         type=int,
-        default=2 * 1024 * 1024,
+        default=20 * 1024 * 1024,
         help="maximum HTML response bytes inspected for redirects and titles",
     )
     parser.add_argument(
         "--max-pdf-bytes",
         type=int,
         default=20 * 1024 * 1024,
-        help="maximum PDF bytes inspected for document title metadata",
+        help="maximum PDF bytes inspected for metadata and first-page title text",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="show resolved URLs")
     parser.add_argument(
