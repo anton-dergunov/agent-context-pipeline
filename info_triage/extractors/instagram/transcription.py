@@ -27,6 +27,15 @@ MLX_MODEL_REPOS = {
     "turbo": "mlx-community/whisper-turbo",
 }
 
+FASTER_WHISPER_MODEL_REPOS = {
+    "tiny": "Systran/faster-whisper-tiny",
+    "base": "Systran/faster-whisper-base",
+    "small": "Systran/faster-whisper-small",
+    "medium": "Systran/faster-whisper-medium",
+    "large-v3": "Systran/faster-whisper-large-v3",
+    "turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+}
+
 
 @dataclass(slots=True)
 class TranscriptSegment:
@@ -139,17 +148,31 @@ def _pin_native_threads(threads: int) -> None:
         os.environ[name] = str(threads)
 
 
-def _download_faster_whisper_model(model_name: str, cache_dir: Path) -> Path:
+def download_faster_whisper_model(model_name: str, cache_dir: Path) -> Path:
+    """Download a supported CTranslate2 Whisper model into its runtime directory."""
     model_path = cache_dir / model_name
     if (model_path / "model.bin").exists() and (model_path / "config.json").exists():
         return model_path
-    from faster_whisper.utils import download_model
+
+    try:
+        repo_id = FASTER_WHISPER_MODEL_REPOS[model_name]
+    except KeyError as exc:
+        raise ValueError(f"unsupported transcription model: {model_name}") from exc
+
+    from huggingface_hub import snapshot_download
 
     model_path.mkdir(parents=True, exist_ok=True)
-    download_model(
-        model_name,
-        output_dir=str(model_path),
+    snapshot_download(
+        repo_id=repo_id,
+        local_dir=model_path,
         local_files_only=os.environ.get("HF_HUB_OFFLINE") == "1",
+        allow_patterns=(
+            "config.json",
+            "preprocessor_config.json",
+            "model.bin",
+            "tokenizer.json",
+            "vocabulary.*",
+        ),
     )
     return model_path
 
@@ -396,7 +419,7 @@ def make_transcriber(
 ) -> Transcriber:
     """Download/cache the selected model and build the requested backend."""
     if backend == "faster-whisper":
-        path = _download_faster_whisper_model(model_name, cache_dir)
+        path = download_faster_whisper_model(model_name, cache_dir)
         return FasterWhisperTranscriber(path, threads, model_name=model_name)
     if backend == "mlx":
         path = _download_mlx_model(model_name, cache_dir)

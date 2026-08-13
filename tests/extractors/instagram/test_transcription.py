@@ -3,6 +3,8 @@
 import json
 from types import SimpleNamespace
 
+import huggingface_hub
+
 from info_triage.extractors.instagram import transcription
 
 
@@ -80,6 +82,22 @@ def test_transcription_threads_default_to_one(monkeypatch):
     monkeypatch.setenv(transcription.TRANSCRIPTION_THREAD_ENV, "3")
     assert transcription.resolve_transcription_threads() == 3
     assert transcription.resolve_transcription_threads(2) == 2
+
+
+def test_model_download_uses_current_hugging_face_local_dir_api(monkeypatch, tmp_path):
+    received = {}
+
+    def snapshot_download(**kwargs):
+        received.update(kwargs)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
+
+    model_path = transcription.download_faster_whisper_model("small", tmp_path)
+
+    assert model_path == tmp_path / "small"
+    assert received["repo_id"] == "Systran/faster-whisper-small"
+    assert received["local_dir"] == model_path
+    assert "local_dir_use_symlinks" not in received
 
 
 def test_production_outputs_are_unicode_and_timestamp_free(tmp_path):

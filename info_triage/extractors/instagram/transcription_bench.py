@@ -21,6 +21,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from .transcription import download_faster_whisper_model
 from .transcription_metrics import score_transcript, tokenize
 from .urls import load_inputs
 
@@ -165,14 +166,7 @@ def telegram_samples(paths: list[Path]) -> list[dict[str, Any]]:
 
 
 def _download_model(model: str, model_cache: Path) -> Path:
-    from faster_whisper.utils import download_model
-
-    model_dir = model_cache / model
-    required = model_dir / "model.bin"
-    if not required.exists():
-        model_dir.mkdir(parents=True, exist_ok=True)
-        download_model(model, output_dir=str(model_dir))
-    return model_dir
+    return download_faster_whisper_model(model, model_cache)
 
 
 def worker(spec_path: Path, output_path: Path) -> int:

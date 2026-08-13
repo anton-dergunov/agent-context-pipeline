@@ -19,6 +19,9 @@ from info_triage.extractors.instagram.engines import (  # noqa: E402
     DEFAULT_SCRIPTS,
     RapidOCREngine,
 )
+from info_triage.extractors.instagram.transcription import (  # noqa: E402
+    download_faster_whisper_model,
+)
 
 model_dir = Path(os.environ.get("INSTAGRAM_OCR_MODEL_DIR", "/app/.ocr_models"))
 scripts = tuple(os.environ.get("INSTAGRAM_OCR_SCRIPTS", ",".join(DEFAULT_SCRIPTS)).split(","))
@@ -38,7 +41,6 @@ print(f"preloaded {total / 1e6:.1f} MB of models")
 # The reviewed portable production choice: multilingual Whisper small on CPU
 # with int8 weights. Store it in the same layout the runtime resolver expects.
 from faster_whisper import WhisperModel  # noqa: E402
-from faster_whisper.utils import download_model  # noqa: E402
 
 daemon_config = load_config(Path(os.environ.get("INFO_TRIAGE_CONFIG", "/app/config.yaml")))
 voice_config = next(
@@ -55,7 +57,7 @@ whisper_cache = voice_config.model_cache_dir
 whisper_model = voice_config.model
 whisper_path = whisper_cache / whisper_model
 print(f"preloading faster-whisper {whisper_model} into {whisper_path}")
-download_model(whisper_model, output_dir=str(whisper_path))
+download_faster_whisper_model(whisper_model, whisper_cache)
 
 # Loading validates both architecture-specific CTranslate2 wheels and the
 # downloaded model during each amd64/arm64 image build.
