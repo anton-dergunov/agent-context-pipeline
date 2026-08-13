@@ -311,13 +311,13 @@ status = processing
 
 No `.processing` marker file is required.
 
-The nullable SQLite `processing_step` records the currently running step. It
-is retained with an error when that step fails and cleared when the item is
-ready.
+The nullable SQLite `processing_step` records the currently running step. It is
+cleared when the item is ready. Declared processor problems are tracked by
+processor telemetry and do not put the item in the global failed state.
 
 ### Failed
 
-Processing failed.
+Capture, orchestration, storage, commit, or unexpected processor code failed.
 
 The item remains in:
 
@@ -389,6 +389,22 @@ Steps write only to a revision-specific temporary workspace. Storage commits
 remains current. `telegram.json` and original media preserve the exact captured
 source. A later Telegram edit therefore supersedes a slow result without
 blocking capture.
+
+Each step has its own nested workspace and a snapshot of the accumulated
+result. A step can succeed, complete partially with one or more recoverable
+issues, or declare failure. Partial output is retained. Declared failed output
+and generated files are discarded before the next step runs. Unexpected Python
+exceptions are treated as code failures and retain the existing item-level
+failure behavior.
+
+The worker records every actual step execution, including retries and later
+revisions. It appends one compact JSON event per physical line to
+`data/logs/processor-runs.jsonl`. Success events contain status, duration,
+processor, and item identity only. Partial and failed events also contain stable
+reason keys, full untruncated input Markdown, failed targets, and exception
+details when applicable. Transformed results, raw Telegram JSON, and binary
+media are never logged. The log is append-only and currently has no rotation or
+cleanup.
 
 A URL may require:
 
@@ -496,8 +512,11 @@ failed
 
 `item_messages` maps every constituent `(chat_id, message_id)` to the primary
 item. `pending_capture_messages` temporarily holds each message's raw payload,
-rendered content, and attachment specifications until finalization. The actual
-ready text, HTML, images, documents, and generated outputs remain on disk.
+rendered content, and attachment specifications until finalization.
+`processor_stats` stores lifetime succeeded, partial, and failed run counts;
+`processor_reason_stats` stores stable reason occurrence counts. Full event
+details remain only in JSONL. The actual ready text, HTML, images, documents,
+and generated outputs remain on disk.
 
 SQLite does not need to be synchronized to the laptop.
 
@@ -511,7 +530,8 @@ SQLite has only a few responsibilities:
 2. Track the current processing state.
 3. Map Telegram source messages to items and support edits.
 4. Store processing errors.
-5. Supply data to the web dashboard.
+5. Store cumulative processor outcome and reason counters.
+6. Supply data to the web dashboard.
 
 It is not:
 
@@ -676,23 +696,27 @@ The dashboard reads its data directly from SQLite.
 
 # 19. Dashboard Tabs
 
-The dashboard contains one tab for each status:
+The dashboard contains one tab for each item status plus processor telemetry:
 
 ```text
-[ Received 3 ] [ Processing 1 ] [ Ready 12 ] [ Failed 2 ]
+[ Received 3 ] [ Processing 1 ] [ Ready 12 ] [ Failed 2 ] [ Processors ]
 ```
 
 The number displayed in the tab is the number of SQLite rows currently in that state.
 
-Selecting a tab filters the table to that status.
+Selecting an item tab filters the table to that status. The Processors tab
+shows every configured or historically observed processor with lifetime runs,
+succeeded, partial, and failed counts. Its reason rows show outcome, occurrence
+count, and a `processor:reason` key that can be copied into `grep -F` against
+`data/logs/processor-runs.jsonl`.
 
 No separate overview dashboard is necessary.
 
 ---
 
-# 20. Dashboard Table
+# 20. Dashboard Tables
 
-Every tab displays the same simple table:
+Item-status tabs display the same simple table:
 
 ```text
 ID              Created              Updated              Message
@@ -711,10 +735,9 @@ The columns are:
 
 For failed items, the error can also be displayed, either as another column or below the short text.
 
-The initial dashboard does not need:
+The dashboard does not need:
 
 - charts
-- statistics
 - event timelines
 - per-stage progress indicators
 - WebSockets
@@ -722,6 +745,10 @@ The initial dashboard does not need:
 - complex item detail pages
 
 A normal HTML table is sufficient.
+
+The Processors tab uses another plain table with columns for processor, runs,
+succeeded, partial, failed, and the stable reason breakdown. It does not expose
+full inputs or tracebacks in the browser; those remain in the JSONL log.
 
 ---
 
@@ -735,7 +762,7 @@ Real-time infrastructure is unnecessary.
 
 # 22. Failure Handling
 
-If processing fails:
+If infrastructure, commit logic, or unexpected processor code fails:
 
 ```text
 status = failed
@@ -756,6 +783,11 @@ and let the normal processing loop try again.
 Retrying can initially be done through a command-line command or a simple dashboard button.
 
 No dedicated failure directory is required.
+
+Expected processor problems do not use this item state. A partial processor
+keeps its usable output; a declared failed processor rolls back its own changes;
+then the pipeline advances and delivers the item. Both are counted and logged
+on the Processors tab.
 
 ---
 
@@ -802,11 +834,15 @@ check applicable steps
       │
       └── one or more ── single worker; SQLite: processing
                                │
-                               ├── failure ── SQLite: failed;
-                               │              remain in staging/
+                               ├── declared step issue ── log/count;
+                               │   retain partial output or roll back failed step;
+                               │   continue remaining steps
                                │
-                               └── success ── move staging/ → inbox/;
-                                              SQLite: ready
+                               ├── unexpected/infrastructure failure ── SQLite: failed;
+                               │   remain in staging/
+                               │
+                               └── pipeline complete ── move staging/ → inbox/;
+                                   SQLite: ready
       │
       ▼
 synchronize
@@ -867,7 +903,6 @@ The simplified design does not require:
 - filesystem marker files
 - an item-events table
 - processing timelines
-- complex dashboard statistics
 - a frontend SPA
 - bidirectional application-level APIs for synchronization
 

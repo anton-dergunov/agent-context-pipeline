@@ -71,6 +71,13 @@ Raw Telegram data remains in `telegram.json`, and original downloaded media
 remains in `attachments/`. Both Markdown files are committed only if their
 source revision is still current.
 
+Every configured step is instrumented centrally. The daemon appends compact
+JSONL run records to `data/logs/processor-runs.jsonl` and keeps cumulative
+success, partial, failure, and stable-reason counters in SQLite. Declared
+processor problems do not block delivery: partial output is retained, while a
+failed step is rolled back before later steps continue. Unexpected code errors
+still fail the item.
+
 Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
 public LinkedIn extraction, layered Medium article extraction, cautious text
@@ -124,7 +131,8 @@ multilingual `faster-whisper` small) during the build and runs offline at
 runtime. The Surya and MLX extras are intentionally not installed in Docker.
 
 The read-only processing dashboard is available at `http://localhost:8000/`
-locally and `http://192.168.1.10:8000/` on the NAS.
+locally and `http://192.168.1.10:8000/` on the NAS. Its Processors tab shows
+lifetime outcome totals and searchable failure-reason keys.
 
 After completing the one-time NAS rename described in
 [`docs/SYNOLOGY_SETUP.md`](docs/SYNOLOGY_SETUP.md), deploy with:

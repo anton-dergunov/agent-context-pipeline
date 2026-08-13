@@ -77,9 +77,11 @@ If Whisper detects no speech, the item is delivered with:
 ```
 
 A missing or unavailable attachment, an invalid media file, a file without an
-audio stream, or a transcription error fails the processing job. The item stays
-in `data/staging/` with SQLite status `failed` and the error is visible on the
-dashboard. It is not delivered with a misleading or partial transcript.
+audio stream, or a transcription error produces a declared failed processor
+outcome. The voice step is rolled back, later text processors continue, and the
+item is delivered with its original attachment so it can be played manually.
+The processor failure and stable reason are visible on the Processors dashboard
+tab and in the append-only processor log.
 
 No separate transcript artifact is generated. The transcript exists in both
 the materialized `source.md` and processed `message.md`; the original voice file
@@ -93,11 +95,21 @@ shorteners and deterministic redirect wrappers are fetched unless
 `resolve_all` is explicitly enabled. Timeout, retry count, and the maximum HTML
 bytes inspected for page-level redirects are documented in `config.yaml`.
 Resolution failures warn and retain the utility's original or safely extracted
-partial URL; they do not fail the item.
+partial URL. The processor run is recorded as partial with one stable reason per
+failed URL, but the usable output is retained and the item remains deliverable.
 
 Text cleaning runs afterward and reuses `clean_text` with its internal link
 resolution disabled. This normalizes social-media formatting and removes URL
 tracking parameters without making the network request twice.
+
+All configured steps run through shared telemetry. A clean run is `succeeded`;
+a completed run with recoverable target-level issues is `partial`; and a
+declared `failed` run has its changes discarded before the next step. Unexpected
+Python exceptions are logged with their type and traceback and remain serious
+item failures. `data/logs/processor-runs.jsonl` contains one compact JSON event
+per physical line. Successful events never contain processor inputs or results;
+problem events contain the untruncated input Markdown and failed targets, but no
+transformed result or binary media.
 
 ## Revisions and existing items
 

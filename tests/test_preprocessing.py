@@ -233,7 +233,7 @@ def test_no_speech_is_delivered_with_explicit_label(tmp_path):
         (result(status="no_audio", text=""), "no_audio"),
     ],
 )
-def test_transcription_failure_stops_processing(tmp_path, transcript, expected):
+def test_transcription_failure_returns_declared_failure(tmp_path, transcript, expected):
     payload = telegram_payload(
         1,
         100,
@@ -242,11 +242,14 @@ def test_transcription_failure_stops_processing(tmp_path, transcript, expected):
     _, _, job, processing_result = staged_job(tmp_path, [payload], [attachment("voice", 1)])
     step = VoiceTranscriptionStep(tmp_path / "models", transcriber=FakeTranscriber(transcript))
 
-    with pytest.raises(RuntimeError, match=expected):
-        step.run(job, processing_result, tmp_path / "workspace")
+    outcome = step.run(job, processing_result, tmp_path / "workspace")
+
+    assert outcome.status == "failed"
+    assert outcome.issues[0].reason == "transcription-failed"
+    assert expected in outcome.issues[0].message
 
 
-def test_missing_download_stops_processing(tmp_path):
+def test_missing_download_returns_declared_failure(tmp_path):
     payload = telegram_payload(
         1,
         100,
@@ -257,8 +260,11 @@ def test_missing_download_stops_processing(tmp_path):
     )
     step = VoiceTranscriptionStep(tmp_path / "models", transcriber=FakeTranscriber())
 
-    with pytest.raises(RuntimeError, match="download failed"):
-        step.run(job, processing_result, tmp_path / "workspace")
+    outcome = step.run(job, processing_result, tmp_path / "workspace")
+
+    assert outcome.status == "failed"
+    assert outcome.issues[0].reason == "attachment-unavailable"
+    assert "download failed" in outcome.issues[0].message
 
 
 def wait_for_status(store, message_id, status):
@@ -318,31 +324,43 @@ def test_plain_item_still_bypasses_worker(tmp_path):
     assert (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text().endswith("plain")
 
 
-def test_transcription_error_leaves_item_failed_in_staging(tmp_path):
+def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
     payload = telegram_payload(
         1,
         100,
         voice={"file_id": "voice-1", "file_unique_id": "unique-voice-1", "duration": 1},
     )
-    store, item, _, _ = staged_job(tmp_path, [payload], [attachment("voice", 1)])
+    store, item, _, _ = staged_job(
+        tmp_path,
+        [payload],
+        [attachment("voice", 1)],
+        "𝗞𝗲𝗲𝗽 this raw note",
+    )
     step = VoiceTranscriptionStep(
         tmp_path / "models",
         transcriber=FakeTranscriber(result(status="failed", text="", error="broken audio")),
     )
-    pipeline = ProcessingPipeline([step])
+    pipeline = ProcessingPipeline([step, TextCleaningStep()])
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
 
     worker.start()
     coordinator.submit(item)
     try:
-        failed = wait_for_status(store, 1, "failed")
+        ready = wait_for_status(store, 1, "ready")
     finally:
         worker.stop()
 
-    assert failed["processing_step"] == "voice-transcription"
-    assert "broken audio" in failed["error"]
-    assert (tmp_path / "staging" / "2026-08-09_1").is_dir()
+    assert ready["processing_step"] is None
+    assert ready["error"] is None
+    item_path = tmp_path / "inbox" / "2026-08-09_1"
+    assert item_path.is_dir()
+    assert (item_path / "attachments" / "01-voice.ogg").read_bytes() == b"media"
+    assert (item_path / "message.md").read_text().endswith("Keep this raw note")
+    stats = {row["processor"]: row for row in store.processor_statistics()}
+    assert stats["voice-transcription"]["failed"] == 1
+    assert stats["voice-transcription"]["reasons"][0]["reason"] == "transcription-failed"
+    assert stats["text-cleaning"]["succeeded"] == 1
 
 
 class FakeResolver:
@@ -405,7 +423,7 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
 
 
 def test_unresolved_url_does_not_fail_delivery(tmp_path):
-    source = "## Segment 1 — text\n\nhttps://t.co/unavailable"
+    source = "## Segment 1 — text\n\n𝗞𝗲𝗲𝗽 https://t.co/unavailable"
     store = CaptureStore(tmp_path)
     item = store.capture(
         10,
@@ -413,8 +431,12 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         source,
         received_at="2026-08-09T10:00:00+00:00",
     )
-    resolver = FakeResolver({})
-    resolver.failures.append(("https://t.co/unavailable", "offline"))
+    class FailingResolver(FakeResolver):
+        def resolve(self, url):
+            self.failures.append((url, "offline"))
+            return url
+
+    resolver = FailingResolver({})
     step = URLResolutionStep(
         timeout_seconds=1,
         retries=0,
@@ -422,7 +444,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         resolve_all=False,
         resolver=resolver,
     )
-    pipeline = ProcessingPipeline([step])
+    pipeline = ProcessingPipeline([step, TextCleaningStep()])
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
 
@@ -434,4 +456,17 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         worker.stop()
 
     message = (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text()
-    assert message.endswith(source)
+    assert message.endswith("## Segment 1 — text\n\nKeep https://t.co/unavailable")
+    stats_by_name = {row["processor"]: row for row in store.processor_statistics()}
+    stats = stats_by_name["url-resolution"]
+    assert stats["runs"] == 1
+    assert stats["partial"] == 1
+    assert stats["reasons"] == [
+        {
+            "processor": "url-resolution",
+            "outcome": "partial",
+            "reason": "request-error",
+            "occurrences": 1,
+        }
+    ]
+    assert stats_by_name["text-cleaning"]["succeeded"] == 1

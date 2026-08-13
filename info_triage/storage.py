@@ -5,7 +5,8 @@ import logging
 import shutil
 import sqlite3
 import threading
-from collections.abc import Iterator
+from collections import Counter
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from .models import (
     AttachmentSpec,
     CapturedItem,
     DownloadedAttachment,
+    ProcessingIssue,
     ProcessingJob,
     ProcessingResult,
 )
@@ -135,6 +137,29 @@ class CaptureStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS processor_stats (
+                    processor TEXT PRIMARY KEY,
+                    runs INTEGER NOT NULL DEFAULT 0,
+                    succeeded INTEGER NOT NULL DEFAULT 0,
+                    partial INTEGER NOT NULL DEFAULT 0,
+                    failed INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS processor_reason_stats (
+                    processor TEXT NOT NULL,
+                    outcome TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    occurrences INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (processor, outcome, reason),
+                    FOREIGN KEY (processor) REFERENCES processor_stats(processor)
+                )
+                """
+            )
             legacy_table = connection.execute(
                 """
                 SELECT 1 FROM sqlite_master
@@ -202,6 +227,79 @@ class CaptureStore:
                 """,
                 (status,),
             ).fetchall()
+
+    def register_processors(self, processors: Iterable[str]) -> None:
+        """Make configured processors visible before their first execution."""
+        with self._connect() as connection:
+            connection.executemany(
+                "INSERT OR IGNORE INTO processor_stats (processor) VALUES (?)",
+                ((processor,) for processor in processors),
+            )
+
+    def record_processor_run(
+        self,
+        processor: str,
+        outcome: str,
+        issues: tuple[ProcessingIssue, ...],
+    ) -> None:
+        """Increment lifetime processor and stable-reason counters."""
+        if outcome not in ("succeeded", "partial", "failed"):
+            raise ValueError(f"Unknown processor outcome: {outcome}")
+        reason_counts = Counter(issue.reason for issue in issues)
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO processor_stats (processor) VALUES (?)",
+                (processor,),
+            )
+            connection.execute(
+                f"""
+                UPDATE processor_stats
+                SET runs = runs + 1, {outcome} = {outcome} + 1
+                WHERE processor = ?
+                """,
+                (processor,),
+            )
+            connection.executemany(
+                """
+                INSERT INTO processor_reason_stats (
+                    processor, outcome, reason, occurrences
+                ) VALUES (?, ?, ?, ?)
+                ON CONFLICT(processor, outcome, reason) DO UPDATE SET
+                    occurrences = occurrences + excluded.occurrences
+                """,
+                (
+                    (processor, outcome, reason, occurrences)
+                    for reason, occurrences in reason_counts.items()
+                ),
+            )
+
+    def processor_statistics(self) -> list[dict[str, Any]]:
+        """Return cumulative processor totals with their reason breakdowns."""
+        with self._connect() as connection:
+            processors = connection.execute(
+                """
+                SELECT processor, runs, succeeded, partial, failed
+                FROM processor_stats
+                ORDER BY processor
+                """
+            ).fetchall()
+            reasons = connection.execute(
+                """
+                SELECT processor, outcome, reason, occurrences
+                FROM processor_reason_stats
+                ORDER BY processor, outcome, reason
+                """
+            ).fetchall()
+        reasons_by_processor: dict[str, list[dict[str, Any]]] = {}
+        for reason in reasons:
+            reasons_by_processor.setdefault(reason["processor"], []).append(dict(reason))
+        return [
+            {
+                **dict(processor),
+                "reasons": reasons_by_processor.get(processor["processor"], []),
+            }
+            for processor in processors
+        ]
 
     def get_item_with_status(self, status: str):
         with self._connect() as connection:

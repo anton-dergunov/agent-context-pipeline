@@ -1,10 +1,15 @@
+import json
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
 
-from info_triage.models import GeneratedFile
+from info_triage.models import (
+    GeneratedFile,
+    ProcessingIssue,
+    ProcessingStepOutcome,
+)
 from info_triage.processing import (
     ProcessingCoordinator,
     ProcessingPipeline,
@@ -89,6 +94,16 @@ class ProcessingTests(unittest.TestCase):
                 message,
                 "---\ncategory: Other\n---\n\nfirst\nprocessed",
             )
+            records = [
+                json.loads(line)
+                for line in (
+                    Path(temporary) / "logs" / "processor-runs.jsonl"
+                ).read_text().splitlines()
+            ]
+            self.assertEqual([record["outcome"] for record in records], ["succeeded"] * 2)
+            self.assertNotIn("processor_input", records[0])
+            self.assertNotIn("issues", records[0])
+            self.assertNotIn("result", records[0])
 
     def test_worker_commits_generated_files_from_workspace(self):
         class GenerateStep(AppendStep):
@@ -153,6 +168,90 @@ class ProcessingTests(unittest.TestCase):
             self.assertEqual(failed["processing_step"], "sometimes-fails")
             self.assertIn("deliberate failure", failed["error"])
             self.assertTrue((Path(temporary) / "staging" / "2026-08-09_1").is_dir())
+            failure_record = json.loads(
+                (Path(temporary) / "logs" / "processor-runs.jsonl")
+                .read_text()
+                .splitlines()[0]
+            )
+            self.assertEqual(failure_record["outcome"], "failed")
+            self.assertEqual(
+                failure_record["issues"][0]["error_type"], "RuntimeError"
+            )
+            self.assertIn("RuntimeError: deliberate failure", failure_record["traceback"])
+
+    def test_declared_failure_rolls_back_and_later_step_continues(self):
+        class MutateThenFail(AppendStep):
+            name = "declared-failure"
+
+            def run(self, job, result, workspace):
+                result.message_markdown += "\nshould be discarded"
+                generated = workspace / "discarded.txt"
+                generated.write_text("discard me")
+                result.generated_files.append(
+                    GeneratedFile(Path("generated/discarded.txt"), generated)
+                )
+                return ProcessingStepOutcome.failed(
+                    ProcessingIssue("known-problem", "expected failure", "target-1")
+                )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            data_dir = Path(temporary)
+            store = CaptureStore(data_dir)
+            pipeline = ProcessingPipeline([MutateThenFail(), AppendStep()])
+            worker = ProcessingWorker(store, pipeline)
+            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            item = store.capture(
+                10, 1, "original", received_at="2026-08-09T10:00:00+00:00"
+            )
+            worker.start()
+            coordinator.submit(item)
+            try:
+                wait_for_status(store, 1, "ready")
+            finally:
+                worker.stop()
+
+            ready = data_dir / "inbox" / "2026-08-09_1"
+            self.assertEqual(
+                (ready / "message.md").read_text(),
+                "---\ncategory: Other\n---\n\noriginal\nprocessed",
+            )
+            self.assertFalse((ready / "generated" / "discarded.txt").exists())
+            stats = {row["processor"]: row for row in store.processor_statistics()}
+            self.assertEqual(stats["declared-failure"]["failed"], 1)
+            self.assertEqual(stats["append"]["succeeded"], 1)
+
+    def test_failure_log_preserves_multiline_unicode_input_on_one_json_line(self):
+        class DeclaredFailure(AppendStep):
+            name = "unicode-failure"
+
+            def run(self, job, result, workspace):
+                return ProcessingStepOutcome.failed(
+                    ProcessingIssue("bad-target", "could not process", "https://例.test/長")
+                )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            data_dir = Path(temporary)
+            store = CaptureStore(data_dir)
+            pipeline = ProcessingPipeline([DeclaredFailure()])
+            worker = ProcessingWorker(store, pipeline)
+            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            source = "first line\nsecond line 世界"
+            item = store.capture(
+                10, 1, source, received_at="2026-08-09T10:00:00+00:00"
+            )
+            worker.start()
+            coordinator.submit(item)
+            try:
+                wait_for_status(store, 1, "ready")
+            finally:
+                worker.stop()
+
+            log_text = (data_dir / "logs" / "processor-runs.jsonl").read_text()
+            self.assertEqual(len(log_text.splitlines()), 1)
+            record = json.loads(log_text)
+            self.assertEqual(record["processor_input"], source)
+            self.assertEqual(record["issues"][0]["target"], "https://例.test/長")
+            self.assertIn("unicode-failure:bad-target", record["lookup_keys"])
 
     def test_edit_supersedes_running_revision(self):
         started = threading.Event()
@@ -208,6 +307,9 @@ class ProcessingTests(unittest.TestCase):
                 Path(temporary) / "inbox" / "2026-08-09_1" / "source.md"
             ).read_text()
             self.assertEqual(source, "new")
+            stats = store.processor_statistics()[0]
+            self.assertEqual(stats["runs"], 2)
+            self.assertEqual(stats["succeeded"], 2)
 
     def test_category_change_supersedes_running_revision(self):
         started = threading.Event()

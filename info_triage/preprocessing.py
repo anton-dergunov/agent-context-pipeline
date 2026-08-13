@@ -19,7 +19,12 @@ from .extractors.instagram.transcription import (
     resolve_backend_and_model,
     resolve_transcription_threads,
 )
-from .models import ProcessingJob, ProcessingResult
+from .models import (
+    ProcessingIssue,
+    ProcessingJob,
+    ProcessingResult,
+    ProcessingStepOutcome,
+)
 from .rendering import render_capture_payloads
 from .utilities.text_cleaning import clean_text
 from .utilities.url_resolution import URLResolver, replace_urls
@@ -64,7 +69,10 @@ class VoiceTranscriptionStep:
         ]
 
     def applies(self, job: ProcessingJob) -> bool:
-        return bool(self._voice_attachments(job))
+        try:
+            return bool(self._voice_attachments(job))
+        except (OSError, ValueError, json.JSONDecodeError):
+            return True
 
     def _get_transcriber(self) -> Transcriber:
         if self._transcriber is None:
@@ -111,16 +119,51 @@ class VoiceTranscriptionStep:
         job: ProcessingJob,
         result: ProcessingResult,
         workspace: Path,
-    ) -> None:
+    ) -> ProcessingStepOutcome | None:
         del workspace
         voice_files: list[tuple[int, Path]] = []
-        for attachment in self._voice_attachments(job):
-            source_message_id = attachment.get("source_message_id")
-            if not isinstance(source_message_id, int):
-                raise ValueError("Voice attachment has no valid source_message_id")
-            voice_files.append((source_message_id, self._attachment_path(job, attachment)))
+        try:
+            attachments = self._voice_attachments(job)
+            for attachment in attachments:
+                source_message_id = attachment.get("source_message_id")
+                if not isinstance(source_message_id, int):
+                    return ProcessingStepOutcome.failed(
+                        ProcessingIssue(
+                            "invalid-input",
+                            "Voice attachment has no valid source_message_id",
+                        )
+                    )
+                try:
+                    attachment_path = self._attachment_path(job, attachment)
+                except FileNotFoundError as error:
+                    return ProcessingStepOutcome.failed(
+                        ProcessingIssue(
+                            "attachment-missing",
+                            str(error),
+                            target=str(attachment.get("path") or ""),
+                            error_type=type(error).__name__,
+                        )
+                    )
+                except RuntimeError as error:
+                    return ProcessingStepOutcome.failed(
+                        ProcessingIssue(
+                            "attachment-unavailable",
+                            str(error),
+                            target=str(attachment.get("path") or ""),
+                            error_type=type(error).__name__,
+                        )
+                    )
+                voice_files.append((source_message_id, attachment_path))
+            payloads = self._payloads(job)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            return ProcessingStepOutcome.failed(
+                ProcessingIssue(
+                    "invalid-input",
+                    str(error),
+                    error_type=type(error).__name__,
+                )
+            )
 
-        payloads = self._payloads(job)
         payload_message_ids = {
             payload.get("message_id")
             for payload in payloads
@@ -128,9 +171,13 @@ class VoiceTranscriptionStep:
         }
         absent = {source_message_id for source_message_id, _ in voice_files} - payload_message_ids
         if absent:
-            raise ValueError(
-                "Voice attachment sources are missing from telegram.json: "
-                + ", ".join(str(value) for value in sorted(absent))
+            return ProcessingStepOutcome.failed(
+                ProcessingIssue(
+                    "invalid-input",
+                    "Voice attachment sources are missing from telegram.json: "
+                    + ", ".join(str(value) for value in sorted(absent)),
+                    target=", ".join(str(value) for value in sorted(absent)),
+                )
             )
 
         transcripts: dict[int, list[str]] = {}
@@ -148,8 +195,13 @@ class VoiceTranscriptionStep:
                 text = NO_SPEECH_TEXT
             else:
                 detail = transcript.error or transcript.status
-                raise RuntimeError(
-                    f"Could not transcribe voice attachment {attachment_path.name}: {detail}"
+                return ProcessingStepOutcome.failed(
+                    ProcessingIssue(
+                        "transcription-failed",
+                        f"Could not transcribe voice attachment {attachment_path.name}: {detail}",
+                        target=str(attachment_path),
+                        error_type="TranscriptionError",
+                    )
                 )
 
             transcripts.setdefault(source_message_id, []).append(text)
@@ -190,11 +242,35 @@ class URLResolutionStep:
         job: ProcessingJob,
         result: ProcessingResult,
         workspace: Path,
-    ) -> None:
+    ) -> ProcessingStepOutcome | None:
         del job, workspace
-        result.message_markdown = replace_urls(
-            result.message_markdown, self.resolver
+        failure_count = len(getattr(self.resolver, "failures", ()))
+        result.message_markdown = replace_urls(result.message_markdown, self.resolver)
+        failures = tuple(getattr(self.resolver, "failures", ()))[failure_count:]
+        if not failures:
+            return None
+        return ProcessingStepOutcome.partial(
+            *(
+                ProcessingIssue(
+                    self._failure_reason(message),
+                    message,
+                    target=url,
+                )
+                for url, message in failures
+            )
         )
+
+    @staticmethod
+    def _failure_reason(message: str) -> str:
+        if message == "redirect loop detected":
+            return "redirect-loop"
+        if message.startswith("shortener chain did not expose"):
+            return "destination-not-found"
+        if message.startswith("exceeded "):
+            return "redirect-limit"
+        if message:
+            return "request-error"
+        return "unknown-resolution-error"
 
 
 class TextCleaningStep:

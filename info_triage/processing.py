@@ -1,14 +1,23 @@
 """A minimal, durable, single-worker processing pipeline."""
 
+import json
 import logging
 import tempfile
 import threading
+import time
+import traceback
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Protocol
 
-from .models import CapturedItem, ProcessingJob, ProcessingResult
-from .storage import CaptureStore, original_content, render_message
+from .models import (
+    CapturedItem,
+    ProcessingIssue,
+    ProcessingJob,
+    ProcessingResult,
+    ProcessingStepOutcome,
+)
+from .storage import CaptureStore, now_iso, original_content, render_message
 
 logger = logging.getLogger("info_triage")
 
@@ -22,7 +31,7 @@ class ProcessingStep(Protocol):
 
     def run(
         self, job: ProcessingJob, result: ProcessingResult, workspace: Path
-    ) -> None: ...
+    ) -> ProcessingStepOutcome | None: ...
 
 
 # The runtime entry point injects its registered production steps. An empty default
@@ -38,12 +47,82 @@ class ProcessingPipeline:
         return tuple(step for step in self.steps if step.applies(job))
 
 
+def _exception_reason(error: Exception) -> str:
+    name = type(error).__name__
+    parts = []
+    start = 0
+    for index, character in enumerate(name):
+        if index and character.isupper() and not name[index - 1].isupper():
+            parts.append(name[start:index].lower())
+            start = index
+    parts.append(name[start:].lower())
+    return "exception-" + "-".join(parts)
+
+
+class ProcessorTelemetry:
+    """Append processor detail logs and update cumulative SQLite counters."""
+
+    def __init__(self, store: CaptureStore) -> None:
+        self.store = store
+        self.log_path = store.data_dir / "logs" / "processor-runs.jsonl"
+        self._lock = threading.Lock()
+
+    def record(
+        self,
+        job: ProcessingJob,
+        processor: str,
+        outcome: str,
+        duration_ms: float,
+        issues: tuple[ProcessingIssue, ...] = (),
+        *,
+        processor_input: str | None = None,
+        traceback_text: str | None = None,
+    ) -> None:
+        record = {
+            "timestamp": now_iso(),
+            "duration_ms": round(duration_ms, 3),
+            "processor": processor,
+            "outcome": outcome,
+            "item_id": job.path.name,
+            "chat_id": job.chat_id,
+            "message_id": job.message_id,
+            "revision": job.revision,
+        }
+        if outcome != "succeeded":
+            record["lookup_keys"] = sorted({f"{processor}:{issue.reason}" for issue in issues})
+            record["processor_input"] = processor_input
+            record["issues"] = [
+                {
+                    key: value
+                    for key, value in (
+                        ("reason", issue.reason),
+                        ("message", issue.message),
+                        ("target", issue.target),
+                        ("error_type", issue.error_type),
+                    )
+                    if value is not None
+                }
+                for issue in issues
+            ]
+            if traceback_text is not None:
+                record["traceback"] = traceback_text
+
+        line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
+        with self._lock:
+            self.log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.log_path.open("a", encoding="utf-8") as output:
+                output.write(line)
+            self.store.record_processor_run(processor, outcome, issues)
+
+
 class ProcessingWorker:
     """Process the durable SQLite queue using exactly one background thread."""
 
     def __init__(self, store: CaptureStore, pipeline: ProcessingPipeline):
         self.store = store
         self.pipeline = pipeline
+        self.telemetry = ProcessorTelemetry(store)
+        self.store.register_processors(tuple(step.name for step in pipeline.steps))
         self._wake_event = threading.Event()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -105,11 +184,62 @@ class ProcessingWorker:
             prefix = f"{job.path.name}-r{job.revision}-"
             with tempfile.TemporaryDirectory(prefix=prefix) as workspace_text:
                 workspace = Path(workspace_text)
-                for step in steps:
+                for index, step in enumerate(steps):
                     current_step = step.name
                     if not self.store.set_processing_step(job, current_step):
                         return
-                    step.run(job, result, workspace)
+                    processor_input = result.message_markdown
+                    snapshot = ProcessingResult(
+                        result.message_markdown,
+                        result.source_markdown,
+                        list(result.generated_files),
+                    )
+                    step_workspace = workspace / f"step-{index:02d}"
+                    step_workspace.mkdir()
+                    started = time.monotonic()
+                    try:
+                        declared_outcome = step.run(job, result, step_workspace)
+                        if declared_outcome is None:
+                            outcome = ProcessingStepOutcome("succeeded")
+                        elif isinstance(declared_outcome, ProcessingStepOutcome):
+                            outcome = declared_outcome
+                        else:
+                            raise TypeError(
+                                f"Processor {step.name} returned an invalid outcome: "
+                                f"{declared_outcome!r}"
+                            )
+                    except Exception as error:
+                        duration_ms = (time.monotonic() - started) * 1000
+                        issue = ProcessingIssue(
+                            _exception_reason(error),
+                            str(error),
+                            error_type=type(error).__name__,
+                        )
+                        self.telemetry.record(
+                            job,
+                            step.name,
+                            "failed",
+                            duration_ms,
+                            (issue,),
+                            processor_input=processor_input,
+                            traceback_text=traceback.format_exc(),
+                        )
+                        raise
+
+                    if outcome.status == "failed":
+                        result.message_markdown = snapshot.message_markdown
+                        result.source_markdown = snapshot.source_markdown
+                        result.generated_files = snapshot.generated_files
+                    duration_ms = (time.monotonic() - started) * 1000
+                    self.telemetry.record(
+                        job,
+                        step.name,
+                        outcome.status,
+                        duration_ms,
+                        outcome.issues,
+                        processor_input=processor_input if outcome.status != "succeeded" else None,
+                    )
+                current_step = None
                 result.message_markdown = render_message(
                     job.category, result.message_markdown
                 )
