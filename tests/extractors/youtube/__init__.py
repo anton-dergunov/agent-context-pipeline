@@ -1,0 +1,1 @@
+"""YouTube extractor tests."""

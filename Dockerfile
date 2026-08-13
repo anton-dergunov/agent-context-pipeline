@@ -1,6 +1,9 @@
 # Portable model-ready image for the Synology NAS (linux/amd64) and other
 # Linux hosts. Surya and MLX remain installable project extras, but are not
 # included here because the production choices are RapidOCR and faster-whisper.
+FROM denoland/deno:bin-2.8.1 AS deno_bin
+
+
 FROM python:3.12-slim-bookworm AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.14 /uv /usr/local/bin/uv
@@ -32,6 +35,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV HF_HUB_OFFLINE=1 \
+    DENO_NO_PROMPT=1 \
+    DENO_NO_UPDATE_CHECK=1 \
     INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
     INSTAGRAM_OCR_THREADS=1 \
     MKL_NUM_THREADS=1 \
@@ -42,6 +47,7 @@ ENV HF_HUB_OFFLINE=1 \
     VECLIB_MAXIMUM_THREADS=1 \
     PATH="/app/.venv/bin:$PATH"
 
+COPY --from=deno_bin /deno /usr/local/bin/deno
 COPY --from=builder --chown=1026:100 /app /app
 RUN mkdir -p /app/data && chown 1026:100 /app/data
 

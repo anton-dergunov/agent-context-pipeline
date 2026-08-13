@@ -80,11 +80,13 @@ still fail the item.
 
 Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
-public LinkedIn extraction, layered Medium article extraction, cautious text
-cleaning, and bounded URL resolution. The local speech-transcription engine,
+public LinkedIn extraction, standalone YouTube metadata/caption/Short-media
+extraction, layered Medium article extraction, cautious text cleaning, and
+bounded URL resolution. The local speech-transcription engine,
 text cleaner, and URL resolver are reused by the configured Telegram pipeline
 and retain their standalone console commands. See
 [`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
+[`docs/YOUTUBE_EXTRACTION.md`](docs/YOUTUBE_EXTRACTION.md),
 [`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md), plus the Medium
 access decision and commands in
 [`docs/MEDIUM_EXTRACTION.md`](docs/MEDIUM_EXTRACTION.md).

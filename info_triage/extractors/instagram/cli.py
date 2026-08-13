@@ -7,7 +7,10 @@ import gc
 import json
 import os
 import sys
+import time
 from pathlib import Path
+
+from info_triage.config import ConfigError, load_config
 
 from .downloader import DownloadOptions, download_post, make_loader
 from .ocr import OCREngine, make_engine, ocr_images, ocr_video, rededuplicate_ocr_result
@@ -42,6 +45,10 @@ def _env_path(name: str, default: str) -> Path:
     return _path(os.environ.get(name, default))
 
 
+def _default_config_path() -> Path:
+    return _path(os.environ.get("INFO_TRIAGE_CONFIG", "config.yaml"))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="instagram-extract",
@@ -51,7 +58,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-file", type=_path, help="UTF-8 text file containing one URL per line"
     )
+    parser.add_argument("--config", type=_path, default=_default_config_path())
     parser.add_argument("--output-dir", type=_path, default=_path("instagram_output"))
+    parser.add_argument("--max-attempts", type=int, help="total download attempts per post")
+    parser.add_argument("--retry-backoff-seconds", type=float)
     parser.add_argument(
         "--max-comments", type=int, default=50, help="maximum ranked comments written per post"
     )
@@ -272,11 +282,48 @@ def _transcribe_post(
     prepare_llm_input(post_dir)
 
 
+def _retryable_download_status(status: dict) -> bool:
+    if status.get("download") != "failed" and status.get("comments") != "failed":
+        return False
+    message = " ".join(str(item.get("error", "")) for item in status.get("errors", [])).casefold()
+    non_retryable = (
+        "login required",
+        "not found",
+        "private",
+        "does not exist",
+        "invalid",
+        "cookies belong to",
+    )
+    return not any(marker in message for marker in non_retryable)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    extractor_config = None
+    if args.config.exists():
+        try:
+            extractor_config = load_config(args.config).instagram_extractor
+        except ConfigError as exc:
+            parser.error(str(exc))
+    max_attempts = (
+        args.max_attempts
+        if args.max_attempts is not None
+        else extractor_config.max_attempts
+        if extractor_config
+        else 3
+    )
+    retry_backoff_seconds = (
+        args.retry_backoff_seconds
+        if args.retry_backoff_seconds is not None
+        else extractor_config.retry_backoff_seconds
+        if extractor_config
+        else 5.0
+    )
     if args.max_comments < 0 or args.comment_scan_limit < 0:
         parser.error("--max-comments and --comment-scan-limit must be non-negative")
+    if max_attempts < 1 or retry_backoff_seconds <= 0:
+        parser.error("retry attempts and backoff must be positive")
     if args.video_sample_fps <= 0:
         parser.error("--video-sample-fps must be positive")
     if args.ocr_batch_size < 1:
@@ -330,8 +377,16 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"could not initialize Instagram session: {exc}")
         for source_url, shortcode in inputs:
             print(f"Downloading {shortcode} …", flush=True)
-            post_dir = download_post(loader, source_url, shortcode, options)
-            status = json.loads((post_dir / "status.json").read_text(encoding="utf-8"))
+            for attempt in range(max_attempts):
+                post_dir = download_post(loader, source_url, shortcode, options)
+                status = json.loads((post_dir / "status.json").read_text(encoding="utf-8"))
+                if not _retryable_download_status(status) or attempt + 1 >= max_attempts:
+                    break
+                time.sleep(retry_backoff_seconds * (2**attempt))
+            status["attempts"] = attempt + 1
+            (post_dir / "status.json").write_text(
+                json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
             print(f"  {status['download']}: {post_dir}", flush=True)
 
     if not args.skip_transcription:

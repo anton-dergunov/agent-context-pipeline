@@ -11,6 +11,7 @@ import yaml
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
 TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning")
+YT_DLP_CHANNELS = ("stable", "nightly", "master")
 
 
 class ConfigError(ValueError):
@@ -44,6 +45,24 @@ StepConfig = VoiceTranscriptionConfig | URLResolutionConfig | TextCleaningConfig
 
 
 @dataclass(frozen=True)
+class YouTubeExtractorConfig:
+    max_attempts: int
+    retry_backoff_seconds: float
+    max_parent_comments: int
+    max_replies: int
+    max_replies_per_thread: int
+    update_channel: str
+    update_check_interval_hours: float
+    update_on_compatibility_error: bool
+
+
+@dataclass(frozen=True)
+class InstagramExtractorConfig:
+    max_attempts: int
+    retry_backoff_seconds: float
+
+
+@dataclass(frozen=True)
 class AppConfig:
     path: Path
     data_dir: Path
@@ -51,6 +70,8 @@ class AppConfig:
     grouping_max_gap_seconds: float
     grouping_settle_seconds: float
     processing_steps: tuple[StepConfig, ...]
+    youtube_extractor: YouTubeExtractorConfig
+    instagram_extractor: InstagramExtractorConfig
 
 
 def _mapping(value: Any, context: str, allowed: set[str]) -> dict[str, Any]:
@@ -172,6 +193,82 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
     raise ConfigError(f"{context}.name is unknown: {name}")
 
 
+def _parse_extractors(value: Any) -> tuple[YouTubeExtractorConfig, InstagramExtractorConfig]:
+    extractors = _mapping(value, "extractors", {"youtube", "instagram"})
+    youtube = _mapping(
+        _required(extractors, "youtube", "extractors"),
+        "extractors.youtube",
+        {
+            "max_attempts",
+            "retry_backoff_seconds",
+            "max_parent_comments",
+            "max_replies",
+            "max_replies_per_thread",
+            "update_channel",
+            "update_check_interval_hours",
+            "update_on_compatibility_error",
+        },
+    )
+    instagram = _mapping(
+        _required(extractors, "instagram", "extractors"),
+        "extractors.instagram",
+        {"max_attempts", "retry_backoff_seconds"},
+    )
+    channel = _required(youtube, "update_channel", "extractors.youtube")
+    if channel not in YT_DLP_CHANNELS:
+        raise ConfigError(
+            "extractors.youtube.update_channel must be one of: " + ", ".join(YT_DLP_CHANNELS)
+        )
+    return (
+        YouTubeExtractorConfig(
+            max_attempts=_integer(
+                _required(youtube, "max_attempts", "extractors.youtube"),
+                "extractors.youtube.max_attempts",
+                minimum=1,
+            ),
+            retry_backoff_seconds=_number(
+                _required(youtube, "retry_backoff_seconds", "extractors.youtube"),
+                "extractors.youtube.retry_backoff_seconds",
+            ),
+            max_parent_comments=_integer(
+                _required(youtube, "max_parent_comments", "extractors.youtube"),
+                "extractors.youtube.max_parent_comments",
+                minimum=0,
+            ),
+            max_replies=_integer(
+                _required(youtube, "max_replies", "extractors.youtube"),
+                "extractors.youtube.max_replies",
+                minimum=0,
+            ),
+            max_replies_per_thread=_integer(
+                _required(youtube, "max_replies_per_thread", "extractors.youtube"),
+                "extractors.youtube.max_replies_per_thread",
+                minimum=0,
+            ),
+            update_channel=channel,
+            update_check_interval_hours=_number(
+                _required(youtube, "update_check_interval_hours", "extractors.youtube"),
+                "extractors.youtube.update_check_interval_hours",
+            ),
+            update_on_compatibility_error=_boolean(
+                _required(youtube, "update_on_compatibility_error", "extractors.youtube"),
+                "extractors.youtube.update_on_compatibility_error",
+            ),
+        ),
+        InstagramExtractorConfig(
+            max_attempts=_integer(
+                _required(instagram, "max_attempts", "extractors.instagram"),
+                "extractors.instagram.max_attempts",
+                minimum=1,
+            ),
+            retry_backoff_seconds=_number(
+                _required(instagram, "retry_backoff_seconds", "extractors.instagram"),
+                "extractors.instagram.retry_backoff_seconds",
+            ),
+        ),
+    )
+
+
 def load_config(path: Path) -> AppConfig:
     """Load and validate one daemon configuration file."""
     config_path = path.expanduser().resolve()
@@ -182,7 +279,11 @@ def load_config(path: Path) -> AppConfig:
     except yaml.YAMLError as error:
         raise ConfigError(f"invalid YAML in {config_path}: {error}") from error
 
-    root = _mapping(value, "configuration", {"storage", "web", "telegram", "processing"})
+    root = _mapping(
+        value,
+        "configuration",
+        {"storage", "web", "telegram", "processing", "extractors"},
+    )
     base_dir = config_path.parent
 
     storage = _mapping(
@@ -236,6 +337,10 @@ def load_config(path: Path) -> AppConfig:
                 "voice-transcription must appear before URL resolution and text cleaning"
             )
 
+    youtube_extractor, instagram_extractor = _parse_extractors(
+        _required(root, "extractors", "configuration")
+    )
+
     return AppConfig(
         path=config_path,
         data_dir=_path(
@@ -247,4 +352,6 @@ def load_config(path: Path) -> AppConfig:
         grouping_max_gap_seconds=max_gap,
         grouping_settle_seconds=settle,
         processing_steps=steps,
+        youtube_extractor=youtube_extractor,
+        instagram_extractor=instagram_extractor,
     )

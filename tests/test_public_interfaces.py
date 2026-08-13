@@ -4,6 +4,7 @@ from importlib.metadata import entry_points
 
 from info_triage.extractors.instagram.cli import build_parser as instagram_parser
 from info_triage.extractors.linkedin.cli import build_parser as linkedin_parser
+from info_triage.extractors.youtube.cli import build_parser as youtube_parser
 from info_triage.utilities.text_cleaning import clean_text
 from info_triage.utilities.url_resolution import URLResolver
 
@@ -13,6 +14,7 @@ def test_reusable_interfaces_import_from_info_triage():
     assert URLResolver(timeout=1, retries=0, max_html_bytes=100).timeout == 1
     assert instagram_parser().prog == "instagram-extract"
     assert linkedin_parser().prog == "linkedin-extract"
+    assert youtube_parser().prog == "youtube-extract"
 
 
 def test_console_entry_points_are_installed():
@@ -28,4 +30,5 @@ def test_console_entry_points_are_installed():
         "instagram-ocr-bench",
         "instagram-transcription-bench",
         "linkedin-extract",
+        "youtube-extract",
     } <= commands

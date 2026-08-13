@@ -122,6 +122,8 @@ from overwriting a newer edit.
 
 ## Standalone extractors
 
-The Instagram downloader, Instagram OCR/transcription preparation, and LinkedIn
-extractor remain standalone tools. The text cleaner and URL resolver retain
-their standalone commands while also serving as configured Telegram processors.
+The Instagram downloader, Instagram OCR/transcription preparation, YouTube
+extractor, and LinkedIn extractor remain standalone tools. The YouTube command
+does not create captured items or register a processing step. The text cleaner
+and URL resolver retain their standalone commands while also serving as
+configured Telegram processors.

@@ -24,3 +24,8 @@ def test_transcription_cli_choices_and_vad_toggle():
 def test_transcription_threads_must_be_positive():
     with pytest.raises(SystemExit):
         main(["SHORTCODE", "--transcription-threads", "0"])
+
+
+def test_retry_attempts_must_be_positive():
+    with pytest.raises(SystemExit):
+        main(["SHORTCODE", "--max-attempts", "0"])

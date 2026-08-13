@@ -16,6 +16,7 @@ bench_results.json
 instagram_output/
 linkedin_output/
 medium_output/
+youtube_output/
 secrets/
 *.part
 *cookies*.txt

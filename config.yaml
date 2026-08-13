@@ -17,6 +17,27 @@ telegram:
     # It must be greater than max_gap_seconds to avoid boundary races.
     settle_seconds: 4.0
 
+extractors:
+  youtube:
+    # Total full-command attempts: the initial attempt plus two retries.
+    max_attempts: 3
+    # Exponential retry waits start here: 5 seconds, then 10 seconds.
+    retry_backoff_seconds: 5
+    # Preserve YouTube's top ranking and include a small bounded conversation.
+    max_parent_comments: 5
+    max_replies: 10
+    max_replies_per_thread: 2
+    # yt-dlp recommends nightly for regular use because site changes are frequent.
+    update_channel: nightly
+    # At most one proactive release check per day; compatibility failures bypass it.
+    update_check_interval_hours: 24
+    update_on_compatibility_error: true
+
+  instagram:
+    # Instaloader updates remain lockfile-reviewed; only transient extraction retries run here.
+    max_attempts: 3
+    retry_backoff_seconds: 5
+
 processing:
   # Steps execute in this exact order. Remove a step to disable it.
   steps:
