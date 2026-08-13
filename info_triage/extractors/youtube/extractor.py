@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from info_triage.extractors.instagram.ocr import OCREngine, ocr_video
-from info_triage.extractors.instagram.transcription import Transcriber
+from info_triage.extractors.media.ocr import OCREngine, ocr_video
+from info_triage.extractors.media.transcription import Transcriber
 
 from .captions import CaptionResult, CaptionTrack, parse_json3, select_caption_track, unavailable
 from .prepare import prepare_llm_input

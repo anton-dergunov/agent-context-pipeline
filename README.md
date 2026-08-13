@@ -91,6 +91,11 @@ and retain their standalone console commands. See
 access decision and commands in
 [`docs/MEDIUM_EXTRACTION.md`](docs/MEDIUM_EXTRACTION.md).
 
+Instagram and YouTube both depend on the neutral
+`info_triage.extractors.media` package for OCR engines, sampled-frame OCR,
+runtime thread tuning, and local speech transcription. Compatibility imports
+remain at the former Instagram module paths for existing scripts.
+
 Install the portable stack with `uv sync`. On a Mac workstation, Surya and
 Apple-Silicon MLX remain available with:
 

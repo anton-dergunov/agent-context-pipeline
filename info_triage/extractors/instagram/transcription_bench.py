@@ -21,7 +21,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from .transcription import download_faster_whisper_model
+from info_triage.extractors.media.transcription import download_faster_whisper_model
+
 from .transcription_metrics import score_transcript, tokenize
 from .urls import load_inputs
 
@@ -175,7 +176,7 @@ def worker(spec_path: Path, output_path: Path) -> int:
     started = time.perf_counter()
     model_path = _download_model(model_name, Path(spec["model_cache"]))
 
-    from .transcription import FasterWhisperTranscriber
+    from info_triage.extractors.media.transcription import FasterWhisperTranscriber
 
     transcriber = FasterWhisperTranscriber(model_path, threads=int(spec["threads"]))
     results: list[dict[str, Any]] = []

@@ -11,12 +11,19 @@ import time
 from pathlib import Path
 
 from info_triage.config import ConfigError, load_config
-
-from .downloader import DownloadOptions, download_post, make_loader
-from .ocr import OCREngine, make_engine, ocr_images, ocr_video, rededuplicate_ocr_result
-from .prepare import prepare_llm_input
-from .runtime import apply_runtime_threads, platform_defaults, resolve_threads
-from .transcription import (
+from info_triage.extractors.media.ocr import (
+    OCREngine,
+    make_engine,
+    ocr_images,
+    ocr_video,
+    rededuplicate_ocr_result,
+)
+from info_triage.extractors.media.runtime import (
+    apply_runtime_threads,
+    platform_defaults,
+    resolve_threads,
+)
+from info_triage.extractors.media.transcription import (
     BACKEND_CHOICES,
     MODEL_CHOICES,
     Transcriber,
@@ -27,6 +34,9 @@ from .transcription import (
     resolve_transcription_threads,
     write_transcript_outputs,
 )
+
+from .downloader import DownloadOptions, download_post, make_loader
+from .prepare import prepare_llm_input
 from .urls import load_inputs
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic"}

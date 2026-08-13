@@ -2,8 +2,8 @@
 
 import pytest
 
-from info_triage.extractors.instagram.engines import RapidOCREngine
-from info_triage.extractors.instagram.ocr import filter_thresholds
+from info_triage.extractors.media.engines import RapidOCREngine
+from info_triage.extractors.media.ocr import filter_thresholds
 
 
 @pytest.mark.parametrize(

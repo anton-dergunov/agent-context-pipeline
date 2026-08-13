@@ -13,13 +13,13 @@ from info_triage.config import (
     YouTubeExtractorConfig,
     load_config,
 )
-from info_triage.extractors.instagram.ocr import OCREngine, make_engine
-from info_triage.extractors.instagram.runtime import (
+from info_triage.extractors.media.ocr import OCREngine, make_engine
+from info_triage.extractors.media.runtime import (
     apply_runtime_threads,
     platform_defaults,
     resolve_threads,
 )
-from info_triage.extractors.instagram.transcription import (
+from info_triage.extractors.media.transcription import (
     BACKEND_CHOICES,
     MODEL_CHOICES,
     Transcriber,

@@ -50,7 +50,8 @@ malformed, very short, or severely truncated tracks are rejected. A Short then
 falls back to the existing local Whisper implementation with VAD; a normal
 video never downloads audio or invokes local ASR.
 
-Shorts always download media and reuse Instagram's tuned frame OCR defaults:
+Shorts always download media and use the shared media package's tuned frame OCR defaults
+(the same implementation used by Instagram):
 sampled mode, 3 fps, maximum height 800, and batch size 8. A combined stream near
 that working resolution is preferred. If YouTube offers no combined stream,
 video and audio are downloaded independently, without FFmpeg. Normal videos do

@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from info_triage.extractors.instagram.ocr import make_engine
-from info_triage.extractors.instagram.runtime import apply_runtime_threads
-from info_triage.extractors.instagram.transcription import make_transcriber
+from info_triage.extractors.media.ocr import make_engine
+from info_triage.extractors.media.runtime import apply_runtime_threads
+from info_triage.extractors.media.transcription import make_transcriber
 from info_triage.extractors.youtube.extractor import ExtractionOptions, YouTubeExtractor
 from info_triage.extractors.youtube.runner import ManagedYtDlp, RunnerSettings
 from info_triage.extractors.youtube.urls import load_inputs

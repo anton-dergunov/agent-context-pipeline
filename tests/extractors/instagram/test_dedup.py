@@ -1,7 +1,7 @@
 """Tests for Instagram OCR frame deduplication."""
 
-from info_triage.extractors.instagram.dedup import merge_frames
-from info_triage.extractors.instagram.models import OCRFrame, OCRLine
+from info_triage.extractors.media.dedup import merge_frames
+from info_triage.extractors.media.models import OCRFrame, OCRLine
 
 BOX = (0.1, 0.2, 0.5, 0.1)
 

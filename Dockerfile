@@ -11,7 +11,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.14 /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models
+    INFO_TRIAGE_OCR_MODEL_DIR=/app/.ocr_models
 
 # Resolve the large, stable dependency layer before copying application code.
 COPY pyproject.toml uv.lock README.md ./
@@ -37,8 +37,8 @@ RUN apt-get update \
 ENV HF_HUB_OFFLINE=1 \
     DENO_NO_PROMPT=1 \
     DENO_NO_UPDATE_CHECK=1 \
-    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
-    INSTAGRAM_OCR_THREADS=1 \
+    INFO_TRIAGE_OCR_MODEL_DIR=/app/.ocr_models \
+    INFO_TRIAGE_OCR_THREADS=1 \
     MKL_NUM_THREADS=1 \
     NUMEXPR_NUM_THREADS=1 \
     OMP_NUM_THREADS=1 \

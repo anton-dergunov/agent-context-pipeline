@@ -1,10 +1,10 @@
-"""Tests for Instagram runtime resource selection."""
+"""Tests for shared media runtime resource selection."""
 
 import platform
 
 import pytest
 
-from info_triage.extractors.instagram import runtime
+from info_triage.extractors.media import runtime
 
 
 def test_explicit_request_wins(monkeypatch):
@@ -15,6 +15,12 @@ def test_explicit_request_wins(monkeypatch):
 def test_environment_is_used_when_no_request(monkeypatch):
     monkeypatch.setenv(runtime.THREAD_ENV, "5")
     assert runtime.resolve_threads() == 5
+
+
+def test_legacy_instagram_environment_remains_supported(monkeypatch):
+    monkeypatch.delenv(runtime.THREAD_ENV, raising=False)
+    monkeypatch.setenv(runtime.LEGACY_THREAD_ENV, "6")
+    assert runtime.resolve_threads() == 6
 
 
 def test_invalid_environment_falls_through(monkeypatch):

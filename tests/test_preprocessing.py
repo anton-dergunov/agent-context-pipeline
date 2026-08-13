@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from info_triage.extractors.instagram.transcription import TranscriptResult
+from info_triage.extractors.media.transcription import TranscriptResult
 from info_triage.models import (
     AttachmentSpec,
     DownloadedAttachment,

@@ -13,7 +13,7 @@ from .config import (
     URLResolutionConfig,
     VoiceTranscriptionConfig,
 )
-from .extractors.instagram.transcription import (
+from .extractors.media.transcription import (
     Transcriber,
     make_transcriber,
     resolve_backend_and_model,

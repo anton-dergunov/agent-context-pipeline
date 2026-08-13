@@ -1,11 +1,11 @@
-"""Tests for Instagram media transcription."""
+"""Tests for shared media transcription."""
 
 import json
 from types import SimpleNamespace
 
 import huggingface_hub
 
-from info_triage.extractors.instagram import transcription
+from info_triage.extractors.media import transcription
 
 
 def test_no_audio_is_a_successful_empty_result(monkeypatch, tmp_path):
@@ -78,10 +78,17 @@ def test_reviewed_platform_defaults():
 
 def test_transcription_threads_default_to_one(monkeypatch):
     monkeypatch.delenv(transcription.TRANSCRIPTION_THREAD_ENV, raising=False)
+    monkeypatch.delenv(transcription.LEGACY_TRANSCRIPTION_THREAD_ENV, raising=False)
     assert transcription.resolve_transcription_threads() == 1
     monkeypatch.setenv(transcription.TRANSCRIPTION_THREAD_ENV, "3")
     assert transcription.resolve_transcription_threads() == 3
     assert transcription.resolve_transcription_threads(2) == 2
+
+
+def test_legacy_instagram_transcription_environment_remains_supported(monkeypatch):
+    monkeypatch.delenv(transcription.TRANSCRIPTION_THREAD_ENV, raising=False)
+    monkeypatch.setenv(transcription.LEGACY_TRANSCRIPTION_THREAD_ENV, "4")
+    assert transcription.resolve_transcription_threads() == 4
 
 
 def test_model_download_uses_current_hugging_face_local_dir_api(monkeypatch, tmp_path):

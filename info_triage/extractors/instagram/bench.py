@@ -67,8 +67,8 @@ def main(argv: list[str] | None = None) -> int:
     threads = runtime.resolve_threads(args.threads)
     runtime.apply_runtime_threads(threads)
 
-    from .engines import make_engine
-    from .ocr import ocr_video
+    from info_triage.extractors.media.engines import make_engine
+    from info_triage.extractors.media.ocr import ocr_video
 
     videos = [Path(v) for v in (args.videos or sorted(glob.glob("instagram_output/*/media/*.mp4")))]
     videos = [v for v in videos if v.exists()]

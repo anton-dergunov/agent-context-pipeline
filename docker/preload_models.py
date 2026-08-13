@@ -15,15 +15,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from info_triage.config import VoiceTranscriptionConfig, load_config  # noqa: E402
-from info_triage.extractors.instagram.engines import (  # noqa: E402
+from info_triage.extractors.media.engines import (  # noqa: E402
     DEFAULT_SCRIPTS,
     RapidOCREngine,
 )
-from info_triage.extractors.instagram.transcription import (  # noqa: E402
+from info_triage.extractors.media.transcription import (  # noqa: E402
     download_faster_whisper_model,
 )
 
-model_dir = Path(os.environ.get("INSTAGRAM_OCR_MODEL_DIR", "/app/.ocr_models"))
+model_dir = Path(
+    os.environ.get("INFO_TRIAGE_OCR_MODEL_DIR")
+    or os.environ.get("INSTAGRAM_OCR_MODEL_DIR", "/app/.ocr_models")
+)
 scripts = tuple(os.environ.get("INSTAGRAM_OCR_SCRIPTS", ",".join(DEFAULT_SCRIPTS)).split(","))
 
 print(f"preloading RapidOCR models for scripts={scripts} into {model_dir}")
