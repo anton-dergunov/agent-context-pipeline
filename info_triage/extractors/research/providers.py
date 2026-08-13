@@ -346,9 +346,10 @@ def parse_html_metadata(reference: ResearchReference, html: str, final_url: str)
             arxiv_license = urljoin(final_url, str(node["href"]))
 
     canonical = reference.canonical_url
-    if link := soup.find("link", rel=lambda value: value and "canonical" in value):
-        if link.get("href"):
-            canonical = urljoin(final_url, str(link["href"]))
+    if reference.provider != "arxiv":
+        if link := soup.find("link", rel=lambda value: value and "canonical" in value):
+            if link.get("href"):
+                canonical = urljoin(final_url, str(link["href"]))
     pdf_url = _first_meta(soup, "citation_pdf_url")
     keywords = _meta_values(soup, "citation_keywords")
     if not keywords and isinstance(structured.get("keywords"), str):

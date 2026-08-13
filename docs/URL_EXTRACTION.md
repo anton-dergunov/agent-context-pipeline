@@ -40,9 +40,12 @@ workstation configuration.
 
 ## Generic documents
 
-HTML is converted with Trafilatura. PDF conversion uses MarkItDown's local PDF
-extra and never performs OCR. A scanned/image-only PDF therefore receives the
-stable `pdf-no-extractable-text` failure reason.
+HTML is converted with Trafilatura. PDF conversion uses PDFPlumber with a
+font-relative word-gap threshold and never performs OCR; pypdf ordinary-flow
+text is the per-page fallback for unusual encodings and duplicate embedded
+glyph layers. The adaptive threshold avoids the missing-space failure common in
+tightly kerned research PDFs. A scanned/image-only PDF receives the stable
+`pdf-no-extractable-text` failure reason.
 
 Default limits are a 30-second read timeout, 10 MiB HTML response, 50 MiB PDF
 response, 500 PDF pages, two retry attempts, and sequential extraction. A

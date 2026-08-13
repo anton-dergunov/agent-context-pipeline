@@ -77,3 +77,26 @@ def test_item_identity_is_deterministic_and_query_order_independent():
     first = item_id("https://EXAMPLE.com/path?a=1&b=2#section")
     second = item_id("https://example.com/path?b=2&a=1")
     assert first == second
+
+
+def test_pdf_metadata_records_adaptive_spacing_engine(monkeypatch, tmp_path):
+    result = FetchResult(
+        "https://example.com/paper.pdf",
+        "https://example.com/paper.pdf",
+        "application/pdf",
+        "pdf",
+        b"%PDF fake",
+        200,
+    )
+    monkeypatch.setattr(
+        "info_triage.extractors.document.extractor.pdf_to_markdown",
+        lambda *_args, **_kwargs: ("Readable PDF text with spaces.\n", 3),
+    )
+    path, complete = DocumentExtractor(
+        DocumentOptions(output_dir=tmp_path), client=Client(result)
+    ).extract(result.requested_url)
+    assert complete
+    metadata = json.loads((path / "metadata.json").read_text())
+    assert metadata["pdf_extraction_method"] == (
+        "pdfplumber-adaptive-spacing-with-pypdf-quality-fallback"
+    )

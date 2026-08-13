@@ -56,6 +56,20 @@ def test_arxiv_routes_share_canonical_identity():
     }
 
 
+def test_arxiv_version_is_preserved_in_metadata_and_body_candidates():
+    reference = match_research_url("https://arxiv.org/abs/1709.05584v3.pdf")
+    assert reference is not None
+    metadata = parse_html_metadata(
+        reference,
+        '<html><head><link rel="canonical" href="https://arxiv.org/abs/1709.05584">'
+        '<meta name="citation_title" content="Paper">'
+        '<meta name="citation_pdf_url" content="https://arxiv.org/pdf/1709.05584"></head></html>',
+        reference.canonical_url,
+    )
+    assert metadata["canonical_url"] == "https://arxiv.org/abs/1709.05584v3"
+    assert reference.body_candidates[-1].url == "https://arxiv.org/pdf/1709.05584v3"
+
+
 def test_neurips_maps_hash_metadata_to_file_pdf():
     reference = match_research_url(
         "https://proceedings.neurips.cc/paper_files/paper/2024/hash/abc-Abstract-Conference.html"

@@ -60,6 +60,33 @@ def test_arxiv_html_body_is_preferred_and_metadata_is_prepended(tmp_path):
     assert client.calls == [metadata_url, body_url]
 
 
+def test_arxiv_versioned_pdf_candidate_overrides_unversioned_metadata_link(tmp_path):
+    metadata_url = "https://arxiv.org/abs/1709.05584v3"
+    html_url = "https://arxiv.org/html/1709.05584v3"
+    pdf_url = "https://arxiv.org/pdf/1709.05584v3"
+    metadata = METADATA.replace(
+        b"</head>",
+        b'<meta name="citation_pdf_url" content="https://arxiv.org/pdf/1709.05584"></head>',
+    )
+    client = Client(
+        {
+            metadata_url: _html(metadata_url, metadata),
+            html_url: ExtractionError("missing", reason="http-error"),
+            pdf_url: ExtractionError(
+                "conversion omitted in this routing test", reason="http-error"
+            ),
+        }
+    )
+    path, complete = ResearchExtractor(ResearchOptions(output_dir=tmp_path), client=client).extract(
+        "https://arxiv.org/abs/1709.05584v3.pdf"
+    )
+    assert not complete
+    assert client.calls == [metadata_url, html_url, pdf_url]
+    assert json.loads((path / "metadata.json").read_text())["canonical_url"].endswith(
+        "1709.05584v3"
+    )
+
+
 def test_metadata_success_retains_partial_markdown_when_body_fails(tmp_path):
     page = "https://aclanthology.org/2025.acl-long.461/"
     pdf = "https://aclanthology.org/2025.acl-long.461.pdf"

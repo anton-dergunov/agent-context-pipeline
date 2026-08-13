@@ -190,7 +190,7 @@ class ResearchExtractor:
         status: dict[str, Any],
     ) -> tuple[str, dict[str, Any]]:
         candidates = list(reference.body_candidates)
-        if pdf_url := metadata.get("pdf_url"):
+        if reference.provider != "arxiv" and (pdf_url := metadata.get("pdf_url")):
             candidate = BodyCandidate("pdf", str(pdf_url))
             if candidate not in candidates:
                 candidates.insert(0, candidate)
@@ -217,6 +217,9 @@ class ResearchExtractor:
                         result.body, max_pages=self.options.max_pdf_pages
                     )
                     details: dict[str, Any] = {"page_count": pages}
+                    details["pdf_extraction_method"] = (
+                        "pdfplumber-adaptive-spacing-with-pypdf-quality-fallback"
+                    )
                     if self.options.keep_raw:
                         write_bytes(directory / "paper-source.pdf", result.body)
                 elif result.kind == "html":

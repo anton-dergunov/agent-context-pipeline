@@ -109,6 +109,9 @@ class DocumentExtractor:
             elif result.kind == "pdf":
                 markdown, pages = pdf_to_markdown(result.body, max_pages=self.options.max_pdf_pages)
                 metadata["page_count"] = pages
+                metadata["pdf_extraction_method"] = (
+                    "pdfplumber-adaptive-spacing-with-pypdf-quality-fallback"
+                )
             else:
                 raise ExtractionError(
                     f"unsupported document kind: {result.kind}", reason="unsupported-content"
