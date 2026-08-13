@@ -1,0 +1,43 @@
+# Info Triage daemon configuration.
+# Secrets and the authorized Telegram user remain in .env.
+
+storage:
+  # Relative paths are resolved from this configuration file's directory.
+  data_dir: data
+
+web:
+  # Internal HTTP port used by the dashboard and GET /health.
+  port: 8000
+
+telegram:
+  grouping:
+    # Consecutive Telegram messages at or below this timestamp gap form one item.
+    max_gap_seconds: 3.0
+    # Wait this long after the latest message before finalizing the group.
+    # It must be greater than max_gap_seconds to avoid boundary races.
+    settle_seconds: 4.0
+
+processing:
+  # Steps execute in this exact order. Remove a step to disable it.
+  steps:
+    - name: voice-transcription
+      # The portable NAS backend. Changing the container model requires a rebuild.
+      backend: faster-whisper
+      # Multilingual Whisper model size preloaded into the Docker image.
+      model: small
+      # Local model storage; runtime network downloads are disabled in Docker.
+      model_cache_dir: .whisper_models
+      # CPU inference threads used by the voice processor.
+      threads: 1
+
+    - name: url-resolution
+      # Resolve only recognized shorteners and deterministic redirect wrappers.
+      # Per-request read timeout after connecting.
+      timeout_seconds: 30.0
+      # Retry transient connection, throttling, and server failures this many times.
+      retries: 4
+      # Inspect at most 2 MiB of a response for HTML/JavaScript redirects.
+      max_html_bytes: 2097152
+      resolve_all: false
+
+    - name: text-cleaning

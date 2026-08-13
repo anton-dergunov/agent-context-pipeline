@@ -19,6 +19,7 @@ from .models import (
     ProcessingJob,
     ProcessingResult,
 )
+from .rendering import render_capture_payloads
 
 logger = logging.getLogger("info_triage")
 STATUSES = ("received", "processing", "ready", "failed")
@@ -267,6 +268,7 @@ class CaptureStore:
         media_group_id: str | None = None,
         source_message_ids: list[int] | None = None,
     ) -> None:
+        atomic_write(item_path / "source.md", content)
         atomic_write(item_path / "message.md", render_message(category, content))
         existing_metadata = self._read_metadata(item_path)
         attachment_manifest = existing_metadata.get("attachments", [])
@@ -594,10 +596,25 @@ class CaptureStore:
                     raise RuntimeError(f"Both staging and inbox contain {item_name}")
                 inbox_path.rename(staging_path)
             metadata = self._read_metadata(staging_path)
-            content = original_content(
-                item["category"],
-                (staging_path / "message.md").read_text(encoding="utf-8"),
-            )
+            payload_path = staging_path / "telegram.json"
+            if payload_path.is_file():
+                payload_value = json.loads(payload_path.read_text(encoding="utf-8"))
+                if isinstance(payload_value, dict) and isinstance(
+                    payload_value.get("messages"), list
+                ):
+                    payloads = payload_value["messages"]
+                elif isinstance(payload_value, list):
+                    payloads = payload_value
+                else:
+                    payloads = [payload_value]
+                content = render_capture_payloads(payloads)
+            elif (staging_path / "source.md").is_file():
+                content = (staging_path / "source.md").read_text(encoding="utf-8")
+            else:
+                content = original_content(
+                    item["category"],
+                    (staging_path / "message.md").read_text(encoding="utf-8"),
+                )
             revision = item["revision"] + 1
             self._write_item(
                 staging_path,
@@ -663,7 +680,19 @@ class CaptureStore:
                         temporary = destination.with_name(f".{destination.name}.tmp")
                         pending_files.append((temporary, destination))
                         shutil.copyfile(generated.source_path, temporary)
-                    atomic_write(staging_path / "message.md", result.message_markdown)
+                    source = result.source_markdown
+                    if source is None:
+                        source = original_content(
+                            item.category, result.message_markdown
+                        )
+                    for name, content in (
+                        ("source.md", source),
+                        ("message.md", result.message_markdown),
+                    ):
+                        destination = staging_path / name
+                        temporary = destination.with_name(f".{destination.name}.tmp")
+                        temporary.write_text(content, encoding="utf-8")
+                        pending_files.append((temporary, destination))
                     for temporary, destination in pending_files:
                         temporary.replace(destination)
                 except Exception:

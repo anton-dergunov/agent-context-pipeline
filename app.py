@@ -8,7 +8,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telegram import Update
 
-from info_triage.preprocessing import VoiceTranscriptionStep
+from info_triage.config import load_config
+from info_triage.preprocessing import processing_steps_from_config
 from info_triage.processing import (
     ProcessingCoordinator,
     ProcessingPipeline,
@@ -31,17 +32,11 @@ def main() -> None:
     load_dotenv(BASE_DIR / ".env")
     bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
     allowed_user_id = int(os.environ["ALLOWED_USER_ID"])
-    data_dir = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
-    transcription_model_cache = Path(
-        os.environ.get(
-            "INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR",
-            BASE_DIR / ".whisper_models",
-        )
-    )
-    port = int(os.environ.get("PORT", "8000"))
+    config_path = Path(os.environ.get("INFO_TRIAGE_CONFIG", BASE_DIR / "config.yaml"))
+    config = load_config(config_path)
 
-    store = CaptureStore(data_dir)
-    pipeline = ProcessingPipeline([VoiceTranscriptionStep(transcription_model_cache)])
+    store = CaptureStore(config.data_dir)
+    pipeline = ProcessingPipeline(processing_steps_from_config(config.processing_steps))
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -50,10 +45,12 @@ def main() -> None:
         allowed_user_id,
         store,
         coordinator,
+        grouping_max_gap_seconds=config.grouping_max_gap_seconds,
+        grouping_settle_seconds=config.grouping_settle_seconds,
     )
-    web_server, web_thread = start_web_server(store, port)
+    web_server, web_thread = start_web_server(store, config.web_port)
     worker.start()
-    logger.info("Web server listening on port %s", port)
+    logger.info("Web server listening on port %s", config.web_port)
     logger.info("Telegram bot started, polling...")
     try:
         application.run_polling(allowed_updates=Update.ALL_TYPES)

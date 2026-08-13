@@ -701,27 +701,38 @@ The NAS copy is a deployment target.
 process. It stores durable application data below `/app/data` and exposes
 `GET /health` on port 8000.
 
-The server deliberately binds to:
+Those non-secret values, Telegram grouping timing, and the ordered processing
+steps come from the repository's commented `config.yaml`. The container uses
+that file by default. `.env` contains the Telegram bot token and allowed user
+ID; `INFO_TRIAGE_CONFIG` is available only when an alternate configuration file
+is deliberately mounted into the container.
+
+With the shipped configuration, the server binds to:
 
 ``` text
 0.0.0.0:8000
 ```
 
-rather than `127.0.0.1`, so Docker can expose it outside the container.
+rather than `127.0.0.1`, so Docker can expose it outside the container. If
+`web.port` changes, update the Compose port mapping and health-check URL to the
+same container port; YAML remains authoritative for the daemon's listener.
 
 ------------------------------------------------------------------------
 
 ## 12. Dockerfile
 
 The repository Dockerfile is a multi-stage Python 3.12 build. It installs the
-single locked uv project, then preloads and validates the reviewed portable
-RapidOCR and multilingual `faster-whisper` small models. The runtime stage
+single locked uv project, then reads `config.yaml` and preloads and validates
+the reviewed portable RapidOCR and configured `faster-whisper` model. The
+shipped configuration selects multilingual `small`. The runtime stage
 contains `curl` for the health check and `libgomp1` for ONNX Runtime, operates
 with network model loading disabled, runs as `1026:100`, and still starts
 `python app.py`.
 
 Surya/PyTorch and Apple-Silicon MLX remain optional workstation dependencies;
 they are deliberately absent from the Synology Linux image.
+Changing the configured transcription model requires rebuilding the image so
+the replacement model is present before offline runtime begins.
 
 ------------------------------------------------------------------------
 
@@ -744,12 +755,7 @@ services:
       - .env
 
     environment:
-      DATA_DIR: /app/data
       INSTAGRAM_OCR_THREADS: "1"
-      INSTAGRAM_TRANSCRIPTION_BACKEND: faster-whisper
-      INSTAGRAM_TRANSCRIPTION_MODEL: small
-      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
-      PORT: "8000"
       TZ: Europe/London
 
     volumes:
@@ -769,7 +775,8 @@ services:
 `cpu_shares` lowers the container's relative CPU priority during contention;
 it is not a hard CPU limit. Do not add Compose `cpus` on this Synology: its
 kernel does not expose the CFS scheduler support Docker needs for `NanoCPUs`.
-The one-thread extraction settings above bound the CPU-heavy library work.
+The OCR environment setting and configured one-thread voice processor bound the
+CPU-heavy library work.
 The 8 GB memory limit is a ceiling, not a reservation, and leaves roughly 12 GB
 of the upgraded NAS's 20 GB for DSM, filesystem cache, and other containers.
 Keeping `memswap_limit` equal to `mem_limit` prevents additional swap usage.

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .models import CapturedItem, ProcessingJob, ProcessingResult
-from .storage import CaptureStore
+from .storage import CaptureStore, original_content, render_message
 
 logger = logging.getLogger("info_triage")
 
@@ -90,8 +90,18 @@ class ProcessingWorker:
         current_step = None
         try:
             steps = self.pipeline.steps_for(job)
-            source = (job.path / "message.md").read_text(encoding="utf-8")
-            result = ProcessingResult(message_markdown=source)
+            source_path = job.path / "source.md"
+            if source_path.is_file():
+                source = source_path.read_text(encoding="utf-8")
+            else:
+                source = original_content(
+                    job.category,
+                    (job.path / "message.md").read_text(encoding="utf-8"),
+                )
+            result = ProcessingResult(
+                message_markdown=source,
+                source_markdown=source,
+            )
             prefix = f"{job.path.name}-r{job.revision}-"
             with tempfile.TemporaryDirectory(prefix=prefix) as workspace_text:
                 workspace = Path(workspace_text)
@@ -100,6 +110,9 @@ class ProcessingWorker:
                     if not self.store.set_processing_step(job, current_step):
                         return
                     step.run(job, result, workspace)
+                result.message_markdown = render_message(
+                    job.category, result.message_markdown
+                )
                 workspace_root = workspace.resolve()
                 for generated in result.generated_files:
                     if not generated.source_path.resolve().is_relative_to(

@@ -1,26 +1,43 @@
 # Preprocessing Catalogue
 
 This file is the authoritative catalogue of automatic preprocessing applied to
-captured items. A processor runs only when its trigger is present. All other
-captured content passes through unchanged.
+captured items. `config.yaml` enables processors by listing them under the
+ordered `processing.steps` sequence.
 
 ## Current behaviour
 
 | Telegram content | Automatic preprocessing | `message.md` result |
 | --- | --- | --- |
-| Voice note (`voice`) | Transcribe locally with Whisper | `Voice note: <recognized text>` at the voice message's position |
-| Plain text or caption | None | Original text or caption |
-| Location or venue | None | Existing readable location block |
-| Document | None | Accompanying caption only |
-| Photo | None | Accompanying caption only |
-| Video | None | Accompanying caption only |
-| Animation | None | Accompanying caption only |
-| Generic audio (`audio`) | None | Accompanying caption only |
-| Video note (`video_note`) | None | Accompanying caption only |
+| Voice note (`voice`) | Transcribe locally, resolve URLs, clean text | Transcript in its ordered `voice` segment |
+| Plain text or caption | Resolve recognized short URLs, clean text | Processed text in its ordered segment |
+| Location or venue | Resolve URLs, clean text | Existing readable location block in its segment |
+| Document | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Photo | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Video | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Animation | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Generic audio (`audio`) | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Video note (`video_note`) | Resolve URLs and clean accompanying caption | Caption in its segment |
 
 Original downloaded attachments and the complete Telegram payload are always
-retained. The table describes the laptop-facing Markdown; it does not replace
-or modify source media.
+retained. `source.md` contains the segmented text after source materialization
+(including voice transcription) but before URL resolution or cleaning.
+`message.md` contains the transformed body with category front matter.
+
+Every Telegram source message is represented uniformly:
+
+```markdown
+## Segment 1 — text
+
+Personal commentary
+
+## Segment 2 — text
+
+https://example.com/shared-item
+```
+
+Kinds reflect known Telegram content such as `text`, `caption`, `voice`, or
+`location`. `forwarded` is added only for explicit Telegram provenance; no
+URL/length heuristic guesses which segment expresses personal intent.
 
 ## Voice-note transcription
 
@@ -30,30 +47,33 @@ processor. Every downloaded voice attachment in a grouped item is transcribed
 in attachment order.
 
 The processor reuses the local transcription implementation used for Instagram
-video audio. Backend, model, cache directory, and CPU threads use the existing
-`INSTAGRAM_TRANSCRIPTION_*` environment settings. The Synology container uses
-its image-bundled multilingual `faster-whisper` small model with CPU/int8
-inference. Runtime model downloads remain disabled in that container.
+video audio. Backend, model, cache directory, and CPU threads come from the
+`voice-transcription` entry in `config.yaml`. The shipped Synology configuration
+uses its image-bundled multilingual `faster-whisper` small model with CPU/int8
+inference. Runtime model downloads remain disabled in that container, so a
+configured model change requires an image rebuild.
 
 Language is detected automatically, speech stays in its original language,
 voice-activity detection is enabled to suppress silence and music, and no
-timestamps are added. A successful voice-only item has this body after the
-category front matter:
+timestamps are added. A successful voice-only body is:
 
 ```markdown
-Voice note: Recognized speech goes here.
+## Segment 1 — voice
+
+Recognized speech goes here.
 ```
 
-In a grouped item, each voice line is rendered at the corresponding Telegram
-message's logical position. Other text, captions, and locations are preserved.
-For a captioned voice message, the voice line comes immediately before its
-caption. Existing forwarded-source handling is also preserved: forwarded
-content comes first and an adjacent personal note remains under `## Note`.
+In a grouped item, each transcript is rendered in the corresponding Telegram
+message segment. Other text, captions, and locations remain in their own ordered
+segments. A captioned voice message keeps the transcript and caption together in
+its `voice` segment.
 
 If Whisper detects no speech, the item is delivered with:
 
 ```markdown
-Voice note: [No speech recognized]
+## Segment 1 — voice
+
+[No speech recognized]
 ```
 
 A missing or unavailable attachment, an invalid media file, a file without an
@@ -61,21 +81,35 @@ audio stream, or a transcription error fails the processing job. The item stays
 in `data/staging/` with SQLite status `failed` and the error is visible on the
 dashboard. It is not delivered with a misleading or partial transcript.
 
-No separate transcript artifact is generated in this first version. The
-transcript exists in `message.md`; the original voice file remains under
-`attachments/` and the original Telegram data remains in `telegram.json`.
+No separate transcript artifact is generated. The transcript exists in both
+the materialized `source.md` and processed `message.md`; the original voice file
+remains under `attachments/` and the original Telegram data remains in
+`telegram.json`.
+
+## URL resolution and text cleaning
+
+URL resolution reuses the standalone resolver's cautious default: only known
+shorteners and deterministic redirect wrappers are fetched unless
+`resolve_all` is explicitly enabled. Timeout, retry count, and the maximum HTML
+bytes inspected for page-level redirects are documented in `config.yaml`.
+Resolution failures warn and retain the utility's original or safely extracted
+partial URL; they do not fail the item.
+
+Text cleaning runs afterward and reuses `clean_text` with its internal link
+resolution disabled. This normalizes social-media formatting and removes URL
+tracking parameters without making the network request twice.
 
 ## Revisions and existing items
 
 Enabling a processor does not scan, move, or rewrite existing ready items. New
 captures use the current catalogue. If an older item later receives a Telegram
-edit or category change, that new revision goes through the current pipeline
-and its voice attachments are transcribed. Revision checks prevent a slow
-transcription result from overwriting a newer edit.
+edit or category change, that new revision goes through the current pipeline.
+Each revision is reconstructed from the retained Telegram payload rather than a
+previously processed `message.md`, and revision checks prevent a slow result
+from overwriting a newer edit.
 
 ## Standalone extractors
 
-The Instagram downloader, Instagram OCR/transcription preparation, LinkedIn
-extractor, text cleaner, and URL resolver remain standalone tools. Except for
-reusing the local speech-transcription engine for Telegram voice notes, they are
-not automatic item preprocessors.
+The Instagram downloader, Instagram OCR/transcription preparation, and LinkedIn
+extractor remain standalone tools. The text cleaner and URL resolver retain
+their standalone commands while also serving as configured Telegram processors.

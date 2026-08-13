@@ -8,15 +8,13 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.14 /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
-    INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR=/app/.whisper_models \
-    INSTAGRAM_TRANSCRIPTION_MODEL=small
+    INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models
 
 # Resolve the large, stable dependency layer before copying application code.
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY app.py ./
+COPY app.py config.yaml ./
 COPY info_triage/ ./info_triage/
 COPY docker/ ./docker/
 RUN uv sync --frozen --no-dev
@@ -33,14 +31,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-ENV DATA_DIR=/app/data \
-    HF_HUB_OFFLINE=1 \
+ENV HF_HUB_OFFLINE=1 \
     INSTAGRAM_OCR_MODEL_DIR=/app/.ocr_models \
     INSTAGRAM_OCR_THREADS=1 \
-    INSTAGRAM_TRANSCRIPTION_BACKEND=faster-whisper \
-    INSTAGRAM_TRANSCRIPTION_MODEL=small \
-    INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR=/app/.whisper_models \
-    INSTAGRAM_TRANSCRIPTION_THREADS=1 \
     MKL_NUM_THREADS=1 \
     NUMEXPR_NUM_THREADS=1 \
     OMP_NUM_THREADS=1 \

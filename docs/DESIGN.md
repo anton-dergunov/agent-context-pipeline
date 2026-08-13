@@ -64,6 +64,12 @@ shared models, storage, processing, Telegram handling, and the web dashboard.
 The Telegram event loop, one processing-worker thread, and one single-threaded
 HTTP server are the only long-lived execution paths.
 
+Non-secret daemon settings are loaded strictly from `config.yaml`, or from the
+path named by `INFO_TRIAGE_CONFIG`. Relative paths are resolved beside that
+file. `.env` contains only the bot token, authorized user ID, and optional
+configuration path. Standalone extractor CLI settings and low-level container
+runtime controls remain independent.
+
 ---
 
 # 3. Capture
@@ -91,12 +97,12 @@ The bot does not ask for classification or send a success dialog. Every new item
 is assigned `Other` and continues to processing automatically. Capture failures
 may still produce an error reply.
 
-Messages are first written to a durable pending table. A module-level
-`CAPTURE_GROUP_MAX_GAP_SECONDS` constant controls grouping and is currently
-`3.0`. Consecutive logical messages are combined while each Telegram timestamp
-gap is at most that value. A media group counts as one logical message, and a
-quiet period one second longer than the configured gap prevents boundary races.
-Pending captures are resumed after restart.
+Messages are first written to a durable pending table. The
+`telegram.grouping` values in `config.yaml` control the maximum gap and settling
+delay. Consecutive logical messages are combined while each Telegram timestamp
+gap is at most the configured maximum. A media group counts as one logical
+message, and the longer quiet settling period prevents boundary races. Pending
+captures are resumed after restart.
 
 ---
 
@@ -139,6 +145,7 @@ For example:
 ```text
 staging/
 └── 2026-08-08_18492/
+    ├── source.md
     ├── message.md
     ├── metadata.json
     ├── telegram.json
@@ -158,30 +165,37 @@ The important property is that the directory name remains stable if the Telegram
 
 ---
 
-# 6. `message.md`
+# 6. `source.md` and `message.md`
 
-Every ready item contains a `message.md`. It is the processed, laptop-facing
-Markdown representation of the item.
+Every ready item contains both Markdown files. `source.md` is the materialized
+text checkpoint after source-to-text work such as voice transcription but
+before URL resolution or cleanup. It has no category front matter. `message.md`
+is the processed, laptop-facing representation with category front matter.
 
-For a plain text message, it may simply contain:
+Every retained Telegram message is an explicit ordered segment. For example:
 
 ```markdown
+## Segment 1 — text
+
 This article looks useful for the ranking project:
 https://example.com/article
 ```
 
-The initial capture does not rewrite or summarize this content. When no
-processing step applies, `message.md` therefore remains equivalent to the text
-captured from Telegram. Processing may clean or enrich it and may add
-other generated files to the same item directory.
+The segment kind records known structure such as `text`, `caption`, `voice`, or
+`location`. Explicit Telegram forwarding provenance adds `forwarded`; the
+application does not infer personal commentary from text length or URLs.
+
+The configured pipeline materializes `source.md`, resolves URLs, cleans text,
+and then renders `message.md`. It does not summarize the content. Each revision
+is reconstructed from retained Telegram data rather than a previously processed
+Markdown file.
 
 The complete original Telegram payload remains in `telegram.json`, and
 downloaded source media remains in `attachments/`.
 
-For a location or venue, it also contains a small readable location block with
-the coordinates and a maps link. It remains empty for media that has neither a
-caption nor a location, except that a voice note is rendered as
-`Voice note: <recognized text>` after transcription.
+For a location or venue, the segment contains a small readable location block
+with coordinates and a maps link. A voice transcript is the body of its `voice`
+segment.
 
 ---
 
@@ -222,6 +236,7 @@ For example:
 
 ```text
 2026-08-08_18492/
+├── source.md
 ├── message.md
 ├── metadata.json
 ├── telegram.json
@@ -245,9 +260,9 @@ and transcription of other media remain future processing steps. See
 A media group is one logical message. It can be combined with nearby notes or
 other messages under the same three-second rule. A grouped item is named from
 its earliest message ID and contains ordered raw payloads, all source IDs, and
-all attachments. When Telegram explicitly marks a forwarded source, that source
-is rendered first and adjacent non-forwarded text appears under `## Note`.
-Otherwise non-empty content is joined chronologically with blank lines.
+all attachments. Source messages remain chronological and appear as separate
+segments. Explicit forwards are labeled without reordering or guessing which
+other segment contains the user's intent.
 
 ---
 
@@ -356,24 +371,24 @@ item at a time. SQLite is the durable queue; there is no separate queue table or
 in-memory-only job list. On restart, an interrupted `processing` item still in
 staging returns to `received`.
 
-Processing steps are ordinary ordered Python functions. The first registered
-step transcribes Telegram voice attachments and rebuilds `message.md` with each
-transcript at its source message's logical position. Expected future steps are
-text normalization, shortened-URL resolution, OCR or other transcription where
-applicable, and final cleanup.
+Processing steps are ordinary ordered Python functions registered from the
+strict, commented `config.yaml`. The shipped order transcribes Telegram voice
+attachments, resolves recognized short URLs, then cleans text. Voice output is
+materialized in `source.md` before the text transforms. Expected future steps
+include OCR, other transcription, extraction, and item-level classification.
 
 The repository already contains reusable implementations for cautious text
 cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
 and transcription, and anonymous public LinkedIn extraction. These live below
-`info_triage.utilities` and `info_triage.extractors`. The local transcription
-engine is reused by the Telegram voice step; the remaining standalone tools do
-not alter capture or delivery behavior.
+`info_triage.utilities` and `info_triage.extractors`. The Telegram pipeline
+reuses the local transcription engine, URL resolver, and text cleaner; their
+standalone commands remain available.
 
-Steps write only to a revision-specific temporary workspace. `message.md` is
-the processed, laptop-facing result, while `telegram.json` and original media
-preserve the captured source. Storage commits generated output only if the
-claimed revision remains current. A later Telegram edit therefore supersedes a
-slow result without blocking capture.
+Steps write only to a revision-specific temporary workspace. Storage commits
+`source.md`, `message.md`, and generated output only if the claimed revision
+remains current. `telegram.json` and original media preserve the exact captured
+source. A later Telegram edit therefore supersedes a slow result without
+blocking capture.
 
 A URL may require:
 
@@ -415,7 +430,9 @@ receive edited message
     ↓
 replace that member's raw payload, content, and attachments
     ↓
-regenerate the combined message.md
+regenerate the segmented source.md
+    ↓
+run the configured processors and regenerate message.md
     ↓
 increment the metadata revision
     ↓

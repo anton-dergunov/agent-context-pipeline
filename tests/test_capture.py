@@ -181,6 +181,7 @@ class CaptureStoreTests(unittest.TestCase):
                 (item / "message.md").read_text(),
                 "---\ncategory: Other\n---\n\nplain",
             )
+            self.assertEqual((item / "source.md").read_text(), "plain")
 
     def test_partial_attachment_update_preserves_other_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -250,7 +251,8 @@ class CaptureStoreTests(unittest.TestCase):
                 b"first-photo",
             )
             message_text = (item_path / "message.md").read_text()
-            self.assertLess(message_text.index("Shared source"), message_text.index("## Note"))
+            self.assertIn("## Segment 1 — forwarded caption", message_text)
+            self.assertIn("## Segment 2 — text", message_text)
             self.assertIn("Updated note", message_text)
 
             edited_forward = telegram_payload(
@@ -457,7 +459,7 @@ class CaptureGroupingTests(unittest.TestCase):
             [[1, 2, 3]],
         )
 
-    def test_forwarded_source_is_rendered_before_identifiable_note(self):
+    def test_forwarded_source_is_labeled_without_guessing_about_the_note(self):
         note = telegram_payload(1, 100, text="My note")
         forwarded = telegram_payload(
             2,
@@ -472,7 +474,8 @@ class CaptureGroupingTests(unittest.TestCase):
         )
         self.assertEqual(
             render_capture_payloads([note, forwarded]),
-            "Shared post\n\n## Note\n\nMy note",
+            "## Segment 1 — text\n\nMy note\n\n"
+            "## Segment 2 — forwarded text\n\nShared post",
         )
 
     def test_unmarked_url_and_note_remain_chronological(self):
@@ -480,14 +483,26 @@ class CaptureGroupingTests(unittest.TestCase):
         note = telegram_payload(2, 100, text="Read this later")
         self.assertEqual(
             render_capture_payloads([url, note]),
-            "https://example.com\n\nRead this later",
+            "## Segment 1 — text\n\nhttps://example.com\n\n"
+            "## Segment 2 — text\n\nRead this later",
         )
 
     def test_application_has_no_category_callback_handler(self):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             application = build_application(
-                "123:token", 20, store, ImmediateCoordinator(store)
+                "123:token",
+                20,
+                store,
+                ImmediateCoordinator(store),
+                grouping_max_gap_seconds=1.5,
+                grouping_settle_seconds=2.5,
+            )
+            self.assertEqual(
+                application.bot_data["capture_group_max_gap_seconds"], 1.5
+            )
+            self.assertEqual(
+                application.bot_data["capture_group_settle_seconds"], 2.5
             )
             handlers = [
                 handler for values in application.handlers.values() for handler in values

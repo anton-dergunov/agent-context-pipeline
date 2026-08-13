@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -19,6 +18,7 @@ from telegram.ext import (
 
 from .models import AttachmentSpec, DownloadedAttachment
 from .processing import ProcessingCoordinator
+from .rendering import message_content, payload_order, render_capture_payloads
 from .storage import CaptureStore
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
@@ -108,33 +108,9 @@ def attachment_specs_from_payload(payload: dict[str, Any]) -> list[AttachmentSpe
     ]
 
 
-def location_markdown(message: Message) -> str:
-    location = message.location or (message.venue.location if message.venue else None)
-    if location is None:
-        return ""
-    if message.venue:
-        heading = message.venue.title
-        details = [message.venue.address]
-    else:
-        heading = "Location"
-        details = []
-    coordinates = f"{location.latitude},{location.longitude}"
-    details.extend(
-        [
-            f"Coordinates: {coordinates}",
-            f"[Open in maps](https://www.google.com/maps/search/?api=1&query={coordinates})",
-        ]
-    )
-    return "\n".join([f"## {heading}", *details])
-
-
 def capture_content(message: Message) -> str | None:
     """Return useful Markdown, or None for deliberately ignored messages."""
-    text = message.text if message.text is not None else message.caption
-    location = location_markdown(message)
-    if text is not None or location or attachment_specs(message):
-        return "\n\n".join(part for part in (text or "", location) if part)
-    return None
+    return message_content(message)
 
 
 async def download_attachments(
@@ -187,52 +163,6 @@ def is_authorized(update: Update, allowed_user_id: int) -> bool:
     return authorized
 
 
-def _payload_order(payload: dict[str, Any]) -> tuple[int, int]:
-    return int(payload.get("date", 0)), int(payload["message_id"])
-
-
-def _is_forwarded(payload: dict[str, Any]) -> bool:
-    return any(
-        payload.get(key) is not None
-        for key in (
-            "forward_origin",
-            "forward_from",
-            "forward_from_chat",
-            "forward_sender_name",
-        )
-    )
-
-
-def render_capture_payloads(
-    payloads: list[dict[str, Any]],
-    *,
-    voice_transcripts: Mapping[int, Sequence[str]] | None = None,
-) -> str:
-    """Render ordered raw Telegram messages, identifying only explicit forwards."""
-    ordered = sorted(payloads, key=_payload_order)
-    parts = []
-    for payload in ordered:
-        content = capture_content(Message.de_json(payload, None)) or ""
-        transcripts = (voice_transcripts or {}).get(payload["message_id"], ())
-        voice_content = "\n\n".join(f"Voice note: {text}" for text in transcripts)
-        parts.append(
-            (
-                payload,
-                "\n\n".join(value for value in (voice_content, content) if value),
-            )
-        )
-    forwarded = [content for payload, content in parts if _is_forwarded(payload)]
-    notes = [content for payload, content in parts if not _is_forwarded(payload)]
-    if forwarded and notes:
-        source_text = "\n\n".join(value for value in forwarded if value)
-        note_text = "\n\n".join(value for value in notes if value)
-        if note_text:
-            return "\n\n".join(
-                value for value in (source_text, f"## Note\n\n{note_text}") if value
-            )
-    return "\n\n".join(content for _, content in parts if content)
-
-
 def _logical_units(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     albums: dict[str, list[dict[str, Any]]] = {}
     units = []
@@ -265,7 +195,10 @@ def _logical_units(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
-def group_new_messages(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+def group_new_messages(
+    rows: list[dict[str, Any]],
+    max_gap_seconds: float = CAPTURE_GROUP_MAX_GAP_SECONDS,
+) -> list[list[dict[str, Any]]]:
     """Group logical messages while every consecutive gap stays within the limit."""
     batches: list[list[dict[str, Any]]] = []
     current: list[dict[str, Any]] = []
@@ -276,7 +209,7 @@ def group_new_messages(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
             if previous_end is not None
             else None
         )
-        if current and gap is not None and gap > CAPTURE_GROUP_MAX_GAP_SECONDS:
+        if current and gap is not None and gap > max_gap_seconds:
             batches.append(current)
             current = []
         current.extend(unit["rows"])
@@ -287,7 +220,9 @@ def group_new_messages(rows: list[dict[str, Any]]) -> list[list[dict[str, Any]]]
 
 
 def _pending_batches(
-    store: CaptureStore, chat_id: int
+    store: CaptureStore,
+    chat_id: int,
+    max_gap_seconds: float = CAPTURE_GROUP_MAX_GAP_SECONDS,
 ) -> list[tuple[int | None, list[dict[str, Any]]]]:
     existing: dict[int, list[dict[str, Any]]] = {}
     new_rows = []
@@ -298,7 +233,9 @@ def _pending_batches(
         else:
             existing.setdefault(item["message_id"], []).append(row)
     batches = [(message_id, rows) for message_id, rows in existing.items()]
-    batches.extend((None, rows) for rows in group_new_messages(new_rows))
+    batches.extend(
+        (None, rows) for rows in group_new_messages(new_rows, max_gap_seconds)
+    )
     return sorted(
         batches,
         key=lambda value: min(
@@ -340,7 +277,7 @@ async def _finalize_batch(
             {payload["message_id"]: payload for payload in existing_bundle["payloads"]}
         )
     payloads_by_id.update(staged_payloads)
-    payloads = sorted(payloads_by_id.values(), key=_payload_order)
+    payloads = sorted(payloads_by_id.values(), key=payload_order)
     if not payloads:
         return
 
@@ -387,9 +324,18 @@ async def _finalize_batch(
 
 async def finalize_pending_chat(application: Application, chat_id: int) -> None:
     try:
-        await asyncio.sleep(CAPTURE_GROUP_SETTLE_SECONDS)
+        await asyncio.sleep(
+            application.bot_data.get(
+                "capture_group_settle_seconds", CAPTURE_GROUP_SETTLE_SECONDS
+            )
+        )
         store: CaptureStore = application.bot_data["store"]
-        for item_message_id, rows in _pending_batches(store, chat_id):
+        max_gap_seconds = application.bot_data.get(
+            "capture_group_max_gap_seconds", CAPTURE_GROUP_MAX_GAP_SECONDS
+        )
+        for item_message_id, rows in _pending_batches(
+            store, chat_id, max_gap_seconds
+        ):
             try:
                 await _finalize_batch(application, chat_id, item_message_id, rows)
             except asyncio.CancelledError:
@@ -471,6 +417,9 @@ def build_application(
     allowed_user_id: int,
     store: CaptureStore,
     coordinator: ProcessingCoordinator,
+    *,
+    grouping_max_gap_seconds: float = CAPTURE_GROUP_MAX_GAP_SECONDS,
+    grouping_settle_seconds: float = CAPTURE_GROUP_SETTLE_SECONDS,
 ) -> Application:
     application = (
         Application.builder()
@@ -482,6 +431,8 @@ def build_application(
     application.bot_data["store"] = store
     application.bot_data["coordinator"] = coordinator
     application.bot_data["allowed_user_id"] = allowed_user_id
+    application.bot_data["capture_group_max_gap_seconds"] = grouping_max_gap_seconds
+    application.bot_data["capture_group_settle_seconds"] = grouping_settle_seconds
     application.add_handler(
         MessageHandler(
             filters.UpdateType.MESSAGE & ~filters.COMMAND, handle_new_message

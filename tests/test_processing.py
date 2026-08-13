@@ -10,6 +10,7 @@ from info_triage.processing import (
     ProcessingPipeline,
     ProcessingWorker,
 )
+from info_triage.rendering import render_capture_payloads
 from info_triage.storage import CaptureStore
 
 
@@ -203,6 +204,10 @@ class ProcessingTests(unittest.TestCase):
                 message,
                 "---\ncategory: Other\n---\n\nnew\nrevision 2",
             )
+            source = (
+                Path(temporary) / "inbox" / "2026-08-09_1" / "source.md"
+            ).read_text()
+            self.assertEqual(source, "new")
 
     def test_category_change_supersedes_running_revision(self):
         started = threading.Event()
@@ -246,6 +251,40 @@ class ProcessingTests(unittest.TestCase):
             self.assertEqual(
                 message,
                 "---\ncategory: Life\n---\n\nsource\nrevision 2",
+            )
+
+    def test_category_change_rebuilds_source_from_raw_telegram_payload(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            data_dir = Path(temporary)
+            store = CaptureStore(data_dir)
+            payload = {
+                "message_id": 1,
+                "date": 100,
+                "chat": {"id": 10, "type": "private"},
+                "text": "Raw Telegram text",
+            }
+            source = render_capture_payloads([payload])
+            first = store.capture(
+                10,
+                1,
+                source,
+                received_at="2026-08-09T10:00:00+00:00",
+                telegram_payload=payload,
+            )
+            store.promote_if_current(first)
+
+            # The retained raw payload, not either derived Markdown file, owns
+            # source reconstruction for the next revision.
+            ready = data_dir / "inbox" / "2026-08-09_1"
+            (ready / "source.md").write_text("stale transformed text")
+            (ready / "message.md").write_text("stale transformed text")
+            categorized = store.categorize(10, 1, "Life")
+            store.promote_if_current(categorized)
+
+            self.assertEqual((ready / "source.md").read_text(), source)
+            self.assertEqual(
+                (ready / "message.md").read_text(),
+                "---\ncategory: Life\n---\n\n" + source,
             )
 
     def test_restart_returns_interrupted_processing_to_queue(self):

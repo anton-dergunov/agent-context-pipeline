@@ -15,12 +15,7 @@ services:
       - .env
 
     environment:
-      DATA_DIR: /app/data
       INSTAGRAM_OCR_THREADS: "1"
-      INSTAGRAM_TRANSCRIPTION_BACKEND: faster-whisper
-      INSTAGRAM_TRANSCRIPTION_MODEL: small
-      INSTAGRAM_TRANSCRIPTION_THREADS: "1"
-      PORT: "8000"
       TZ: Europe/London
 
     volumes:

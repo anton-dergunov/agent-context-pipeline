@@ -20,6 +20,7 @@ dependencies = [
     "pillow>=10.2,<11",
     "python-dotenv==1.0.1",
     "python-telegram-bot==21.7",
+    "pyyaml>=6,<7",
     "pyobjc-framework-quartz>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
     "pyobjc-framework-vision>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
     "rapidfuzz>=3.10",

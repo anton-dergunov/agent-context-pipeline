@@ -84,4 +84,5 @@ class ProcessingResult:
     """Changes produced in a revision-scoped processing workspace."""
 
     message_markdown: str
+    source_markdown: str | None = None
     generated_files: list[GeneratedFile] = field(default_factory=list)

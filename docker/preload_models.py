@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from info_triage.config import VoiceTranscriptionConfig, load_config  # noqa: E402
 from info_triage.extractors.instagram.engines import (  # noqa: E402
     DEFAULT_SCRIPTS,
     RapidOCREngine,
@@ -39,10 +40,19 @@ print(f"preloaded {total / 1e6:.1f} MB of models")
 from faster_whisper import WhisperModel  # noqa: E402
 from faster_whisper.utils import download_model  # noqa: E402
 
-whisper_cache = Path(
-    os.environ.get("INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR", "/app/.whisper_models")
+daemon_config = load_config(Path(os.environ.get("INFO_TRIAGE_CONFIG", "/app/config.yaml")))
+voice_config = next(
+    (step for step in daemon_config.processing_steps if isinstance(step, VoiceTranscriptionConfig)),
+    None,
 )
-whisper_model = os.environ.get("INSTAGRAM_TRANSCRIPTION_MODEL", "small")
+if voice_config is None:
+    print("voice transcription disabled; skipping Whisper model preload")
+    raise SystemExit(0)
+if voice_config.backend != "faster-whisper":
+    raise RuntimeError("the portable Docker image requires the faster-whisper backend")
+
+whisper_cache = voice_config.model_cache_dir
+whisper_model = voice_config.model
 whisper_path = whisper_cache / whisper_model
 print(f"preloading faster-whisper {whisper_model} into {whisper_path}")
 download_model(whisper_model, output_dir=str(whisper_path))

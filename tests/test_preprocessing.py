@@ -9,7 +9,11 @@ from info_triage.models import (
     ProcessingJob,
     ProcessingResult,
 )
-from info_triage.preprocessing import VoiceTranscriptionStep
+from info_triage.preprocessing import (
+    TextCleaningStep,
+    URLResolutionStep,
+    VoiceTranscriptionStep,
+)
 from info_triage.processing import ProcessingCoordinator, ProcessingPipeline, ProcessingWorker
 from info_triage.storage import CaptureStore
 
@@ -129,9 +133,8 @@ def test_voice_only_item_renders_transcript_and_expected_options(tmp_path):
 
     step.run(job, processing_result, tmp_path / "workspace")
 
-    assert processing_result.message_markdown == (
-        "---\ncategory: Other\n---\n\nVoice note: Hola 世界"
-    )
+    assert processing_result.message_markdown == "## Segment 1 — voice\n\nHola 世界"
+    assert processing_result.source_markdown == processing_result.message_markdown
     _, options = transcriber.calls[0]
     assert options == {"language": None, "vad": True, "keep_segments": False}
 
@@ -163,8 +166,10 @@ def test_voice_caption_and_grouped_messages_keep_source_order(tmp_path):
 
     step.run(job, processing_result, tmp_path / "workspace")
 
-    assert processing_result.message_markdown.endswith(
-        "Before\n\nVoice note: Middle\n\nVoice caption\n\nAfter"
+    assert processing_result.message_markdown == (
+        "## Segment 1 — text\n\nBefore\n\n"
+        "## Segment 2 — voice\n\nMiddle\n\nVoice caption\n\n"
+        "## Segment 3 — text\n\nAfter"
     )
 
 
@@ -198,8 +203,10 @@ def test_multiple_voice_notes_and_forwarded_note_render_correctly(tmp_path):
 
     step.run(job, processing_result, tmp_path / "workspace")
 
-    assert processing_result.message_markdown.endswith(
-        "Voice note: Forwarded\n\n## Note\n\nVoice note: Second\n\nMy note"
+    assert processing_result.message_markdown == (
+        "## Segment 1 — forwarded voice\n\nForwarded\n\n"
+        "## Segment 2 — voice\n\nSecond\n\n"
+        "## Segment 3 — text\n\nMy note"
     )
 
 
@@ -216,7 +223,7 @@ def test_no_speech_is_delivered_with_explicit_label(tmp_path):
 
     step.run(job, processing_result, tmp_path / "workspace")
 
-    assert processing_result.message_markdown.endswith("Voice note: [No speech recognized]")
+    assert processing_result.message_markdown.endswith("[No speech recognized]")
 
 
 @pytest.mark.parametrize(
@@ -289,7 +296,12 @@ def test_ready_item_is_not_backfilled_but_later_revision_is_processed(tmp_path):
         worker.stop()
 
     message = (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text()
-    assert message == "---\ncategory: Life\n---\n\nVoice note: After revision"
+    assert message == (
+        "---\ncategory: Life\n---\n\n"
+        "## Segment 1 — voice\n\nAfter revision"
+    )
+    source = (tmp_path / "inbox" / "2026-08-09_1" / "source.md").read_text()
+    assert source == "## Segment 1 — voice\n\nAfter revision"
 
 
 def test_plain_item_still_bypasses_worker(tmp_path):
@@ -331,3 +343,95 @@ def test_transcription_error_leaves_item_failed_in_staging(tmp_path):
     assert failed["processing_step"] == "voice-transcription"
     assert "broken audio" in failed["error"]
     assert (tmp_path / "staging" / "2026-08-09_1").is_dir()
+
+
+class FakeResolver:
+    def __init__(self, replacements):
+        self.replacements = replacements
+        self.failures = []
+
+    def resolve(self, url):
+        return self.replacements.get(url, url)
+
+
+def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
+    source = (
+        "## Segment 1 — text\n\n"
+        "𝗨𝘀𝗲𝗳𝘂𝗹  link: https://t.co/example"
+    )
+    store = CaptureStore(tmp_path)
+    item = store.capture(
+        10,
+        1,
+        source,
+        received_at="2026-08-09T10:00:00+00:00",
+    )
+    resolver = FakeResolver(
+        {
+            "https://t.co/example": (
+                "https://example.com/article?utm_source=social&id=7"
+            )
+        }
+    )
+    pipeline = ProcessingPipeline(
+        [
+            URLResolutionStep(
+                timeout_seconds=1,
+                retries=0,
+                max_html_bytes=1024,
+                resolve_all=False,
+                resolver=resolver,
+            ),
+            TextCleaningStep(),
+        ]
+    )
+    worker = ProcessingWorker(store, pipeline)
+    coordinator = ProcessingCoordinator(store, pipeline, worker)
+
+    worker.start()
+    coordinator.submit(item)
+    try:
+        wait_for_status(store, 1, "ready")
+    finally:
+        worker.stop()
+
+    ready = tmp_path / "inbox" / "2026-08-09_1"
+    assert (ready / "source.md").read_text() == source
+    assert (ready / "message.md").read_text() == (
+        "---\ncategory: Other\n---\n\n"
+        "## Segment 1 — text\n\n"
+        "Useful link: https://example.com/article?id=7"
+    )
+
+
+def test_unresolved_url_does_not_fail_delivery(tmp_path):
+    source = "## Segment 1 — text\n\nhttps://t.co/unavailable"
+    store = CaptureStore(tmp_path)
+    item = store.capture(
+        10,
+        1,
+        source,
+        received_at="2026-08-09T10:00:00+00:00",
+    )
+    resolver = FakeResolver({})
+    resolver.failures.append(("https://t.co/unavailable", "offline"))
+    step = URLResolutionStep(
+        timeout_seconds=1,
+        retries=0,
+        max_html_bytes=1024,
+        resolve_all=False,
+        resolver=resolver,
+    )
+    pipeline = ProcessingPipeline([step])
+    worker = ProcessingWorker(store, pipeline)
+    coordinator = ProcessingCoordinator(store, pipeline, worker)
+
+    worker.start()
+    coordinator.submit(item)
+    try:
+        wait_for_status(store, 1, "ready")
+    finally:
+        worker.stop()
+
+    message = (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text()
+    assert message.endswith(source)

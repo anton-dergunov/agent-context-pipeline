@@ -18,8 +18,8 @@ The current implementation is deliberately small:
 Telegram message
     -> wait for the configurable nearby-message grouping window
     -> grouped source and media saved in data/staging/
-    -> direct to inbox when no processing step applies
-       or queued for the single background worker
+    -> queued for the configured single-worker pipeline
+       (or direct to inbox when every configured step is inapplicable)
     -> category: Other
     -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
@@ -28,45 +28,55 @@ Telegram message
 
 The directory date is the UTC creation date supplied by Telegram.
 
-Each completed item contains `message.md`, `metadata.json`, and the complete
-received Telegram payload in `telegram.json`. Useful source media is kept in
+Each completed item contains a materialized `source.md`, processed `message.md`,
+`metadata.json`, and the complete received Telegram payload in `telegram.json`.
+Useful source media is kept in
 `attachments/`: documents, photos, video, animations, voice/audio notes, and
 video notes. Albums are one logical message. Consecutive logical messages whose
 Telegram timestamps are no more than three seconds apart are combined into one
-item after a four-second quiet period. Explicit forwards are rendered before an
-adjacent personal note; otherwise content remains chronological. New captures
-silently receive the `Other` category. Editing any constituent Telegram message
-updates the same stable item directory.
+item after a four-second quiet period. Every constituent Telegram message is an
+ordered `## Segment N — kind` section. Telegram-provided forwarding provenance
+adds `forwarded` to the kind; the application does not guess which unmarked
+segment is personal commentary. New captures silently receive the `Other`
+category. Editing any constituent Telegram message updates the same stable item
+directory.
 
 The capture layer deliberately ignores Telegram interaction content such as
 stickers, contacts, polls, payments, games, dice, and service events. Original
-media is retained. Telegram voice notes are transcribed locally into
-`Voice note: <recognized text>`; other media has no automatic OCR, image
-analysis, transcription, or web-page extraction. Files above Telegram's hosted
+media is retained. Telegram voice notes are transcribed locally into their
+`voice` segment; other media has no automatic OCR, image analysis,
+transcription, or web-page extraction. Files above Telegram's hosted
 Bot API download limit are recorded in metadata with a warning but cannot be
 copied locally. The complete behaviour matrix is in
 [`docs/PREPROCESSING.md`](docs/PREPROCESSING.md).
+
+The hosted Bot API currently limits [`getFile` downloads](https://core.telegram.org/bots/api#getfile)
+to 20 MiB, so the application's matching guard is a documented transport
+constraint rather than a YAML setting. Raising a local number could not raise
+Telegram's limit; a self-hosted local Bot API transport would be a separate
+future change.
 
 The Python runtime remains deliberately small. `app.py` only wires together
 the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
-processes at most one item at a time. Items containing voice notes enter that
-worker for transcription; items without an applicable processing step move
-directly from staging to inbox.
+processes at most one item at a time. The shipped ordered pipeline performs
+voice transcription when applicable, cautious shortened-URL resolution, and
+text cleaning.
 
-Processors produce the laptop-facing `message.md` in a temporary
-revision-specific workspace. Raw Telegram data remains in `telegram.json`, and
-original downloaded media remains in `attachments/`. A result is committed
-only if its source revision is still current.
+Voice transcription first materializes the complete segmented body in
+`source.md`. URL resolution and text cleaning then produce the laptop-facing
+`message.md`; category front matter is added only after those body transforms.
+Raw Telegram data remains in `telegram.json`, and original downloaded media
+remains in `attachments/`. Both Markdown files are committed only if their
+source revision is still current.
 
 Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
 public LinkedIn extraction, layered Medium article extraction, cautious text
-cleaning, and bounded URL resolution. The local speech-transcription engine is
-reused for Telegram voice notes. The other components retain standalone console
-commands and are not automatic item processors, so installing them does not
-change capture behavior. See
+cleaning, and bounded URL resolution. The local speech-transcription engine,
+text cleaner, and URL resolver are reused by the configured Telegram pipeline
+and retain their standalone console commands. See
 [`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
 [`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md), plus the Medium
 access decision and commands in
@@ -79,12 +89,28 @@ Apple-Silicon MLX remain available with:
 uv sync --extra surya --extra mac-transcription
 ```
 
-Create a local `.env` (it is ignored by Git):
+Copy `.env.example` to a local `.env` (it is ignored by Git) and set the two
+credentials:
 
 ```dotenv
 TELEGRAM_BOT_TOKEN=your-token
 ALLOWED_USER_ID=your-numeric-telegram-user-id
 ```
+
+Non-secret daemon settings live in the commented [`config.yaml`](config.yaml).
+Its `processing.steps` list is literal and ordered: remove a step to disable it.
+Relative paths are resolved from the configuration file's directory. Set
+`INFO_TRIAGE_CONFIG` in `.env` only when using another file. Unknown fields,
+invalid values, duplicate steps, and voice transcription after a text transform
+fail startup rather than being silently ignored.
+
+The shipped Compose port mapping and health check use the default YAML port
+`8000`. If `web.port` changes, update those two infrastructure values to match;
+the daemon does not read a separate `PORT` environment override.
+
+The default transcription backend/model is explicit `faster-whisper` `small`.
+The Docker build preloads the model named by `config.yaml`; changing it in an
+offline deployment therefore requires rebuilding the image.
 
 Run locally in Docker:
 
