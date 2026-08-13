@@ -1,31 +1,41 @@
 #!/usr/bin/env python3
-"""Resolve URLs in text to their final destinations.
+"""Resolve URLs and enrich URL-only Markdown with destination titles.
 
 The resolver follows ordinary HTTP redirects and a small set of deterministic
 HTML/URL redirect mechanisms.  In particular, it understands the external-link
-interstitial currently returned by LinkedIn's lnkd.in shortener.
+interstitial currently returned by LinkedIn's lnkd.in shortener.  Title
+enrichment fetches public HTML and PDF destinations with strict size bounds.
 """
 
 from __future__ import annotations
 
 import argparse
 import html
+import io
+import ipaddress
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 from urllib.parse import parse_qs, unquote, urljoin, urlsplit
 
 import requests
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 URL_RE = re.compile(r"https?://[^\s<>\"\]]+", re.IGNORECASE)
+FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+REFERENCE_DEFINITION_RE = re.compile(r"^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*", re.MULTILINE)
+HTML_TAG_RE = re.compile(r"</?[A-Za-z][^>\n]*>")
 META_REFRESH_URL_RE = re.compile(r"(?:^|;)\s*url\s*=\s*(.+?)\s*$", re.IGNORECASE)
 JS_REDIRECT_RES = (
     re.compile(
@@ -167,6 +177,25 @@ SHORTENER_HOSTS = frozenset(
     }
 )
 SHORTENER_HOST_SUFFIXES = (".trib.al", ".safelinks.protection.outlook.com")
+REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+MAX_TITLE_CHARACTERS = 500
+GENERIC_ERROR_TITLES = frozenset(
+    {
+        "access denied",
+        "attention required! | cloudflare",
+        "before you continue to youtube",
+        "client challenge",
+        "forbidden",
+        "instagram",
+        "just a moment...",
+        "not found",
+        "page not found",
+        "perplexity",
+        "spotify",
+        "- youtube",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -174,6 +203,38 @@ class Resolution:
     url: str
     succeeded: bool
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class LinkOccurrence:
+    """One URL-bearing construct and the spans needed to rewrite it safely."""
+
+    url: str
+    start: int
+    end: int
+    span_start: int
+    span_end: int
+    kind: str
+    label_start: int | None = None
+    label_end: int | None = None
+    eligible_for_title: bool = True
+
+
+@dataclass(frozen=True)
+class LinkResolution:
+    """Best known destination, optional title, and an expected problem."""
+
+    url: str
+    title: str | None
+    reason: str | None = None
+    error: str | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.reason is None
+
+
+CacheValue = str | dict[str, str]
 
 
 def make_session(retries: int) -> requests.Session:
@@ -362,35 +423,47 @@ def resolve_url(
                 current = embedded
                 continue
 
+            if unsafe := _unsafe_url_message(current):
+                return Resolution(current, False, f"unsafe URL: {unsafe}")
+
             with session.get(
                 current,
-                allow_redirects=True,
+                allow_redirects=False,
                 timeout=(min(timeout, 15.0), timeout),
                 stream=True,
             ) as response:
-                network_url = response.url
+                network_url = response.url or current
+                if unsafe := _unsafe_url_message(network_url):
+                    return Resolution(current, False, f"unsafe URL: {unsafe}")
+                if response.status_code in REDIRECT_STATUSES:
+                    location = response.headers.get("Location")
+                    if not location:
+                        return Resolution(
+                            network_url,
+                            False,
+                            "redirect response did not provide a destination",
+                        )
+                    current = urljoin(network_url, location)
+                    continue
+                if response.status_code >= 400:
+                    return Resolution(network_url, False, f"HTTP {response.status_code}")
                 body = _read_response_body(response, max_html_bytes)
                 page_url = _html_destination(body, response)
 
-            next_url = page_url or network_url
-            if next_url == current:
-                if is_redirector_url(current):
-                    partial = (
-                        current
-                        if _normalized_host(current) != _normalized_host(original)
-                        else original
-                    )
-                    return Resolution(
-                        partial,
-                        False,
-                        "shortener chain did not expose a final destination "
-                        "(the last link may be expired)",
-                    )
-                return Resolution(current, True)
-            scheme = urlsplit(next_url).scheme.lower()
-            if scheme and scheme not in {"http", "https"}:
-                return Resolution(next_url, True)
-            current = next_url
+            if page_url and page_url != current:
+                current = page_url
+                continue
+            if is_redirector_url(current):
+                partial = (
+                    current if _normalized_host(current) != _normalized_host(original) else original
+                )
+                return Resolution(
+                    partial,
+                    False,
+                    "shortener chain did not expose a final destination "
+                    "(the last link may be expired)",
+                )
+            return Resolution(network_url, True)
 
         return Resolution(current, False, f"exceeded {max_rounds} page-level redirects")
     except requests.RequestException as exc:
@@ -417,26 +490,562 @@ def _split_url_and_punctuation(match: re.Match[str]) -> tuple[str, str]:
     return value, suffix
 
 
-def iter_urls(text: str) -> Iterable[str]:
-    for match in URL_RE.finditer(text):
+def _overlaps(start: int, end: int, ranges: list[tuple[int, int]]) -> bool:
+    return any(start < range_end and end > range_start for range_start, range_end in ranges)
+
+
+def _fenced_code_ranges(text: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    opening: tuple[str, int, int] | None = None
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        match = FENCE_RE.match(line)
+        if match:
+            marker = match.group(1)
+            if opening is None:
+                opening = (marker[0], len(marker), offset)
+            elif marker[0] == opening[0] and len(marker) >= opening[1]:
+                ranges.append((opening[2], offset + len(line)))
+                opening = None
+        offset += len(line)
+    if opening is not None:
+        ranges.append((opening[2], len(text)))
+    return ranges
+
+
+def _inline_code_ranges(text: str, protected: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    index = 0
+    while index < len(text):
+        start = text.find("`", index)
+        if start < 0:
+            break
+        if _overlaps(start, start + 1, protected):
+            index = start + 1
+            continue
+        marker_end = start
+        while marker_end < len(text) and text[marker_end] == "`":
+            marker_end += 1
+        marker = text[start:marker_end]
+        end = text.find(marker, marker_end)
+        if end < 0 or _overlaps(end, end + len(marker), protected):
+            index = marker_end
+            continue
+        ranges.append((start, end + len(marker)))
+        index = end + len(marker)
+    return ranges
+
+
+def _markdown_link_at(text: str, start: int) -> LinkOccurrence | None:
+    image = start > 0 and text[start - 1] == "!"
+    label_end = text.find("](", start + 1)
+    if label_end < 0 or "\n" in text[start:label_end]:
+        return None
+    label = text[start + 1 : label_end]
+    cursor = label_end + 2
+    if cursor >= len(text):
+        return None
+
+    angle_wrapped = text[cursor] == "<"
+    if angle_wrapped:
+        url_start = cursor + 1
+        url_end = text.find(">", url_start)
+        if url_end < 0:
+            return None
+        cursor = url_end + 1
+    else:
+        url_start = cursor
+        depth = 0
+        while cursor < len(text):
+            char = text[cursor]
+            if char == "\n":
+                return None
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif char.isspace() and depth == 0:
+                break
+            cursor += 1
+        url_end = cursor
+
+    url = text[url_start:url_end]
+    if not URL_RE.fullmatch(url):
+        return None
+
+    while cursor < len(text) and text[cursor] in " \t":
+        cursor += 1
+    if cursor < len(text) and text[cursor] in "\"'":
+        quote = text[cursor]
+        cursor += 1
+        title_end = text.find(quote, cursor)
+        if title_end < 0:
+            return None
+        cursor = title_end + 1
+        while cursor < len(text) and text[cursor] in " \t":
+            cursor += 1
+    if cursor >= len(text) or text[cursor] != ")":
+        return None
+
+    span_start = start - 1 if image else start
+    if image:
+        kind = "image"
+        eligible = False
+    elif label == url:
+        kind = "markdown"
+        eligible = True
+    else:
+        kind = "titled"
+        eligible = False
+    return LinkOccurrence(
+        url=url,
+        start=url_start,
+        end=url_end,
+        span_start=span_start,
+        span_end=cursor + 1,
+        kind=kind,
+        label_start=start + 1,
+        label_end=label_end,
+        eligible_for_title=eligible,
+    )
+
+
+def iter_link_occurrences(text: str) -> Iterable[LinkOccurrence]:
+    """Yield Markdown-aware URL occurrences in source order."""
+    protected = _fenced_code_ranges(text)
+    protected.extend(_inline_code_ranges(text, protected))
+    occurrences: list[LinkOccurrence] = []
+
+    index = 0
+    while True:
+        start = text.find("[", index)
+        if start < 0:
+            break
+        occurrence = (
+            None if _overlaps(start, start + 1, protected) else _markdown_link_at(text, start)
+        )
+        if occurrence is None:
+            index = start + 1
+            continue
+        occurrences.append(occurrence)
+        protected.append((occurrence.span_start, occurrence.span_end))
+        index = occurrence.span_end
+
+    for match in re.finditer(r"<(https?://[^<>\s]+)>", text, re.IGNORECASE):
+        if _overlaps(match.start(), match.end(), protected):
+            continue
+        occurrences.append(
+            LinkOccurrence(
+                url=match.group(1),
+                start=match.start(1),
+                end=match.end(1),
+                span_start=match.start(),
+                span_end=match.end(),
+                kind="autolink",
+            )
+        )
+        protected.append((match.start(), match.end()))
+
+    for match in HTML_TAG_RE.finditer(text):
+        if not _overlaps(match.start(), match.end(), protected):
+            protected.append((match.start(), match.end()))
+
+    for definition in REFERENCE_DEFINITION_RE.finditer(text):
+        line_end = text.find("\n", definition.end())
+        if line_end < 0:
+            line_end = len(text)
+        cursor = definition.end()
+        angle_wrapped = cursor < len(text) and text[cursor] == "<"
+        if angle_wrapped:
+            cursor += 1
+        match = URL_RE.match(text, cursor, line_end)
+        if not match:
+            continue
         url, _ = _split_url_and_punctuation(match)
-        if url:
-            yield url
+        end = cursor + len(url)
+        occurrences.append(
+            LinkOccurrence(
+                url=url,
+                start=cursor,
+                end=end,
+                span_start=cursor,
+                span_end=end,
+                kind="reference",
+                eligible_for_title=False,
+            )
+        )
+        protected.append((cursor, end))
+
+    for match in URL_RE.finditer(text):
+        if _overlaps(match.start(), match.end(), protected):
+            continue
+        url, _ = _split_url_and_punctuation(match)
+        if not url:
+            continue
+        end = match.start() + len(url)
+        occurrences.append(
+            LinkOccurrence(
+                url=url,
+                start=match.start(),
+                end=end,
+                span_start=match.start(),
+                span_end=end,
+                kind="bare",
+            )
+        )
+
+    yield from sorted(occurrences, key=lambda item: (item.span_start, item.start))
+
+
+def iter_urls(text: str) -> Iterable[str]:
+    """Yield URL destinations while ignoring code and raw HTML attributes."""
+    for occurrence in iter_link_occurrences(text):
+        yield occurrence.url
+
+
+def replace_url_destinations(text: str, transform: Callable[[str], str]) -> str:
+    """Rewrite URL destinations while preserving their surrounding Markdown."""
+    replacements: dict[tuple[int, int], str] = {}
+    for occurrence in iter_link_occurrences(text):
+        replacement = transform(occurrence.url)
+        replacements[(occurrence.start, occurrence.end)] = replacement
+        if occurrence.kind == "markdown":
+            replacements[(occurrence.label_start, occurrence.label_end)] = replacement
+    for (start, end), replacement in sorted(replacements.items(), reverse=True):
+        text = text[:start] + replacement + text[end:]
+    return text
 
 
 def replace_urls(
     text: str,
     resolver: "URLResolver",
 ) -> str:
-    def replace(match: re.Match[str]) -> str:
-        url, suffix = _split_url_and_punctuation(match)
-        return resolver.resolve(url) + suffix
+    return replace_url_destinations(text, resolver.resolve)
 
-    return URL_RE.sub(replace, text)
+
+def _escape_markdown_label(title: str) -> str:
+    escaped = title.replace("\\", "\\\\")
+    for character in "[]*_`":
+        escaped = escaped.replace(character, "\\" + character)
+    return escaped
+
+
+def _escape_markdown_destination(url: str) -> str:
+    return url.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def enrich_links(text: str, resolver: "URLResolver") -> str:
+    """Replace bare and URL-labelled links with titled Markdown links."""
+    occurrences = [item for item in iter_link_occurrences(text) if item.eligible_for_title]
+    results: dict[str, LinkResolution] = {}
+    for occurrence in occurrences:
+        if occurrence.url not in results:
+            results[occurrence.url] = resolver.resolve_link(occurrence.url)
+
+    for occurrence in reversed(occurrences):
+        result = results[occurrence.url]
+        if result.title:
+            replacement = (
+                f"[{_escape_markdown_label(result.title)}]"
+                f"({_escape_markdown_destination(result.url)})"
+            )
+        else:
+            replacement = result.url
+        text = text[: occurrence.span_start] + replacement + text[occurrence.span_end :]
+    return text
+
+
+def _normalize_title(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    title = " ".join(html.unescape(value).split())
+    if not title or len(title) > MAX_TITLE_CHARACTERS:
+        return None
+    if any(unicodedata.category(character).startswith("C") for character in title):
+        return None
+    if title.casefold() in GENERIC_ERROR_TITLES or title.casefold().startswith("404 "):
+        return None
+    return title
+
+
+def _json_ld_title(soup: BeautifulSoup) -> str | None:
+    accepted_types = {"article", "blogposting", "creativework", "newsarticle", "webpage"}
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        try:
+            value = json.loads(script.string or script.get_text())
+        except (json.JSONDecodeError, TypeError):
+            continue
+        pending = [value]
+        visited = 0
+        while pending and visited < 1_000:
+            item = pending.pop()
+            visited += 1
+            if isinstance(item, list):
+                pending.extend(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("@type")
+            if isinstance(item_type, str):
+                types = {item_type}
+            elif isinstance(item_type, (list, tuple)):
+                types = {kind for kind in item_type if isinstance(kind, str)}
+            else:
+                types = set()
+            if {str(kind).casefold() for kind in types} & accepted_types:
+                for key in ("headline", "name"):
+                    if title := _normalize_title(item.get(key)):
+                        return title
+            pending.extend(item.values())
+    return None
+
+
+def _html_title(body: bytes, response: requests.Response) -> str | None:
+    encoding = response.encoding or "utf-8"
+    soup = BeautifulSoup(body.decode(encoding, errors="replace"), "html.parser")
+    selectors = (
+        'meta[property="og:title"]',
+        'meta[name="twitter:title"]',
+        'meta[property="twitter:title"]',
+    )
+    for selector in selectors:
+        element = soup.select_one(selector)
+        if element and (title := _normalize_title(element.get("content"))):
+            return title
+    if title := _json_ld_title(soup):
+        return title
+    if soup.title and (title := _normalize_title(soup.title.get_text(" "))):
+        return title
+    heading = soup.find("h1")
+    if heading and (title := _normalize_title(heading.get_text(" "))):
+        return title
+    return None
+
+
+def _pdf_title(body: bytes) -> tuple[str | None, str | None]:
+    try:
+        reader = PdfReader(io.BytesIO(body), strict=False)
+        metadata = reader.metadata
+        candidates: list[object] = []
+        if metadata is not None:
+            candidates.extend((getattr(metadata, "title", None), metadata.get("/Title")))
+        xmp = reader.xmp_metadata
+        if xmp is not None:
+            dc_title = getattr(xmp, "dc_title", None)
+            if isinstance(dc_title, dict):
+                candidates.extend(dc_title.values())
+            elif isinstance(dc_title, (list, tuple)):
+                candidates.extend(dc_title)
+            else:
+                candidates.append(dc_title)
+        for candidate in candidates:
+            if title := _normalize_title(candidate):
+                return title, None
+        return None, None
+    except Exception as error:  # pypdf exposes several parser-specific exception classes
+        return None, f"could not parse PDF metadata: {error}"
+
+
+def _unsafe_url_message(url: str) -> str | None:
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError as error:
+        return str(error)
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return "only HTTP and HTTPS URLs are supported"
+    if not parsed.hostname:
+        return "URL has no hostname"
+    if parsed.username is not None or parsed.password is not None:
+        return "credential-bearing URLs are not allowed"
+    if port is not None and not 1 <= port <= 65535:
+        return "URL port is outside the valid range"
+
+    host = parsed.hostname.rstrip(".")
+    try:
+        addresses = {ipaddress.ip_address(host)}
+    except ValueError:
+        try:
+            resolved = socket.getaddrinfo(host, port or 443, type=socket.SOCK_STREAM)
+        except socket.gaierror as error:
+            return f"hostname lookup failed: {error}"
+        addresses = {ipaddress.ip_address(item[4][0].split("%", 1)[0]) for item in resolved}
+    if not addresses or any(not address.is_global for address in addresses):
+        return "destination does not resolve exclusively to public addresses"
+    return None
+
+
+def _read_bounded_body(
+    response: requests.Response,
+    limit: int,
+) -> tuple[bytes | None, str | None]:
+    content_length = response.headers.get("Content-Length")
+    if content_length:
+        try:
+            if int(content_length) > limit:
+                return None, f"response exceeded {limit} bytes"
+        except ValueError:
+            pass
+    chunks: list[bytes] = []
+    size = 0
+    for chunk in response.iter_content(chunk_size=64 * 1024):
+        if not chunk:
+            continue
+        size += len(chunk)
+        if size > limit:
+            return None, f"response exceeded {limit} bytes"
+        chunks.append(chunk)
+    return b"".join(chunks), None
+
+
+def _looks_like_html(body: bytes) -> bool:
+    prefix = body[:4096].lstrip().lower()
+    return prefix.startswith((b"<!doctype html", b"<html")) or b"<head" in prefix
+
+
+def resolve_link(
+    url: str,
+    session: requests.Session,
+    *,
+    timeout: float,
+    max_html_bytes: int,
+    max_pdf_bytes: int,
+    max_rounds: int = 10,
+) -> LinkResolution:
+    """Resolve one public URL and extract a bounded HTML or PDF title."""
+    current = html.unescape(url)
+    seen: set[str] = set()
+
+    try:
+        for _ in range(max_rounds):
+            if current in seen:
+                return LinkResolution(current, None, "redirect-loop", "redirect loop detected")
+            seen.add(current)
+
+            embedded = embedded_destination(current)
+            if embedded and embedded not in seen:
+                current = embedded
+                continue
+
+            if unsafe := _unsafe_url_message(current):
+                return LinkResolution(current, None, "unsafe-url", f"unsafe URL: {unsafe}")
+
+            with session.get(
+                current,
+                allow_redirects=False,
+                timeout=(min(timeout, 15.0), timeout),
+                stream=True,
+            ) as response:
+                response_url = response.url or current
+                if unsafe := _unsafe_url_message(response_url):
+                    return LinkResolution(
+                        current,
+                        None,
+                        "unsafe-url",
+                        f"unsafe URL: {unsafe}",
+                    )
+                if response.status_code in REDIRECT_STATUSES:
+                    location = response.headers.get("Location")
+                    if not location:
+                        return LinkResolution(
+                            response_url,
+                            None,
+                            "destination-not-found",
+                            "redirect response did not provide a destination",
+                        )
+                    current = urljoin(response_url, location)
+                    continue
+                if response.status_code >= 400:
+                    return LinkResolution(
+                        response_url,
+                        None,
+                        "http-error",
+                        f"HTTP {response.status_code}",
+                    )
+
+                content_type = response.headers.get("Content-Type", "").lower()
+                is_pdf = "application/pdf" in content_type or urlsplit(
+                    response_url
+                ).path.lower().endswith(".pdf")
+                limit = max_pdf_bytes if is_pdf else max_html_bytes
+                body, size_error = _read_bounded_body(response, limit)
+                if size_error:
+                    return LinkResolution(
+                        response_url,
+                        None,
+                        "response-too-large",
+                        size_error,
+                    )
+                assert body is not None
+
+                if is_pdf:
+                    title, pdf_error = _pdf_title(body)
+                    if pdf_error:
+                        return LinkResolution(
+                            response_url,
+                            None,
+                            "unsupported-content",
+                            pdf_error,
+                        )
+                    if title and title != response_url:
+                        return LinkResolution(response_url, title)
+                    return LinkResolution(
+                        response_url,
+                        None,
+                        "title-not-found",
+                        "no trustworthy title found",
+                    )
+
+                if not any(kind in content_type for kind in HTML_CONTENT_TYPES) and not (
+                    not content_type and _looks_like_html(body)
+                ):
+                    return LinkResolution(
+                        response_url,
+                        None,
+                        "unsupported-content",
+                        f"unsupported content type: {content_type or 'unknown'}",
+                    )
+
+                page_url = _html_destination(body, response)
+                if page_url and page_url != current:
+                    current = page_url
+                    continue
+                if is_redirector_url(current):
+                    return LinkResolution(
+                        response_url,
+                        None,
+                        "destination-not-found",
+                        "shortener chain did not expose a final destination "
+                        "(the last link may be expired)",
+                    )
+                if (title := _html_title(body, response)) and title != response_url:
+                    return LinkResolution(response_url, title)
+                return LinkResolution(
+                    response_url,
+                    None,
+                    "title-not-found",
+                    "no trustworthy title found",
+                )
+        return LinkResolution(
+            current,
+            None,
+            "redirect-limit",
+            f"exceeded {max_rounds} page-level redirects",
+        )
+    except requests.RequestException as error:
+        return LinkResolution(current, None, "request-error", str(error))
+
+
+def _cached_url(value: CacheValue | None) -> str | None:
+    if isinstance(value, str):
+        return value
+    return value.get("url") if isinstance(value, dict) else None
 
 
 class URLResolver:
-    """Resolve selected URLs while sharing an HTTP session and result cache."""
+    """Resolve URLs and titles while sharing an HTTP session and caches."""
 
     def __init__(
         self,
@@ -444,23 +1053,35 @@ class URLResolver:
         timeout: float,
         retries: int,
         max_html_bytes: int,
-        cache: dict[str, str] | None = None,
+        max_pdf_bytes: int = 20 * 1024 * 1024,
+        cache: dict[str, CacheValue] | None = None,
         verbose: bool = False,
         resolve_all: bool = False,
     ) -> None:
         self.timeout = timeout
         self.max_html_bytes = max_html_bytes
+        self.max_pdf_bytes = max_pdf_bytes
         self.cache = cache if cache is not None else {}
         self.verbose = verbose
         self.resolve_all = resolve_all
         self.session = make_session(retries)
         self.failures: list[tuple[str, str]] = []
+        self.failure_reasons: list[str] = []
+        self._link_results: dict[str, LinkResolution] = {}
+
+    @property
+    def link_results(self) -> dict[str, LinkResolution]:
+        return dict(self._link_results)
+
+    def _record_failure(self, url: str, reason: str, message: str) -> None:
+        self.failures.append((url, message))
+        self.failure_reasons.append(reason)
+        print(f"warning: could not enrich {url}: {message}", file=sys.stderr)
 
     def resolve(self, url: str) -> str:
         if not self.resolve_all and not is_redirector_url(url):
             return url
-        if url in self.cache:
-            cached = self.cache[url]
+        if cached := _cached_url(self.cache.get(url)):
             # Do not perpetuate a stale/partial cache entry which still points
             # at a recognized shortener; retry it instead.
             if not is_redirector_url(cached):
@@ -472,25 +1093,118 @@ class URLResolver:
             max_html_bytes=self.max_html_bytes,
         )
         if result.succeeded:
-            self.cache[url] = result.url
+            self.cache[url] = {"url": result.url}
             if self.verbose and result.url != url:
                 print(f"{url} -> {result.url}", file=sys.stderr)
         else:
             message = result.error or "unknown resolution error"
-            self.failures.append((url, message))
-            print(f"warning: could not resolve {url}: {message}", file=sys.stderr)
+            self._record_failure(url, "request-error", message)
         return result.url
 
+    def resolve_link(self, url: str) -> LinkResolution:
+        if url in self._link_results:
+            return self._link_results[url]
 
-def load_cache(path: Path | None) -> dict[str, str]:
+        cached = self.cache.get(url)
+        cached_title = _normalize_title(cached.get("title")) if isinstance(cached, dict) else None
+        if isinstance(cached, dict) and cached.get("url") and cached_title:
+            result = LinkResolution(cached["url"], cached_title)
+            self._link_results[url] = result
+            return result
+
+        start_url = _cached_url(cached) or url
+        result = resolve_link(
+            start_url,
+            self.session,
+            timeout=self.timeout,
+            max_html_bytes=self.max_html_bytes,
+            max_pdf_bytes=self.max_pdf_bytes,
+        )
+        self._link_results[url] = result
+        cache_value = {"url": result.url}
+        if result.title:
+            cache_value["title"] = result.title
+        self.cache[url] = cache_value
+        if result.reason:
+            self._record_failure(
+                url,
+                result.reason,
+                result.error or "unknown title-resolution error",
+            )
+        elif self.verbose:
+            print(f"{url} -> {result.url}", file=sys.stderr)
+        return result
+
+
+def load_cache(path: Path | None) -> dict[str, CacheValue]:
     if path is None or not path.exists():
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or not all(
-        isinstance(key, str) and isinstance(value, str) for key, value in data.items()
-    ):
-        raise ValueError(f"cache must be a JSON object mapping URLs to URLs: {path}")
-    return data
+    if isinstance(data, dict) and data.get("version") == 2:
+        data = data.get("links")
+    if not isinstance(data, dict):
+        raise ValueError(f"cache must contain a JSON object: {path}")
+    cache: dict[str, CacheValue] = {}
+    for key, value in data.items():
+        if not isinstance(key, str):
+            raise ValueError(f"cache keys must be URLs: {path}")
+        if isinstance(value, str):
+            cache[key] = value
+        elif (
+            isinstance(value, dict)
+            and isinstance(value.get("url"), str)
+            and all(
+                item in {"url", "title"} and isinstance(field, str) for item, field in value.items()
+            )
+        ):
+            cache[key] = dict(value)
+        else:
+            raise ValueError(f"cache entries must contain URL and optional title: {path}")
+    return cache
+
+
+def serialize_cache(cache: dict[str, CacheValue]) -> str:
+    links = {
+        key: ({"url": value} if isinstance(value, str) else value) for key, value in cache.items()
+    }
+    return (
+        json.dumps(
+            {"version": 2, "links": links},
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+
+
+def serialize_report(results: dict[str, LinkResolution]) -> str:
+    reasons = Counter(result.reason or "resolved" for result in results.values())
+    return (
+        json.dumps(
+            {
+                "summary": {
+                    "total": len(results),
+                    "titled": sum(result.title is not None for result in results.values()),
+                    "untitled": sum(result.title is None for result in results.values()),
+                    "outcomes": dict(sorted(reasons.items())),
+                },
+                "results": [
+                    {
+                        "source_url": source_url,
+                        "final_url": result.url,
+                        "title": result.title,
+                        "reason": result.reason,
+                        "error": result.error,
+                    }
+                    for source_url, result in results.items()
+                ],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
 
 
 def atomic_write(path: Path, text: str) -> None:
@@ -519,19 +1233,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--cache", type=Path, help="optional persistent JSON cache (read and update)"
     )
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="write a JSON report for every title-resolution attempt",
+    )
     parser.add_argument("--timeout", type=float, default=30.0, help="read timeout in seconds")
     parser.add_argument("--retries", type=int, default=4, help="transient network retries")
     parser.add_argument(
         "--max-html-bytes",
         type=int,
         default=2 * 1024 * 1024,
-        help="maximum response bytes inspected for page redirects",
+        help="maximum HTML response bytes inspected for redirects and titles",
+    )
+    parser.add_argument(
+        "--max-pdf-bytes",
+        type=int,
+        default=20 * 1024 * 1024,
+        help="maximum PDF bytes inspected for document title metadata",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="show resolved URLs")
     parser.add_argument(
         "--all",
         action="store_true",
-        help="follow every URL, including hosts not recognized as shorteners",
+        help="with --urls-only, follow hosts not recognized as shorteners",
+    )
+    parser.add_argument(
+        "--urls-only",
+        action="store_true",
+        help="resolve URL destinations without adding Markdown titles",
     )
     parser.add_argument(
         "--strict",
@@ -545,6 +1275,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--retries cannot be negative")
     if args.max_html_bytes <= 0:
         parser.error("--max-html-bytes must be positive")
+    if args.max_pdf_bytes <= 0:
+        parser.error("--max-pdf-bytes must be positive")
     return args
 
 
@@ -556,11 +1288,12 @@ def main(argv: list[str] | None = None) -> int:
         timeout=args.timeout,
         retries=args.retries,
         max_html_bytes=args.max_html_bytes,
+        max_pdf_bytes=args.max_pdf_bytes,
         cache=cache,
         verbose=args.verbose,
         resolve_all=args.all,
     )
-    output = replace_urls(text, resolver)
+    output = replace_urls(text, resolver) if args.urls_only else enrich_links(text, resolver)
 
     if args.in_place:
         atomic_write(args.input, output)
@@ -570,10 +1303,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(output)
 
     if args.cache is not None:
-        atomic_write(
-            args.cache,
-            json.dumps(resolver.cache, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        )
+        atomic_write(args.cache, serialize_cache(resolver.cache))
+    if args.report is not None:
+        atomic_write(args.report, serialize_report(resolver.link_results))
     return 1 if args.strict and resolver.failures else 0
 
 

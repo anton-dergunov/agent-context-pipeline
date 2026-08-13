@@ -27,7 +27,7 @@ from .models import (
 )
 from .rendering import render_capture_payloads
 from .utilities.text_cleaning import clean_text
-from .utilities.url_resolution import URLResolver, replace_urls
+from .utilities.url_resolution import URLResolver, enrich_links
 
 NO_SPEECH_TEXT = "[No speech recognized]"
 SEGMENT_HEADING_RE = re.compile(r"^## Segment [1-9][0-9]* — [a-z-]+(?: [a-z-]+)*$")
@@ -212,7 +212,7 @@ class VoiceTranscriptionStep:
 
 
 class URLResolutionStep:
-    """Resolve recognized short URLs without failing an otherwise useful item."""
+    """Resolve URL destinations and titles without blocking a useful item."""
 
     name = "url-resolution"
 
@@ -222,6 +222,7 @@ class URLResolutionStep:
         timeout_seconds: float,
         retries: int,
         max_html_bytes: int,
+        max_pdf_bytes: int,
         resolve_all: bool,
         resolver: URLResolver | None = None,
     ) -> None:
@@ -229,6 +230,7 @@ class URLResolutionStep:
             timeout=timeout_seconds,
             retries=retries,
             max_html_bytes=max_html_bytes,
+            max_pdf_bytes=max_pdf_bytes,
             resolve_all=resolve_all,
         )
 
@@ -245,18 +247,19 @@ class URLResolutionStep:
     ) -> ProcessingStepOutcome | None:
         del job, workspace
         failure_count = len(getattr(self.resolver, "failures", ()))
-        result.message_markdown = replace_urls(result.message_markdown, self.resolver)
+        result.message_markdown = enrich_links(result.message_markdown, self.resolver)
         failures = tuple(getattr(self.resolver, "failures", ()))[failure_count:]
+        reasons = tuple(getattr(self.resolver, "failure_reasons", ()))[failure_count:]
         if not failures:
             return None
         return ProcessingStepOutcome.partial(
             *(
                 ProcessingIssue(
-                    self._failure_reason(message),
+                    reasons[index] if index < len(reasons) else self._failure_reason(message),
                     message,
                     target=url,
                 )
-                for url, message in failures
+                for index, (url, message) in enumerate(failures)
             )
         )
 
@@ -268,6 +271,18 @@ class URLResolutionStep:
             return "destination-not-found"
         if message.startswith("exceeded "):
             return "redirect-limit"
+        if message == "no trustworthy title found":
+            return "title-not-found"
+        if message.startswith("unsupported content type") or message.startswith(
+            "could not parse PDF metadata"
+        ):
+            return "unsupported-content"
+        if message.startswith("response exceeded"):
+            return "response-too-large"
+        if message.startswith("unsafe URL:"):
+            return "unsafe-url"
+        if message.startswith("HTTP "):
+            return "http-error"
         if message:
             return "request-error"
         return "unknown-resolution-error"
@@ -328,6 +343,7 @@ def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
                     timeout_seconds=config.timeout_seconds,
                     retries=config.retries,
                     max_html_bytes=config.max_html_bytes,
+                    max_pdf_bytes=config.max_pdf_bytes,
                     resolve_all=config.resolve_all,
                 )
             )

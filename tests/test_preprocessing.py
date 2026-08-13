@@ -16,6 +16,7 @@ from info_triage.preprocessing import (
 )
 from info_triage.processing import ProcessingCoordinator, ProcessingPipeline, ProcessingWorker
 from info_triage.storage import CaptureStore
+from info_triage.utilities.url_resolution import LinkResolution
 
 
 def telegram_payload(message_id, date, **values):
@@ -371,6 +372,9 @@ class FakeResolver:
     def resolve(self, url):
         return self.replacements.get(url, url)
 
+    def resolve_link(self, url):
+        return LinkResolution(self.resolve(url), "Resolved article")
+
 
 def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
     source = (
@@ -397,6 +401,7 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
                 timeout_seconds=1,
                 retries=0,
                 max_html_bytes=1024,
+                max_pdf_bytes=2048,
                 resolve_all=False,
                 resolver=resolver,
             ),
@@ -418,7 +423,7 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
     assert (ready / "message.md").read_text() == (
         "---\ncategory: Other\n---\n\n"
         "## Segment 1 — text\n\n"
-        "Useful link: https://example.com/article?id=7"
+        "Useful link: [Resolved article](https://example.com/article?id=7)"
     )
 
 
@@ -432,15 +437,16 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         received_at="2026-08-09T10:00:00+00:00",
     )
     class FailingResolver(FakeResolver):
-        def resolve(self, url):
+        def resolve_link(self, url):
             self.failures.append((url, "offline"))
-            return url
+            return LinkResolution(url, None, "request-error", "offline")
 
     resolver = FailingResolver({})
     step = URLResolutionStep(
         timeout_seconds=1,
         retries=0,
         max_html_bytes=1024,
+        max_pdf_bytes=2048,
         resolve_all=False,
         resolver=resolver,
     )

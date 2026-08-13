@@ -33,6 +33,7 @@ class URLResolutionConfig:
     timeout_seconds: float
     retries: int
     max_html_bytes: int
+    max_pdf_bytes: int
     resolve_all: bool
 
 
@@ -162,7 +163,14 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
         step = _mapping(
             value,
             context,
-            {"name", "timeout_seconds", "retries", "max_html_bytes", "resolve_all"},
+            {
+                "name",
+                "timeout_seconds",
+                "retries",
+                "max_html_bytes",
+                "max_pdf_bytes",
+                "resolve_all",
+            },
         )
         return URLResolutionConfig(
             name,
@@ -178,6 +186,11 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
             _integer(
                 _required(step, "max_html_bytes", context),
                 f"{context}.max_html_bytes",
+                minimum=1,
+            ),
+            _integer(
+                _required(step, "max_pdf_bytes", context),
+                f"{context}.max_pdf_bytes",
                 minimum=1,
             ),
             _boolean(

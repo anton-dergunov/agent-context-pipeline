@@ -75,6 +75,7 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
       timeout_seconds: 1.5
       retries: 0
       max_html_bytes: 1024
+      max_pdf_bytes: 2048
       resolve_all: false
     - name: text-cleaning
 """,
@@ -89,6 +90,7 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
     assert config.data_dir == tmp_path / "relative-data"
     assert config.web_port == 8123
     assert isinstance(config.processing_steps[0], URLResolutionConfig)
+    assert config.processing_steps[0].max_pdf_bytes == 2048
     assert isinstance(config.processing_steps[1], TextCleaningConfig)
 
 

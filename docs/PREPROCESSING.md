@@ -88,19 +88,39 @@ the materialized `source.md` and processed `message.md`; the original voice file
 remains under `attachments/` and the original Telegram data remains in
 `telegram.json`.
 
-## URL resolution and text cleaning
+## URL/title enrichment and text cleaning
 
-URL resolution reuses the standalone resolver's cautious default: only known
-shorteners and deterministic redirect wrappers are fetched unless
-`resolve_all` is explicitly enabled. Timeout, retry count, and the maximum HTML
-bytes inspected for page-level redirects are documented in `config.yaml`.
-Resolution failures warn and retain the utility's original or safely extracted
-partial URL. The processor run is recorded as partial with one stable reason per
-failed URL, but the usable output is retained and the item remains deliverable.
+The URL processor recognizes bare HTTP(S) URLs, Markdown autolinks, and inline
+links whose visible label is exactly their destination. It resolves redirect
+chains and replaces those constructs with `[page title](final URL)` when a
+trustworthy title is available. Existing links such as
+`[descriptive title](https://example.com)` are preserved byte-for-byte and are
+not fetched. URLs in code, image links, raw HTML attributes, and Markdown
+reference definitions are not title-enriched.
+
+Titles come from bounded public HTML metadata (`og:title`, Twitter metadata,
+Article/WebPage JSON-LD, `<title>`, then `<h1>`) or PDF document/XMP metadata.
+HTML inspection is capped at 2 MiB and PDF downloads at 20 MiB by the shipped
+configuration. Every redirect hop must remain public HTTP(S); credential-bearing
+and private-network destinations are rejected. The resolver does not execute
+JavaScript, use browser automation, authenticate, derive titles from filenames,
+or guess from PDF page text.
+
+If a destination resolves but has no trustworthy title, the final URL remains
+as bare text. Request, redirect, content-type, size, safety, and missing-title
+problems produce stable partial reasons. Usable output is retained and the item
+remains deliverable.
 
 Text cleaning runs afterward and reuses `clean_text` with its internal link
 resolution disabled. This normalizes social-media formatting and removes URL
 tracking parameters without making the network request twice.
+
+The standalone `info-triage-resolve-urls` command performs title enrichment by
+default. `--urls-only` restores redirect-only output, `--cache` persists final
+URLs and successful titles, and `--report` writes a per-URL JSON audit. The
+`--max-html-bytes` and `--max-pdf-bytes` limits match the processor controls;
+`--strict` exits nonzero after writing output when any attempted enrichment has
+an expected problem.
 
 All configured steps run through shared telemetry. A clean run is `succeeded`;
 a completed run with recoverable target-level issues is `partial`; and a
@@ -125,5 +145,5 @@ from overwriting a newer edit.
 The Instagram downloader, Instagram OCR/transcription preparation, YouTube
 extractor, and LinkedIn extractor remain standalone tools. The YouTube command
 does not create captured items or register a processing step. The text cleaner
-and URL resolver retain their standalone commands while also serving as
+and URL/title resolver retain their standalone commands while also serving as
 configured Telegram processors.

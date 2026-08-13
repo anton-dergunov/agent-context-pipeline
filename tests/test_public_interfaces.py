@@ -12,12 +12,14 @@ from info_triage.extractors.media.ocr import ocr_video as shared_ocr_video
 from info_triage.extractors.media.transcription import TranscriptResult as SharedTranscriptResult
 from info_triage.extractors.youtube.cli import build_parser as youtube_parser
 from info_triage.utilities.text_cleaning import clean_text
-from info_triage.utilities.url_resolution import URLResolver
+from info_triage.utilities.url_resolution import LinkResolution, URLResolver, enrich_links
 
 
 def test_reusable_interfaces_import_from_info_triage():
     assert clean_text("Hello  world") == "Hello world"
     assert URLResolver(timeout=1, retries=0, max_html_bytes=100).timeout == 1
+    assert LinkResolution("https://example.com", "Example").succeeded
+    assert callable(enrich_links)
     assert instagram_parser().prog == "instagram-extract"
     assert linkedin_parser().prog == "linkedin-extract"
     assert youtube_parser().prog == "youtube-extract"

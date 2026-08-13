@@ -29,7 +29,7 @@ import urllib.parse
 
 import emoji
 
-from .url_resolution import URLResolver
+from .url_resolution import URLResolver, replace_url_destinations
 
 # Emojis that carry useful semantic meaning (ratings, done status, warning warnings)
 ALLOWED_EMOJIS = {"⭐", "🌟", "✅", "✔", "⚠️", "⚠"}
@@ -211,21 +211,21 @@ def clean_line_text(
     text = re.sub(r"(?<!\S)#([a-zA-Z][a-zA-Z0-9_]*)", r"\1", text)
 
     # 8. Clean URL parameters (A) and resolve redirects if requested
-    url_pattern = re.compile(r"https?://[a-zA-Z0-9.\-_~:/?#\[\]@!$&'()*+,;=%]+")
-    urls = url_pattern.findall(text)
-    for url in set(urls):
+    def clean_destination(url: str) -> str:
         target_url = url
         if resolve_links:
             if resolver is None:
-                resolver = URLResolver(
+                active_resolver = URLResolver(
                     timeout=30.0,
                     retries=4,
                     max_html_bytes=2 * 1024 * 1024,
                 )
-            target_url = resolver.resolve(url)
-        cleaned_url_str = clean_url(target_url)
-        if cleaned_url_str != url:
-            text = text.replace(url, cleaned_url_str)
+            else:
+                active_resolver = resolver
+            target_url = active_resolver.resolve(url)
+        return clean_url(target_url)
+
+    text = replace_url_destinations(text, clean_destination)
 
     # 9. Collapse double spaces that are not leading spaces
     text = re.sub(r"(?<=\S) {2,}", " ", text)

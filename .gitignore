@@ -17,6 +17,7 @@ instagram_output/
 linkedin_output/
 medium_output/
 youtube_output/
+url_title_audit/
 secrets/
 *.part
 *cookies*.txt

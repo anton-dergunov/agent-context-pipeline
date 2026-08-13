@@ -61,12 +61,14 @@ the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
 processes at most one item at a time. The shipped ordered pipeline performs
-voice transcription when applicable, cautious shortened-URL resolution, and
-text cleaning.
+voice transcription when applicable, bounded URL/title enrichment, and text
+cleaning.
 
 Voice transcription first materializes the complete segmented body in
-`source.md`. URL resolution and text cleaning then produce the laptop-facing
-`message.md`; category front matter is added only after those body transforms.
+`source.md`. URL/title enrichment converts bare links to `[page title](URL)`
+Markdown where public HTML or PDF metadata provides a trustworthy title. Text
+cleaning then produces the laptop-facing `message.md`; category front matter is
+added only after those body transforms.
 Raw Telegram data remains in `telegram.json`, and original downloaded media
 remains in `attachments/`. Both Markdown files are committed only if their
 source revision is still current.
@@ -82,8 +84,8 @@ Reusable processing components are available under `info_triage.extractors`
 and `info_triage.utilities`: Instagram download/OCR/transcription, anonymous
 public LinkedIn extraction, standalone YouTube metadata/caption/Short-media
 extraction, layered Medium article extraction, cautious text cleaning, and
-bounded URL resolution. The local speech-transcription engine,
-text cleaner, and URL resolver are reused by the configured Telegram pipeline
+bounded URL/title enrichment. The local speech-transcription engine,
+text cleaner, and link resolver are reused by the configured Telegram pipeline
 and retain their standalone console commands. See
 [`docs/INSTAGRAM_EXTRACTION.md`](docs/INSTAGRAM_EXTRACTION.md) and
 [`docs/YOUTUBE_EXTRACTION.md`](docs/YOUTUBE_EXTRACTION.md),

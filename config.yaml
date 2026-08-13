@@ -52,13 +52,15 @@ processing:
       threads: 1
 
     - name: url-resolution
-      # Resolve only recognized shorteners and deterministic redirect wrappers.
+      # Redirect-only compatibility calls resolve just recognized shorteners by default.
       # Per-request read timeout after connecting.
       timeout_seconds: 30.0
       # Retry transient connection, throttling, and server failures this many times.
       retries: 4
-      # Inspect at most 2 MiB of a response for HTML/JavaScript redirects.
+      # Inspect at most 2 MiB of HTML for redirects and title metadata.
       max_html_bytes: 2097152
+      # Download at most 20 MiB when reading PDF document-title metadata.
+      max_pdf_bytes: 20971520
       resolve_all: false
 
     - name: text-cleaning
