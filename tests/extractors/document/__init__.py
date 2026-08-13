@@ -1,0 +1,1 @@
+"""Document extractor tests."""

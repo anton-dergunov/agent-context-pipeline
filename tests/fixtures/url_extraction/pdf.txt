@@ -1,0 +1,15 @@
+# All 14 non-arXiv PDF routes found in Unsorted.org.
+http://proceedings.mlr.press/v70/shrikumar17a/shrikumar17a.pdf
+http://staff.ustc.edu.cn/~hexn/papers/sigir18-bipartiteNE.pdf
+http://www.perozzi.net/publications/14_kdd_deepwalk.pdf
+https://dl.acm.org/doi/pdf/10.1145/3394486.3403226
+https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf
+https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf
+https://services.google.com/fh/files/misc/gemini-for-google-workspace-prompting-guide-101.pdf
+https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf
+https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf
+https://www.aclweb.org/anthology/2020.acl-main.421.pdf
+https://www.aclweb.org/anthology/2020.acl-main.463.pdf
+https://www.ele.uri.edu/faculty/he/PDFfiles/ImbalancedLearning.pdf
+https://www.jstatsoft.org/article/view/v045i03/v45i03.pdf
+https://www.microsoft.com/en-us/research/uploads/prod/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf

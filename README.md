@@ -93,7 +93,9 @@ and retain their standalone console commands. See
 [`docs/YOUTUBE_EXTRACTION.md`](docs/YOUTUBE_EXTRACTION.md),
 [`docs/LINKEDIN_EXTRACTION.md`](docs/LINKEDIN_EXTRACTION.md), plus the Medium
 access decision and commands in
-[`docs/MEDIUM_EXTRACTION.md`](docs/MEDIUM_EXTRACTION.md).
+[`docs/MEDIUM_EXTRACTION.md`](docs/MEDIUM_EXTRACTION.md). Generic linked HTML,
+PDF, and provider-aware research-paper extraction is described in
+[`docs/URL_EXTRACTION.md`](docs/URL_EXTRACTION.md).
 
 Instagram and YouTube both depend on the neutral
 `info_triage.extractors.media` package for OCR engines, sampled-frame OCR,

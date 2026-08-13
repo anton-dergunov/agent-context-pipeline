@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from trafilatura import extract
-from trafilatura.settings import use_config
+
+from info_triage.extractors.document.convert import html_to_markdown as extract_html
 
 
 def clean_medium_html(html: str) -> str:
@@ -34,29 +34,17 @@ def clean_medium_html(html: str) -> str:
 def html_to_markdown(html: str, *, source_url: str | None = None) -> str:
     """Extract main content from supplied HTML and render it as Markdown."""
     cleaned = clean_medium_html(html)
-    config = use_config()
-    # Medium's paywalled RSS preview can legitimately be a single short
-    # sentence, below Trafilatura's corpus-oriented default threshold.
-    config["DEFAULT"]["MIN_EXTRACTED_SIZE"] = "1"
     document = (
         cleaned
         if BeautifulSoup(cleaned, "html.parser").find("html")
         else f"<html><body><article>{cleaned}</article></body></html>"
     )
-    markdown = extract(
-        document,
-        url=source_url,
-        output_format="markdown",
-        include_comments=False,
-        include_links=True,
-        include_images=False,
-        include_formatting=True,
-        favor_recall=True,
-        config=config,
-    )
-    if markdown is None or not markdown.strip():
-        raise ValueError("Trafilatura could not extract article content from the supplied HTML")
-    return markdown.strip() + "\n"
+    try:
+        return extract_html(document, source_url=source_url)
+    except RuntimeError as exc:
+        raise ValueError(
+            "Trafilatura could not extract article content from the supplied HTML"
+        ) from exc
 
 
 def main(argv: list[str] | None = None) -> int:

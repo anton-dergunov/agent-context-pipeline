@@ -1,0 +1,38 @@
+# 20 arXiv papers from Unsorted.org, deliberately mixing accepted route forms.
+https://arxiv.org/abs/2504.13837
+https://arxiv.org/pdf/2504.17192
+https://arxiv.org/html/2501.09223
+https://arxiv.org/abs/2504.12860
+https://arxiv.org/pdf/2410.04840
+https://arxiv.org/html/2504.11536
+https://arxiv.org/abs/2502.21321
+https://arxiv.org/pdf/2504.07128
+https://arxiv.org/html/2503.20376
+https://arxiv.org/abs/2412.05265
+https://arxiv.org/pdf/2503.24322
+https://arxiv.org/html/2409.04109
+https://arxiv.org/abs/2503.21620
+https://arxiv.org/pdf/2503.19173
+https://arxiv.org/html/2503.13657
+https://arxiv.org/abs/2010.00747
+https://arxiv.org/pdf/2003.00911
+https://arxiv.org/html/2002.00293
+https://arxiv.org/abs/1807.03748
+https://arxiv.org/abs/1709.05584v3.pdf
+
+# Two papers for each additional open research provider.
+https://aclanthology.org/2025.acl-long.461/
+https://aclanthology.org/Q19-1029.pdf
+https://proceedings.mlr.press/v70/shrikumar17a.html
+https://proceedings.mlr.press/v108/abel20a.html
+https://openreview.net/forum?id=BZ5a1r-kVsf
+https://openreview.net/forum?id=RDEaIfOiJM
+https://openaccess.thecvf.com/content/CVPR2025/html/Yang_Distraction_is_All_You_Need_for_Multimodal_Large_Language_Model_CVPR_2025_paper.html
+https://openaccess.thecvf.com/content/CVPR2025/html/Ge_AutoPresent_Designing_Structured_Visuals_from_Scratch_CVPR_2025_paper.html
+https://proceedings.neurips.cc/paper_files/paper/2024/hash/b78c69286221bbce7d12f98b5b45f337-Abstract-Conference.html
+https://proceedings.neurips.cc/paper_files/paper/2024/hash/0f25eb6e9dc26c933a5d7516abf1eb8c-Abstract-Conference.html
+https://www.jmlr.org/papers/v25/24-0196.html
+https://www.jmlr.org/papers/v26/23-025.html
+
+# Anonymous, low-volume best-effort example supplied for ResearchGate.
+https://www.researchgate.net/publication/404837031_PRISM-X_Experiments_on_Personalised_Fine-Tuning_with_Human_and_Simulated_Users

@@ -14,6 +14,7 @@ dependencies = [
     "huggingface-hub>=0.27,<2",
     "instaloader>=4.14.2",
     "jieba>=0.42.1,<1",
+    "markitdown[pdf]>=0.1.6,<0.2",
     "numpy>=2.1",
     "onnxruntime>=1.28.0",
     "opencv-python-headless>=4.10",
@@ -53,6 +54,9 @@ instagram-transcription-bench = "info_triage.extractors.instagram.transcription_
 linkedin-extract = "info_triage.extractors.linkedin.cli:main"
 medium-extract = "info_triage.extractors.medium.cli:main"
 medium-html-to-markdown = "info_triage.extractors.medium.postprocess:main"
+research-extract = "info_triage.extractors.research.cli:main"
+url-extract = "info_triage.extractors.routing_cli:main"
+url-extraction-corpus = "info_triage.extractors.corpus:main"
 youtube-extract = "info_triage.extractors.youtube.cli:main"
 
 [dependency-groups]

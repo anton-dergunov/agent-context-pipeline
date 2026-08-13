@@ -1050,6 +1050,11 @@ def _unsafe_url_message(url: str) -> str | None:
     return None
 
 
+def public_url_error(url: str) -> str | None:
+    """Return why a URL is unsafe to fetch, or ``None`` for a public HTTP(S) URL."""
+    return _unsafe_url_message(url)
+
+
 def _read_bounded_body(
     response: requests.Response,
     limit: int,
