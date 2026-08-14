@@ -136,6 +136,40 @@ class ProcessingTests(unittest.TestCase):
             )
             self.assertEqual(generated.read_text(), "recognized text")
 
+    def test_worker_refuses_generated_files_from_outside_the_workspace(self):
+        class OutsideStep(AppendStep):
+            name = "outside"
+
+            def __init__(self, elsewhere):
+                self.elsewhere = elsewhere
+
+            def run(self, job, result, workspace):
+                generated = self.elsewhere / "cached.txt"
+                generated.write_text("from a cache entry")
+                result.generated_files.append(
+                    GeneratedFile(Path("generated/cached.txt"), generated)
+                )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            elsewhere = Path(temporary) / "elsewhere"
+            elsewhere.mkdir()
+            store = CaptureStore(Path(temporary) / "data")
+            pipeline = ProcessingPipeline([OutsideStep(elsewhere)])
+            worker = ProcessingWorker(store, pipeline)
+            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            item = store.capture(
+                10, 1, "image", received_at="2026-08-09T10:00:00+00:00"
+            )
+            worker.start()
+            coordinator.submit(item)
+            try:
+                failed = wait_for_status(store, 1, "failed")
+            finally:
+                worker.stop()
+
+            self.assertIn("generated/cached.txt", failed["error"])
+            self.assertIn("processing workspace", failed["error"])
+
     def test_failure_keeps_item_and_worker_continues(self):
         class SometimesFails(AppendStep):
             name = "sometimes-fails"

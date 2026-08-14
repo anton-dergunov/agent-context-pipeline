@@ -242,7 +242,8 @@ class ProcessingWorker:
                         workspace_root
                     ):
                         raise ValueError(
-                            "Generated files must come from the processing workspace"
+                            "Generated files must come from the processing workspace: "
+                            f"{generated.relative_path} came from {generated.source_path}"
                         )
                 self.store.promote_if_current(job, result)
         except Exception as error:

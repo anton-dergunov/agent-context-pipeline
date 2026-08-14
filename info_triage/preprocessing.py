@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -608,10 +609,13 @@ class ContentExtractionStep:
 
         name = extraction_directory_name(position, entry.handler, entry.identity)
         relative_root = Path(EXTRACTED_DIR) / name
-        for relative_path, source_path in committed_files(source, relative_root):
+        # retrieve() hands back a cache entry, which a later retrieval may delete;
+        # the item is only ever committed from files inside this workspace.
+        staged = Path(shutil.copytree(source, workspace / name))
+        for relative_path, source_path in committed_files(staged, relative_root):
             result.put_generated_file(relative_path, source_path)
         record = describe(
-            source,
+            staged,
             link_n=entry.n,
             handler=entry.handler,
             identity=entry.identity,
@@ -625,7 +629,7 @@ class ContentExtractionStep:
             # A harvested row was never resolved, so this is the only name it has.
             entry.title = record.title
         if record.retrieved:
-            return None, source
+            return None, staged
         return (
             ProcessingIssue(
                 record.reason or "extraction-unavailable",

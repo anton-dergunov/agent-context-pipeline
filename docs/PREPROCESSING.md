@@ -257,7 +257,8 @@ canonical URL. This is not an optimization but a requirement: an item is
 re-materialized from `telegram.json` on every Telegram edit, so without the cache
 adding a note to a message would re-download the paper attached to it. A cache
 entry's manifest is written last, so an interrupted extraction is re-run rather
-than served half-finished.
+than served half-finished. What the item keeps is a copy: a cache entry is never
+committed into an item directly, because a later retrieval is free to replace it.
 
 **No extraction failure ever blocks an item.** A refusal, a timeout, an
 unparseable page, or a missing extractor is recorded against its link and

@@ -143,6 +143,39 @@ def test_extraction_status_is_written_back_onto_the_link_table(tmp_path):
     assert "links.json" in committed
 
 
+def test_extracted_files_are_staged_into_the_workspace(tmp_path):
+    """The worker only commits files from the workspace, never from the cache."""
+    extractor = RecordingExtractor(tmp_path)
+
+    result, _ = run_step(tmp_path, [link(1)], extractor=extractor)
+
+    workspace = tmp_path / "ws"
+    for generated in result.generated_files:
+        assert generated.source_path.resolve().is_relative_to(workspace.resolve())
+    body = next(
+        generated
+        for generated in result.generated_files
+        if generated.relative_path.name == "content.md"
+    )
+    assert body.source_path.read_text(encoding="utf-8").startswith("# Title")
+
+
+def test_a_cached_extraction_is_staged_out_of_the_cache(tmp_path):
+    """The real retrieve() returns a cache entry a later retrieval may delete."""
+    CountingExtractor.runs = 0
+    extractor = CountingExtractor(ExtractionSettings(data_dir=tmp_path / "data"))
+
+    result, _ = run_step(tmp_path, [link(1)], extractor=extractor)
+
+    workspace = tmp_path / "ws"
+    cache_root = (tmp_path / "data" / "extraction-cache").resolve()
+    assert result.extractions[0].status == "complete"
+    for generated in result.generated_files:
+        resolved = generated.source_path.resolve()
+        assert resolved.is_relative_to(workspace.resolve())
+        assert not resolved.is_relative_to(cache_root)
+
+
 def test_describe_reads_the_fields_the_index_renders(tmp_path):
     directory = write_extraction(
         tmp_path / "paper",
