@@ -267,3 +267,23 @@ def test_a_cache_entry_without_its_manifest_is_re_run(tmp_path):
 )
 def test_extraction_directory_names_are_readable_and_safe(identity, expected):
     assert extraction_directory_name(1, "research", identity) == expected
+
+
+@pytest.mark.parametrize(
+    "metadata,expected",
+    [
+        # Medium reports epoch milliseconds, everyone else reports a string.
+        ({"published_at": 1774272360660}, "2026-03-23"),
+        ({"published_at": "2026-08-14T08:14:04.948Z"}, "2026-08-14"),
+        ({"submitted_at": "2024/10/07"}, "2024-10-07"),
+        ({"created_at_utc": "2026-07-17T22:53:15"}, "2026-07-17"),
+        ({"published_at": None}, None),
+        ({"published_at": True}, None),
+        ({}, None),
+    ],
+)
+def test_publication_dates_survive_every_provider_encoding(metadata, expected):
+    """`published` is the currency signal; dropping it costs a search per item."""
+    from info_triage.extraction import _published
+
+    assert _published(metadata) == expected

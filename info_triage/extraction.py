@@ -14,6 +14,7 @@ import hashlib
 import json
 import shutil
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -224,11 +225,23 @@ def describe(
 
 
 def _published(metadata: dict[str, Any]) -> str | None:
+    """Return the publication date, which is the currency signal `vet` needs.
+
+    Providers disagree on the encoding as well as the separator: Medium reports
+    epoch milliseconds, the rest report a string.
+    """
     for key in ("published_at", "published_at_utc", "submitted_at", "created_at_utc"):
         value = metadata.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int | float) and value > 0:
+            seconds = value / 1000 if value > 1e11 else float(value)
+            try:
+                return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%d")
+            except (OSError, OverflowError, ValueError):
+                continue
         if isinstance(value, str) and value.strip():
-            # A date is what `vet` needs for currency; the time of day is noise.
-            # Providers disagree on the separator, so normalize to ISO.
+            # The time of day is noise; only the date informs a currency call.
             return value.strip()[:10].replace("/", "-")
     return None
 
