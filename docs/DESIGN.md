@@ -192,16 +192,23 @@ The segment kind records known structure such as `text`, `caption`, `voice`, or
 `location`. Explicit Telegram forwarding provenance adds `forwarded`; the
 application does not infer personal commentary from text length or URLs.
 
-The configured pipeline materializes `source.md`, cleans text, resolves URLs,
-and then renders `message.md`. It does not summarize the content. Each revision
-is reconstructed from retained Telegram data rather than a previously processed
-Markdown file.
+The configured pipeline materializes `source.md`, cleans text, discovers the
+item's links, resolves them, and then renders `message.md`. It does not
+summarize the content. Each revision is reconstructed from retained Telegram
+data rather than a previously processed Markdown file.
 
-Cleaning deliberately precedes URL resolution: zero-width characters and
-homoglyphs can attach themselves to a URL and hide it from link discovery.
+A Telegram message is plain text plus a list of entities, and the text alone
+drops the destination of every hyperlinked phrase. Segments therefore render
+`text_link` entities back as ordinary Markdown links, so no link is lost between
+Telegram and the item.
+
+Cleaning deliberately precedes the link work: zero-width characters and
+homoglyphs can attach themselves to a URL and hide it from discovery. Discovery
+itself is offline — it collects, unwraps, canonicalizes and ranks every distinct
+target into `links.json` — and URL resolution is the single network stage, which
+resolves that table within a per-item budget and rewrites the readable body.
 Link destinations and titles inserted by resolution are therefore not cleaned
-afterwards, and a second cleaning pass is not the answer — canonicalization
-belongs in link discovery.
+afterwards, and a second cleaning pass is not the answer.
 
 The complete original Telegram payload remains in `capture/telegram.json`, and
 downloaded source media remains in `capture/attachments/`.
@@ -250,6 +257,7 @@ For example:
 ```text
 2026-08-08_18492/
 ├── metadata.json
+├── links.json
 └── capture/
     ├── source.md
     ├── message.md

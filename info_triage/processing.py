@@ -7,6 +7,7 @@ import threading
 import time
 import traceback
 from collections.abc import Iterable
+from copy import deepcopy
 from pathlib import Path
 from typing import Protocol
 
@@ -186,6 +187,7 @@ class ProcessingWorker:
                         result.message_markdown,
                         result.source_markdown,
                         list(result.generated_files),
+                        deepcopy(result.links),
                     )
                     step_workspace = workspace / f"step-{index:02d}"
                     step_workspace.mkdir()
@@ -223,6 +225,7 @@ class ProcessingWorker:
                         result.message_markdown = snapshot.message_markdown
                         result.source_markdown = snapshot.source_markdown
                         result.generated_files = snapshot.generated_files
+                        result.links = snapshot.links
                     duration_ms = (time.monotonic() - started) * 1000
                     self.telemetry.record(
                         job,

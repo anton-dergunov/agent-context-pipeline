@@ -195,6 +195,26 @@ url-resolution, and produces an ordered link table:
 Add tests using real telegram.json shapes, including a text_link-only item.
 ```
 
+**Decisions taken during this session, settled — do not re-open.**
+
+1. **Shortener resolution lives in `url-resolution`, not in link discovery,**
+   contrary to a literal reading of §3.2. Discovery constructing its own
+   `URLResolver` for `route_url()` would mean a second instance with a separate
+   cache re-walking every chain that `resolve_link()` walks anyway — each
+   shortener fetched twice, and a duplicate set of network knobs in
+   `config.yaml`. Discovery is therefore pure and offline: `canonical` and
+   `handler` are *provisional* for redirector URLs, and `url-resolution` — the
+   single network stage — corrects both. **Session 5 inherits a table whose
+   `handler` is already final**, so content extraction never needs to re-route.
+2. **`text_link` entities are rendered inline in the segment body** as
+   `[label](url)`, not merely recorded in the table. It fixes §1.3.3 at its
+   source — `rendering.py` reading `text` instead of `text` + `entities` — keeps
+   the author's anchor text attached to each destination (which Case 7b's `topic`
+   column needs anyway), and makes §4.2's `## Captured` quote working links.
+   Offsets are UTF-16 code units. Only `text_link` is rendered; `bold`, `italic`,
+   `code` and `blockquote` stay ignored. Body scanning is now a genuine fallback
+   rather than a load-bearing path.
+
 ---
 
 ## Session 3 — `index.md`, intent detection, and the generated inbox

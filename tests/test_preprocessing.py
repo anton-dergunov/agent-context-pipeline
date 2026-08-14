@@ -1,3 +1,4 @@
+import json
 import time
 
 import pytest
@@ -10,11 +11,13 @@ from info_triage.models import (
     ProcessingResult,
 )
 from info_triage.preprocessing import (
+    LinkDiscoveryStep,
     TextCleaningStep,
     URLResolutionStep,
     VoiceTranscriptionStep,
 )
 from info_triage.processing import ProcessingCoordinator, ProcessingPipeline, ProcessingWorker
+from info_triage.rendering import render_capture_payloads
 from info_triage.storage import CaptureStore
 from info_triage.utilities.url_resolution import LinkResolution
 
@@ -368,12 +371,16 @@ class FakeResolver:
     def __init__(self, replacements):
         self.replacements = replacements
         self.failures = []
+        # Mirrors URLResolver: a URL is fetched at most once per process.
+        self.link_results = {}
 
     def resolve(self, url):
         return self.replacements.get(url, url)
 
     def resolve_link(self, url):
-        return LinkResolution(self.resolve(url), "Resolved article")
+        if url not in self.link_results:
+            self.link_results[url] = LinkResolution(self.resolve(url), "Resolved article")
+        return self.link_results[url]
 
 
 def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
@@ -404,6 +411,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
                 max_html_bytes=1024,
                 max_pdf_bytes=2048,
                 resolve_all=False,
+                resolve_budget=10,
                 resolver=resolver,
             ),
         ]
@@ -450,6 +458,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         max_html_bytes=1024,
         max_pdf_bytes=2048,
         resolve_all=False,
+        resolve_budget=10,
         resolver=resolver,
     )
     pipeline = ProcessingPipeline([TextCleaningStep(), step])
@@ -478,3 +487,169 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         }
     ]
     assert stats_by_name["text-cleaning"]["succeeded"] == 1
+
+
+def link_table(job, result, *, resolver=None, resolve_budget=40, workspace=None):
+    """Run discovery, and optionally resolution, over one staged item."""
+    workspace = workspace or job.path.parent / "workspace"
+    discovery_space = workspace / "discovery"
+    discovery_space.mkdir(parents=True)
+    LinkDiscoveryStep().run(job, result, discovery_space)
+    if resolver is not None:
+        resolution_space = workspace / "resolution"
+        resolution_space.mkdir(parents=True)
+        step = URLResolutionStep(
+            timeout_seconds=1,
+            retries=0,
+            max_html_bytes=1024,
+            max_pdf_bytes=2048,
+            resolve_all=False,
+            resolve_budget=resolve_budget,
+            resolver=resolver,
+        )
+        step.run(job, result, resolution_space)
+    return result.links
+
+
+def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
+    payload = telegram_payload(
+        1,
+        100,
+        text="Diffusion explainer\nGithub",
+        entities=[
+            {
+                "type": "text_link",
+                "offset": 0,
+                "length": 19,
+                "url": "https://poloclub.github.io/diffusion-explainer/",
+            },
+            {
+                "type": "text_link",
+                "offset": 20,
+                "length": 6,
+                "url": "https://github.com/poloclub/diffusion-explainer",
+            },
+        ],
+    )
+    store = CaptureStore(tmp_path)
+    item = store.capture(
+        10,
+        1,
+        render_capture_payloads([payload]),
+        received_at="2026-08-09T10:00:00+00:00",
+        telegram_payload=payload,
+    )
+    pipeline = ProcessingPipeline(
+        [
+            TextCleaningStep(),
+            LinkDiscoveryStep(),
+            URLResolutionStep(
+                timeout_seconds=1,
+                retries=0,
+                max_html_bytes=1024,
+                max_pdf_bytes=2048,
+                resolve_all=False,
+                resolve_budget=40,
+                resolver=FakeResolver({}),
+            ),
+        ]
+    )
+    worker = ProcessingWorker(store, pipeline)
+    coordinator = ProcessingCoordinator(store, pipeline, worker)
+
+    worker.start()
+    coordinator.submit(item)
+    try:
+        wait_for_status(store, 1, "ready")
+    finally:
+        worker.stop()
+
+    ready = tmp_path / "inbox" / "2026-08-09_1"
+    # The destinations Telegram hides from message text are in the body itself,
+    # both before and after transformation, and are not re-titled by resolution.
+    assert "https://poloclub.github.io/diffusion-explainer/" in (
+        ready / "capture" / "source.md"
+    ).read_text()
+    assert (ready / "capture" / "message.md").read_text().endswith(
+        "## Segment 1 — text\n\n"
+        "[Diffusion explainer](https://poloclub.github.io/diffusion-explainer/)\n"
+        "[Github](https://github.com/poloclub/diffusion-explainer)"
+    )
+    links = json.loads((ready / "links.json").read_text())["links"]
+    assert [(entry["n"], entry["canonical"], entry["status"]) for entry in links] == [
+        (1, "https://poloclub.github.io/diffusion-explainer/", "resolved"),
+        (2, "https://github.com/poloclub/diffusion-explainer", "resolved"),
+    ]
+    assert {row["processor"] for row in store.processor_statistics()} >= {"link-discovery"}
+
+
+def test_resolution_updates_the_table_and_reroutes_expanded_shorteners(tmp_path):
+    payload = telegram_payload(1, 100, text="https://lnkd.in/abc and https://example.com/x")
+    _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+    resolver = FakeResolver({"https://lnkd.in/abc": "https://arxiv.org/abs/2305.03509?utm_x=1"})
+
+    table = link_table(job, result, resolver=resolver)
+
+    # The shortener hid a paper, so both the handler and the rank discovery could
+    # only guess offline are corrected here.
+    assert [
+        (entry.canonical, entry.handler, entry.priority, entry.status) for entry in table
+    ] == [
+        ("https://arxiv.org/abs/2305.03509", "research", 1, "resolved"),
+        ("https://example.com/x", "document", 4, "resolved"),
+    ]
+    assert all(entry.title == "Resolved article" for entry in table)
+
+
+def test_links_beyond_the_resolve_budget_are_recorded_not_dropped(tmp_path):
+    text = "\n".join(f"https://example.com/{index}" for index in range(4))
+    payload = telegram_payload(1, 100, text=text)
+    _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+
+    table = link_table(job, result, resolver=FakeResolver({}), resolve_budget=2)
+
+    assert [entry.status for entry in table] == [
+        "resolved",
+        "resolved",
+        "skipped",
+        "skipped",
+    ]
+    assert {entry.reason for entry in table if entry.status == "skipped"} == {
+        "resolve-budget-exhausted"
+    }
+    # Resolved links are titled in the body; over-budget ones stay bare rather
+    # than spending network the item was not granted.
+    assert "[Resolved article](https://example.com/0)" in result.message_markdown
+    assert "\nhttps://example.com/3" in result.message_markdown
+
+
+def test_two_links_resolving_to_one_target_collapse_to_a_duplicate(tmp_path):
+    payload = telegram_payload(1, 100, text="https://lnkd.in/abc\nhttps://t.co/def")
+    _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+    resolver = FakeResolver(
+        {
+            "https://lnkd.in/abc": "https://example.com/article",
+            "https://t.co/def": "https://example.com/article",
+        }
+    )
+
+    table = link_table(job, result, resolver=resolver)
+
+    assert [(entry.n, entry.status, entry.duplicate_of) for entry in table] == [
+        (1, "resolved", None),
+        (2, "duplicate", 1),
+    ]
+
+
+def test_unreadable_payloads_still_deliver_the_visible_links(tmp_path):
+    payload = telegram_payload(1, 100, text="https://example.com/x")
+    _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+    (job.path / "capture" / "telegram.json").write_text("not json", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    outcome = LinkDiscoveryStep().run(job, result, workspace)
+
+    assert outcome.status == "partial"
+    assert outcome.issues[0].reason == "invalid-input"
+    assert [entry.canonical for entry in result.links] == ["https://example.com/x"]

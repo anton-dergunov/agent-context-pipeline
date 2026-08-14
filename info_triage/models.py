@@ -81,12 +81,56 @@ class GeneratedFile:
 
 
 @dataclass
+class LinkTableEntry:
+    """One distinct link discovered in an item, and everything known about it."""
+
+    n: int
+    raw: str
+    canonical: str
+    handler: str
+    priority: int
+    status: str = "discovered"
+    from_segment: int | None = None
+    label: str | None = None
+    title: str | None = None
+    reason: str | None = None
+    origin: str = "entity"
+    duplicate_of: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "n": self.n,
+            "raw": self.raw,
+            "canonical": self.canonical,
+            "handler": self.handler,
+            "priority": self.priority,
+            "status": self.status,
+            "from_segment": self.from_segment,
+            "label": self.label,
+            "title": self.title,
+            "reason": self.reason,
+            "origin": self.origin,
+            "duplicate_of": self.duplicate_of,
+        }
+
+
+@dataclass
 class ProcessingResult:
     """Changes produced in a revision-scoped processing workspace."""
 
     message_markdown: str
     source_markdown: str | None = None
     generated_files: list[GeneratedFile] = field(default_factory=list)
+    links: list[LinkTableEntry] = field(default_factory=list)
+
+    def put_generated_file(self, relative_path: Path, source_path: Path) -> None:
+        """Hand over a generated file, replacing any earlier one at that path."""
+        self.generated_files = [
+            generated
+            for generated in self.generated_files
+            if generated.relative_path != relative_path
+        ]
+        self.generated_files.append(GeneratedFile(relative_path, source_path))
 
 
 @dataclass(frozen=True)

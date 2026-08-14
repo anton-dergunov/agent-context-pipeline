@@ -10,7 +10,7 @@ import yaml
 
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
-TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning")
+TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning", "link-discovery")
 YT_DLP_CHANNELS = ("stable", "nightly", "master")
 
 
@@ -35,6 +35,7 @@ class URLResolutionConfig:
     max_html_bytes: int
     max_pdf_bytes: int
     resolve_all: bool
+    resolve_budget: int
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,14 @@ class TextCleaningConfig:
     name: str
 
 
-StepConfig = VoiceTranscriptionConfig | URLResolutionConfig | TextCleaningConfig
+@dataclass(frozen=True)
+class LinkDiscoveryConfig:
+    name: str
+
+
+StepConfig = (
+    VoiceTranscriptionConfig | URLResolutionConfig | TextCleaningConfig | LinkDiscoveryConfig
+)
 
 
 @dataclass(frozen=True)
@@ -170,6 +178,7 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
                 "max_html_bytes",
                 "max_pdf_bytes",
                 "resolve_all",
+                "resolve_budget",
             },
         )
         return URLResolutionConfig(
@@ -197,11 +206,20 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
                 _required(step, "resolve_all", context),
                 f"{context}.resolve_all",
             ),
+            _integer(
+                _required(step, "resolve_budget", context),
+                f"{context}.resolve_budget",
+                minimum=1,
+            ),
         )
 
     if name == "text-cleaning":
         _mapping(value, context, {"name"})
         return TextCleaningConfig(name)
+
+    if name == "link-discovery":
+        _mapping(value, context, {"name"})
+        return LinkDiscoveryConfig(name)
 
     raise ConfigError(f"{context}.name is unknown: {name}")
 
@@ -346,9 +364,10 @@ def load_config(path: Path) -> AppConfig:
     if "voice-transcription" in names:
         voice_index = names.index("voice-transcription")
         if any(names.index(name) < voice_index for name in TRANSFORM_STEP_NAMES if name in names):
-            raise ConfigError(
-                "voice-transcription must appear before URL resolution and text cleaning"
-            )
+            raise ConfigError("voice-transcription must appear before every transform step")
+    if "link-discovery" in names and "url-resolution" in names:
+        if names.index("url-resolution") < names.index("link-discovery"):
+            raise ConfigError("link-discovery must appear before url-resolution")
 
     youtube_extractor, instagram_extractor = _parse_extractors(
         _required(root, "extractors", "configuration")

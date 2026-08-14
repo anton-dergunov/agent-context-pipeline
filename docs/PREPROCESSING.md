@@ -8,24 +8,26 @@ ordered `processing.steps` sequence.
 
 | Telegram content | Automatic preprocessing | `capture/message.md` result |
 | --- | --- | --- |
-| Voice note (`voice`) | Transcribe locally, clean text, resolve URLs | Transcript in its ordered `voice` segment |
-| Plain text or caption | Clean text, resolve recognized short URLs | Processed text in its ordered segment |
-| Location or venue | Clean text, resolve URLs | Existing readable location block in its segment |
-| Document | Clean accompanying caption, then resolve its URLs | Caption in its segment |
-| Photo | Clean accompanying caption, then resolve its URLs | Caption in its segment |
-| Video | Clean accompanying caption, then resolve its URLs | Caption in its segment |
-| Animation | Clean accompanying caption, then resolve its URLs | Caption in its segment |
-| Generic audio (`audio`) | Clean accompanying caption, then resolve its URLs | Caption in its segment |
-| Video note (`video_note`) | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Voice note (`voice`) | Transcribe locally, clean text, discover and resolve URLs | Transcript in its ordered `voice` segment |
+| Plain text or caption | Clean text, discover and resolve URLs | Processed text in its ordered segment |
+| Location or venue | Clean text, discover and resolve URLs | Existing readable location block in its segment |
+| Document | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Photo | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Video | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Animation | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Generic audio (`audio`) | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Video note (`video_note`) | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
 
 Original downloaded attachments and the complete Telegram payload are always
 retained. Both Markdown files live under the item's `capture/` directory:
 `source.md` contains the segmented text after source materialization (including
 voice transcription) but before cleaning or URL resolution, and `message.md`
-contains the transformed body with category front matter.
+contains the transformed body with category front matter. The item's ordered
+link table is written to `links.json` at the item root.
 
-Cleaning runs before URL resolution so that zero-width characters and homoglyphs
-cannot hide a link from the resolver. Link destinations and titles inserted by
+Cleaning runs before link discovery so that zero-width characters and homoglyphs
+cannot hide a link from it. Discovery runs before URL resolution, which is the
+only step that uses the network. Link destinations and titles inserted by
 resolution are consequently not cleaned; canonicalizing them is link discovery's
 job, not a second cleaning pass.
 
@@ -44,6 +46,15 @@ https://example.com/shared-item
 Kinds reflect known Telegram content such as `text`, `caption`, `voice`, or
 `location`. `forwarded` is added only for explicit Telegram provenance; no
 URL/length heuristic guesses which segment expresses personal intent.
+
+Telegram sends a message as plain text plus a list of entities, and the plain
+text alone drops the destination of every hyperlinked phrase. Segments therefore
+render `text_link` entities back as ordinary Markdown links, so a forwarded post
+whose text reads `Paper Github Video` keeps all three destinations in
+`capture/source.md` and `capture/message.md`. Entity offsets are counted in
+UTF-16 code units, and a label spanning a line break is left as plain text —
+link discovery still records its destination. Other formatting entities such as
+bold, italic, and code are deliberately ignored.
 
 ## Voice-note transcription
 
@@ -102,13 +113,50 @@ characters and look-alike letters that can hide a link from the resolver, and
 removes URL tracking parameters from links already present in the body. Ordered
 segment headings are protected while it runs.
 
-The URL processor then recognizes bare HTTP(S) URLs, Markdown autolinks, and inline
-links whose visible label is exactly their destination. It resolves redirect
-chains and replaces those constructs with `[page title](final URL)` when a
-trustworthy title is available. Existing links such as
-`[descriptive title](https://example.com)` are preserved byte-for-byte and are
-not fetched. URLs in code, image links, raw HTML attributes, and Markdown
-reference definitions are not title-enriched.
+## Link discovery
+
+Link discovery builds one ordered table of every distinct target the item
+carries, and writes it to `links.json` at the item root. It never uses the
+network.
+
+Links are collected from the retained Telegram entities first — both the visible
+`url` type and the `text_link` type whose destination the plain message text
+drops — and then from the Markdown links and bare URLs in the cleaned body, which
+covers voice transcripts and anything the entities missed. Each link is unwrapped
+when an outbound redirector carries its destination in the URL itself, then
+canonicalized: the scheme and host are lower-cased, a default port is dropped,
+and sender-identifying parameters (`utm_*`, `igsh`, `si`, `is`, `fbclid`, `rcm`,
+`cp_landing*`) are removed. Paths and fragments are left alone. Rows are then
+deduplicated on the canonical URL, so one target is one row however many times
+it appears.
+
+Every row records the position `n`, the raw and canonical URLs, the anchor text
+when the link came from an entity, the segment it came from, the handler that
+would extract it, its extraction priority, and a status. Research providers rank
+highest, then the item's only link, then code repositories, then articles and
+documents, and finally links that need a nested extraction. Profile roots,
+channels, hashtag pages, image CDNs and store links are ranked last: they are
+worth a title and never worth extracting.
+
+Handlers and canonical URLs are provisional for shorteners, which cannot be
+followed without a request. URL resolution corrects both.
+
+## URL and title resolution
+
+The URL processor resolves the table in priority order, up to the configured
+`resolve_budget`, and records the outcome on each row: `resolved` with a title,
+`unresolved` with a stable reason, `skipped` when the budget is spent, or
+`duplicate` when two links turn out to share one destination. Nothing is dropped.
+Budget exhaustion is normal operation and is not reported as a problem.
+
+It also rewrites the body so it stays readable: bare HTTP(S) URLs, Markdown
+autolinks, and inline links whose visible label is exactly their destination
+become `[page title](final URL)` when a trustworthy title is available. Existing
+links such as `[descriptive title](https://example.com)` — including the ones
+restored from Telegram entities — are preserved byte-for-byte and are not
+fetched. URLs in code, image links, raw HTML attributes, and Markdown reference
+definitions are not title-enriched. Body rewriting shares the same budget, so a
+long link list cannot spend more than the item was granted.
 
 Titles come from bounded public HTML metadata (`og:title`, Twitter metadata,
 Article/WebPage JSON-LD, `<title>`, then `<h1>`). PDFs prefer document/XMP
@@ -127,7 +175,7 @@ remains deliverable.
 
 Because enrichment runs after cleaning, the destinations and titles it inserts
 are not cleaned. Tracking parameters on a resolved destination therefore survive
-in `capture/message.md`. Canonicalizing them belongs to link discovery; do not
+in `capture/message.md`, while `links.json` carries the canonical form. Do not
 add a second cleaning pass.
 
 The standalone `info-triage-resolve-urls` command performs title enrichment by

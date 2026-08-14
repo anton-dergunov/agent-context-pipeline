@@ -34,6 +34,8 @@ from pypdf import PdfReader
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .markdown import escape_markdown_destination, escape_markdown_label
+
 URL_RE = re.compile(r"https?://[^\s<>\"\]]+", re.IGNORECASE)
 FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 REFERENCE_DEFINITION_RE = re.compile(r"^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*", re.MULTILINE)
@@ -777,17 +779,6 @@ def replace_urls(
     return replace_url_destinations(text, resolver.resolve)
 
 
-def _escape_markdown_label(title: str) -> str:
-    escaped = title.replace("\\", "\\\\")
-    for character in "[]*_`":
-        escaped = escaped.replace(character, "\\" + character)
-    return escaped
-
-
-def _escape_markdown_destination(url: str) -> str:
-    return url.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
 def enrich_links(text: str, resolver: "URLResolver") -> str:
     """Replace bare and URL-labelled links with titled Markdown links."""
     occurrences = [item for item in iter_link_occurrences(text) if item.eligible_for_title]
@@ -800,8 +791,8 @@ def enrich_links(text: str, resolver: "URLResolver") -> str:
         result = results[occurrence.url]
         if result.title:
             replacement = (
-                f"[{_escape_markdown_label(result.title)}]"
-                f"({_escape_markdown_destination(result.url)})"
+                f"[{escape_markdown_label(result.title)}]"
+                f"({escape_markdown_destination(result.url)})"
             )
         else:
             replacement = result.url

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
 from .config import (
+    LinkDiscoveryConfig,
     StepConfig,
     TextCleaningConfig,
     URLResolutionConfig,
@@ -19,19 +19,49 @@ from .extractors.media.transcription import (
     resolve_backend_and_model,
     resolve_transcription_threads,
 )
+from .links import build_link_table, canonicalize_url, link_priority, route_handler
 from .models import (
     ProcessingIssue,
     ProcessingJob,
     ProcessingResult,
     ProcessingStepOutcome,
 )
-from .rendering import render_capture_payloads
+from .rendering import SEGMENT_HEADING_RE, render_capture_payloads
 from .storage import CAPTURE_DIR
 from .utilities.text_cleaning import clean_text
-from .utilities.url_resolution import URLResolver, enrich_links
+from .utilities.url_resolution import LinkResolution, URLResolver, enrich_links
 
 NO_SPEECH_TEXT = "[No speech recognized]"
-SEGMENT_HEADING_RE = re.compile(r"^## Segment [1-9][0-9]* — [a-z-]+(?: [a-z-]+)*$")
+LINK_TABLE_NAME = "links.json"
+
+
+def read_capture_payloads(job: ProcessingJob) -> list[dict[str, Any]]:
+    """Return the retained Telegram payloads of an item, in stored order."""
+    payload_path = job.path / CAPTURE_DIR / "telegram.json"
+    value = json.loads(payload_path.read_text(encoding="utf-8"))
+    if isinstance(value, dict):
+        payloads = value.get("messages", [value])
+    else:
+        payloads = value
+    if not isinstance(payloads, list) or not all(
+        isinstance(payload, dict) for payload in payloads
+    ):
+        raise ValueError("telegram.json does not contain Telegram message payloads")
+    return payloads
+
+
+def write_link_table(
+    result: ProcessingResult,
+    workspace: Path,
+) -> None:
+    """Hand the current link table over for commit at the item root."""
+    destination = workspace / LINK_TABLE_NAME
+    payload = {"links": [entry.to_dict() for entry in result.links]}
+    destination.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    result.put_generated_file(Path(LINK_TABLE_NAME), destination)
 
 
 class VoiceTranscriptionStep:
@@ -103,19 +133,6 @@ class VoiceTranscriptionStep:
             raise FileNotFoundError(f"Voice attachment is missing: {relative_path}")
         return attachment_path
 
-    @staticmethod
-    def _payloads(job: ProcessingJob) -> list[dict[str, Any]]:
-        payload_path = job.path / CAPTURE_DIR / "telegram.json"
-        value = json.loads(payload_path.read_text(encoding="utf-8"))
-        payloads = value.get("messages") if isinstance(value, dict) else None
-        if payloads is None and isinstance(value, dict):
-            payloads = [value]
-        if not isinstance(payloads, list) or not all(
-            isinstance(payload, dict) for payload in payloads
-        ):
-            raise ValueError("telegram.json does not contain Telegram message payloads")
-        return payloads
-
     def run(
         self,
         job: ProcessingJob,
@@ -156,7 +173,7 @@ class VoiceTranscriptionStep:
                         )
                     )
                 voice_files.append((source_message_id, attachment_path))
-            payloads = self._payloads(job)
+            payloads = read_capture_payloads(job)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             return ProcessingStepOutcome.failed(
                 ProcessingIssue(
@@ -213,6 +230,57 @@ class VoiceTranscriptionStep:
         result.message_markdown = content
 
 
+class LinkDiscoveryStep:
+    """Collect every link the item carries into one ordered, canonical table."""
+
+    name = "link-discovery"
+
+    @staticmethod
+    def applies(job: ProcessingJob) -> bool:
+        del job
+        return True
+
+    def run(
+        self,
+        job: ProcessingJob,
+        result: ProcessingResult,
+        workspace: Path,
+    ) -> ProcessingStepOutcome | None:
+        issue = None
+        try:
+            payloads = read_capture_payloads(job)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            # The body still carries visible links, so keep the item moving and
+            # report only the entity hrefs that could not be read.
+            payloads = []
+            issue = ProcessingIssue(
+                "invalid-input",
+                str(error),
+                error_type=type(error).__name__,
+            )
+
+        result.links = build_link_table(payloads, result.message_markdown)
+        write_link_table(result, workspace)
+        return ProcessingStepOutcome.partial(issue) if issue else None
+
+
+class _BudgetedResolver:
+    """Delegate to a resolver until the item's title budget is spent."""
+
+    def __init__(self, resolver: URLResolver, remaining: int) -> None:
+        self.resolver = resolver
+        self.remaining = remaining
+
+    def resolve_link(self, url: str) -> LinkResolution:
+        known = getattr(self.resolver, "link_results", {})
+        if url in known:
+            return known[url]
+        if self.remaining <= 0:
+            return LinkResolution(url, None)
+        self.remaining -= 1
+        return self.resolver.resolve_link(url)
+
+
 class URLResolutionStep:
     """Resolve URL destinations and titles without blocking a useful item."""
 
@@ -226,8 +294,10 @@ class URLResolutionStep:
         max_html_bytes: int,
         max_pdf_bytes: int,
         resolve_all: bool,
+        resolve_budget: int,
         resolver: URLResolver | None = None,
     ) -> None:
+        self.resolve_budget = resolve_budget
         self.resolver = resolver or URLResolver(
             timeout=timeout_seconds,
             retries=retries,
@@ -241,15 +311,56 @@ class URLResolutionStep:
         del job
         return True
 
+    def _resolve_table(self, result: ProcessingResult) -> int:
+        """Resolve table entries in priority order and return the budget left."""
+        remaining = self.resolve_budget
+        sole_link = len(result.links) == 1
+        for entry in sorted(result.links, key=lambda entry: (entry.priority, entry.n)):
+            if remaining <= 0:
+                entry.status = "skipped"
+                entry.reason = "resolve-budget-exhausted"
+                continue
+            remaining -= 1
+            resolution = self.resolver.resolve_link(entry.raw)
+            canonical = canonicalize_url(resolution.url)
+            if canonical != entry.canonical:
+                # A shortener can hide a paper behind an ordinary-looking URL, so
+                # the rank discovery guessed has to be recomputed with it.
+                entry.canonical = canonical
+                entry.handler = route_handler(canonical)
+                entry.priority = link_priority(entry.handler, canonical, sole_link=sole_link)
+            entry.title = resolution.title
+            if resolution.title:
+                entry.status = "resolved"
+            else:
+                entry.status = "unresolved"
+                entry.reason = resolution.reason or "title-not-found"
+
+        seen: dict[str, int] = {}
+        for entry in result.links:
+            first = seen.get(entry.canonical)
+            if first is None:
+                seen[entry.canonical] = entry.n
+            elif entry.status != "duplicate":
+                entry.status = "duplicate"
+                entry.duplicate_of = first
+        return remaining
+
     def run(
         self,
         job: ProcessingJob,
         result: ProcessingResult,
         workspace: Path,
     ) -> ProcessingStepOutcome | None:
-        del job, workspace
+        del job
         failure_count = len(getattr(self.resolver, "failures", ()))
-        result.message_markdown = enrich_links(result.message_markdown, self.resolver)
+        remaining = self._resolve_table(result)
+        result.message_markdown = enrich_links(
+            result.message_markdown,
+            _BudgetedResolver(self.resolver, remaining),
+        )
+        if result.links:
+            write_link_table(result, workspace)
         failures = tuple(getattr(self.resolver, "failures", ()))[failure_count:]
         reasons = tuple(getattr(self.resolver, "failure_reasons", ()))[failure_count:]
         if not failures:
@@ -347,10 +458,13 @@ def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
                     max_html_bytes=config.max_html_bytes,
                     max_pdf_bytes=config.max_pdf_bytes,
                     resolve_all=config.resolve_all,
+                    resolve_budget=config.resolve_budget,
                 )
             )
         elif isinstance(config, TextCleaningConfig):
             steps.append(TextCleaningStep())
+        elif isinstance(config, LinkDiscoveryConfig):
+            steps.append(LinkDiscoveryStep())
         else:
             raise TypeError(f"Unsupported processing configuration: {config!r}")
     return steps

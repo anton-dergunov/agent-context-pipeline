@@ -5,6 +5,7 @@ import pytest
 from info_triage.config import (
     ConfigError,
     InstagramExtractorConfig,
+    LinkDiscoveryConfig,
     TextCleaningConfig,
     URLResolutionConfig,
     VoiceTranscriptionConfig,
@@ -50,8 +51,12 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
     assert [step.name for step in config.processing_steps] == [
         "voice-transcription",
         "text-cleaning",
+        "link-discovery",
         "url-resolution",
     ]
+    resolution = config.processing_steps[3]
+    assert isinstance(resolution, URLResolutionConfig)
+    assert resolution.resolve_budget == 40
     voice = config.processing_steps[0]
     assert isinstance(voice, VoiceTranscriptionConfig)
     assert voice.backend == "faster-whisper"
@@ -71,12 +76,14 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
     path.write_text(
         config_text(
             data_dir="relative-data",
-            steps="""    - name: url-resolution
+            steps="""    - name: link-discovery
+    - name: url-resolution
       timeout_seconds: 1.5
       retries: 0
       max_html_bytes: 1024
       max_pdf_bytes: 2048
       resolve_all: false
+      resolve_budget: 7
     - name: text-cleaning
 """,
         ),
@@ -89,9 +96,11 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
 
     assert config.data_dir == tmp_path / "relative-data"
     assert config.web_port == 8123
-    assert isinstance(config.processing_steps[0], URLResolutionConfig)
-    assert config.processing_steps[0].max_pdf_bytes == 2048
-    assert isinstance(config.processing_steps[1], TextCleaningConfig)
+    assert isinstance(config.processing_steps[0], LinkDiscoveryConfig)
+    assert isinstance(config.processing_steps[1], URLResolutionConfig)
+    assert config.processing_steps[1].max_pdf_bytes == 2048
+    assert config.processing_steps[1].resolve_budget == 7
+    assert isinstance(config.processing_steps[2], TextCleaningConfig)
 
 
 @pytest.mark.parametrize(
@@ -115,6 +124,30 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
         ),
         ("    - name: invented\n", "is unknown"),
         ("    - name: text-cleaning\n      surprise: true\n", "unknown field"),
+        ("    - name: link-discovery\n      budget: 3\n", "unknown field"),
+        (
+            """    - name: url-resolution
+      timeout_seconds: 1.5
+      retries: 0
+      max_html_bytes: 1024
+      max_pdf_bytes: 2048
+      resolve_all: false
+      resolve_budget: 40
+    - name: link-discovery
+""",
+            "link-discovery must appear before url-resolution",
+        ),
+        (
+            """    - name: url-resolution
+      timeout_seconds: 1.5
+      retries: 0
+      max_html_bytes: 1024
+      max_pdf_bytes: 2048
+      resolve_all: false
+      resolve_budget: 0
+""",
+            "resolve_budget must be at least 1",
+        ),
     ],
 )
 def test_invalid_processing_configuration_is_rejected(tmp_path, steps, message):
