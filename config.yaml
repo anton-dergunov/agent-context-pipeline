@@ -73,3 +73,9 @@ processing:
       # Resolve at most this many link titles per item, highest priority first.
       # A link list of 43 entries is worth reading as titles, not as bodies.
       resolve_budget: 40
+
+    # The last step: everything the item knows about itself, in one file.
+    - name: index-render
+      # At or above this many distinct links the item is a link list, which is
+      # read as a titled table rather than as content.
+      linklist_threshold: 8

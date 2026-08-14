@@ -176,10 +176,9 @@ class CaptureStoreTests(unittest.TestCase):
             metadata = json.loads((item / "metadata.json").read_text())
             self.assertEqual(metadata["category"], "Other")
             self.assertEqual(metadata["revision"], 1)
-            self.assertEqual(
-                (item / "capture" / "message.md").read_text(),
-                "---\ncategory: Other\n---\n\nplain",
-            )
+            # The category lives in metadata.json and SQLite; index.md is the
+            # only per-item contract, so message.md carries no front matter.
+            self.assertEqual((item / "capture" / "message.md").read_text(), "plain")
             self.assertEqual((item / "capture" / "source.md").read_text(), "plain")
 
     def test_capture_artifacts_live_under_capture_beside_root_metadata(self):

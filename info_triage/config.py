@@ -10,7 +10,7 @@ import yaml
 
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
-TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning", "link-discovery")
+TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning", "link-discovery", "index-render")
 YT_DLP_CHANNELS = ("stable", "nightly", "master")
 
 
@@ -48,8 +48,18 @@ class LinkDiscoveryConfig:
     name: str
 
 
+@dataclass(frozen=True)
+class IndexRenderConfig:
+    name: str
+    linklist_threshold: int
+
+
 StepConfig = (
-    VoiceTranscriptionConfig | URLResolutionConfig | TextCleaningConfig | LinkDiscoveryConfig
+    VoiceTranscriptionConfig
+    | URLResolutionConfig
+    | TextCleaningConfig
+    | LinkDiscoveryConfig
+    | IndexRenderConfig
 )
 
 
@@ -221,6 +231,17 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
         _mapping(value, context, {"name"})
         return LinkDiscoveryConfig(name)
 
+    if name == "index-render":
+        step = _mapping(value, context, {"name", "linklist_threshold"})
+        return IndexRenderConfig(
+            name,
+            _integer(
+                _required(step, "linklist_threshold", context),
+                f"{context}.linklist_threshold",
+                minimum=1,
+            ),
+        )
+
     raise ConfigError(f"{context}.name is unknown: {name}")
 
 
@@ -368,6 +389,8 @@ def load_config(path: Path) -> AppConfig:
     if "link-discovery" in names and "url-resolution" in names:
         if names.index("url-resolution") < names.index("link-discovery"):
             raise ConfigError("link-discovery must appear before url-resolution")
+    if "index-render" in names and names[-1] != "index-render":
+        raise ConfigError("index-render must be the last processing step")
 
     youtube_extractor, instagram_extractor = _parse_extractors(
         _required(root, "extractors", "configuration")

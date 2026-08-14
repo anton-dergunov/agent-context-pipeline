@@ -8,28 +8,30 @@ ordered `processing.steps` sequence.
 
 | Telegram content | Automatic preprocessing | `capture/message.md` result |
 | --- | --- | --- |
-| Voice note (`voice`) | Transcribe locally, clean text, discover and resolve URLs | Transcript in its ordered `voice` segment |
-| Plain text or caption | Clean text, discover and resolve URLs | Processed text in its ordered segment |
-| Location or venue | Clean text, discover and resolve URLs | Existing readable location block in its segment |
-| Document | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
-| Photo | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
-| Video | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
-| Animation | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
-| Generic audio (`audio`) | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
-| Video note (`video_note`) | Clean accompanying caption, then discover and resolve its URLs | Caption in its segment |
+| Voice note (`voice`) | Transcribe locally, clean text, discover and resolve URLs, render the index | Transcript in its ordered `voice` segment |
+| Plain text or caption | Clean text, discover and resolve URLs, render the index | Processed text in its ordered segment |
+| Location or venue | Clean text, discover and resolve URLs, render the index | Existing readable location block in its segment |
+| Document | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Photo | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Video | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Animation | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Generic audio (`audio`) | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Video note (`video_note`) | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
 
-Original downloaded attachments and the complete Telegram payload are always
-retained. Both Markdown files live under the item's `capture/` directory:
-`source.md` contains the segmented text after source materialization (including
-voice transcription) but before cleaning or URL resolution, and `message.md`
-contains the transformed body with category front matter. The item's ordered
+Every item ends with `index.md` at its root: the item's own account of itself,
+and the only file the laptop side reads. Original downloaded attachments and the
+complete Telegram payload are always retained. Both Markdown files live under the
+item's `capture/` directory: `source.md` contains the segmented text after source
+materialization (including voice transcription) but before cleaning or URL
+resolution, and `message.md` contains the transformed body. The item's ordered
 link table is written to `links.json` at the item root.
 
 Cleaning runs before link discovery so that zero-width characters and homoglyphs
 cannot hide a link from it. Discovery runs before URL resolution, which is the
 only step that uses the network. Link destinations and titles inserted by
 resolution are consequently not cleaned; canonicalizing them is link discovery's
-job, not a second cleaning pass.
+job, not a second cleaning pass. Index rendering runs last, so it sees the
+finished body and the resolved table.
 
 Every Telegram source message is represented uniformly:
 
@@ -184,6 +186,40 @@ URLs and successful titles, and `--report` writes a per-URL JSON audit. The
 `--max-html-bytes` and `--max-pdf-bytes` limits match the processor controls;
 `--strict` exits nonzero after writing output when any attempted enrichment has
 an expected problem.
+
+## Index rendering
+
+Index rendering runs last and writes `index.md` at the item root. It is the only
+per-item contract: the laptop reads it, and `inbox.md` is nothing more than these
+files concatenated. It uses no network and adds no information of its own —
+everything it writes is already known from the retained payloads, the processed
+body, and the link table.
+
+Its frontmatter carries the item's `id`, its `captured_at` timestamp in UTC, the
+detected `origin`, the forwarding provenance as `via`, the detected `intent`, the
+`kind` when it is already certain, the primary `canonical_url`, the `extraction`
+state with a `reason` when links were left unresolved, and `link_count` when the
+item carries more than five distinct links. An item with no links is a `note`; an
+item with at least the configured `linklist_threshold` distinct links is a
+`linklist`, which is read as a titled table rather than as content. Fields that
+depend on content extraction are absent until extraction exists.
+
+`## Captured` quotes the user's own words and nothing else, and a transcript is
+marked as dictated so a garbled phrase reads as a recognition artifact rather
+than as meaning. `## Links` is the resolved table, one row per distinct target,
+showing the resolved title where there is one and the author's own anchor text
+otherwise.
+
+Intent detection uses three heuristics and no language model. Short text
+following the last link in a message is the note; a short link-free message
+beside a forwarded or link-bearing one is the note; and a forwarded message is
+never the note. When the heuristics find no candidate or more than one, `intent`
+is empty and everything the user wrote stays in `## Captured`. An absent intent
+is honest; a guessed one would be trusted.
+
+Ordered segment headings stay in `capture/message.md`, where they describe how
+the item arrived. They never appear in the index, which is about what the item
+is rather than how many Telegram messages carried it.
 
 All configured steps run through shared telemetry. A clean run is `succeeded`;
 a completed run with recoverable target-level issues is `partial`; and a

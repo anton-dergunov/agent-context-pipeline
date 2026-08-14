@@ -18,7 +18,7 @@ from .models import (
     ProcessingResult,
     ProcessingStepOutcome,
 )
-from .storage import CAPTURE_DIR, CaptureStore, now_iso, render_message
+from .storage import CAPTURE_DIR, CaptureStore, now_iso
 
 logger = logging.getLogger("info_triage")
 
@@ -236,9 +236,6 @@ class ProcessingWorker:
                         processor_input=processor_input if outcome.status != "succeeded" else None,
                     )
                 current_step = None
-                result.message_markdown = render_message(
-                    job.category, result.message_markdown
-                )
                 workspace_root = workspace.resolve()
                 for generated in result.generated_files:
                     if not generated.source_path.resolve().is_relative_to(

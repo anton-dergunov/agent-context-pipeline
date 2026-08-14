@@ -4,6 +4,7 @@ import pytest
 
 from info_triage.config import (
     ConfigError,
+    IndexRenderConfig,
     InstagramExtractorConfig,
     LinkDiscoveryConfig,
     TextCleaningConfig,
@@ -53,10 +54,14 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
         "text-cleaning",
         "link-discovery",
         "url-resolution",
+        "index-render",
     ]
     resolution = config.processing_steps[3]
     assert isinstance(resolution, URLResolutionConfig)
     assert resolution.resolve_budget == 40
+    render = config.processing_steps[4]
+    assert isinstance(render, IndexRenderConfig)
+    assert render.linklist_threshold == 8
     voice = config.processing_steps[0]
     assert isinstance(voice, VoiceTranscriptionConfig)
     assert voice.backend == "faster-whisper"
@@ -148,6 +153,18 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
 """,
             "resolve_budget must be at least 1",
         ),
+        (
+            """    - name: index-render
+      linklist_threshold: 8
+    - name: text-cleaning
+""",
+            "index-render must be the last processing step",
+        ),
+        (
+            "    - name: index-render\n      linklist_threshold: 0\n",
+            "linklist_threshold must be at least 1",
+        ),
+        ("    - name: index-render\n", "linklist_threshold is required"),
     ],
 )
 def test_invalid_processing_configuration_is_rejected(tmp_path, steps, message):

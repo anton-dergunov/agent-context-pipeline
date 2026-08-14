@@ -11,6 +11,7 @@ from info_triage.models import (
     ProcessingResult,
 )
 from info_triage.preprocessing import (
+    IndexRenderStep,
     LinkDiscoveryStep,
     TextCleaningStep,
     URLResolutionStep,
@@ -306,10 +307,7 @@ def test_ready_item_is_not_backfilled_but_later_revision_is_processed(tmp_path):
         worker.stop()
 
     message = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text()
-    assert message == (
-        "---\ncategory: Life\n---\n\n"
-        "## Segment 1 — voice\n\nAfter revision"
-    )
+    assert message == "## Segment 1 — voice\n\nAfter revision"
     source = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "source.md").read_text()
     assert source == "## Segment 1 — voice\n\nAfter revision"
 
@@ -431,7 +429,6 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
     # Cleaning runs first, so the resolved destination is inserted afterwards and keeps
     # its tracking parameters. Canonicalization moves into link discovery.
     assert (ready / "capture" / "message.md").read_text() == (
-        "---\ncategory: Other\n---\n\n"
         "## Segment 1 — text\n\n"
         "Useful link: [Resolved article](https://example.com/article?utm_source=social&id=7)"
     )
@@ -653,3 +650,61 @@ def test_unreadable_payloads_still_deliver_the_visible_links(tmp_path):
     assert outcome.status == "partial"
     assert outcome.issues[0].reason == "invalid-input"
     assert [entry.canonical for entry in result.links] == ["https://example.com/x"]
+
+
+def test_index_render_commits_the_item_contract(tmp_path):
+    payload = telegram_payload(1, 100, text="https://example.com/x Worth a look")
+    store, item, _, _ = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+    pipeline = ProcessingPipeline(
+        [
+            TextCleaningStep(),
+            LinkDiscoveryStep(),
+            URLResolutionStep(
+                timeout_seconds=1,
+                retries=0,
+                max_html_bytes=1024,
+                max_pdf_bytes=2048,
+                resolve_all=False,
+                resolve_budget=40,
+                resolver=FakeResolver({}),
+            ),
+            IndexRenderStep(linklist_threshold=8),
+        ]
+    )
+    worker = ProcessingWorker(store, pipeline)
+    coordinator = ProcessingCoordinator(store, pipeline, worker)
+
+    worker.start()
+    coordinator.submit(item)
+    try:
+        wait_for_status(store, 1, "ready")
+    finally:
+        worker.stop()
+
+    index = (tmp_path / "inbox" / "2026-08-09_1" / "index.md").read_text()
+    assert index.startswith("---\nid: 2026-08-09_1\ncaptured_at: 2026-08-09T10:00:00Z\n")
+    assert 'intent: "Worth a look"' in index
+    assert "canonical_url: https://example.com/x" in index
+    assert "extraction: none" in index
+    assert "## Captured\n\n> Worth a look" in index
+    assert "[Resolved article](https://example.com/x)" in index
+    # Segments are a Telegram transport detail and stay in capture/message.md.
+    assert "## Segment 1" not in index
+
+
+def test_index_render_reports_unreadable_input_without_withholding_the_index(tmp_path):
+    payload = telegram_payload(1, 100, text="hello")
+    _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
+    (job.path / "capture" / "telegram.json").write_text("not json", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    outcome = IndexRenderStep(linklist_threshold=8).run(job, result, workspace)
+
+    assert outcome.status == "partial"
+    assert outcome.issues[0].reason == "invalid-input"
+    index = (workspace / "index.md").read_text()
+    assert "id: 2026-08-09_1" in index
+    assert "captured_at: 2026-08-09T10:00:00Z" in index
+    assert "> ## Segment 1 — text" not in index
+    assert "> hello" in index

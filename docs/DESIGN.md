@@ -145,6 +145,7 @@ For example:
 ```text
 staging/
 └── 2026-08-08_18492/
+    ├── index.md
     ├── metadata.json
     └── capture/
         ├── source.md
@@ -154,10 +155,12 @@ staging/
             └── 01-photo.jpg
 ```
 
-`metadata.json` stays at the item root because it is the item's identity, and
-because synchronization reads every item's revision through a metadata-only
-transfer. Everything captured from Telegram is provenance and lives under
-`capture/`. Paths recorded inside `metadata.json` are relative to the item root.
+`index.md` and `metadata.json` stay at the item root. `index.md` is the item's
+own account of itself and the only file the laptop side has to read;
+`metadata.json` is the item's identity, and synchronization reads every item's
+revision through a metadata-only transfer. Everything captured from Telegram is
+provenance and lives under `capture/`. Paths recorded inside `metadata.json` are
+relative to the item root.
 
 The directory name is based on the Telegram creation date and message ID:
 
@@ -175,9 +178,11 @@ The important property is that the directory name remains stable if the Telegram
 
 Every ready item contains both Markdown files, side by side under `capture/`.
 `source.md` is the materialized text checkpoint after source-to-text work such
-as voice transcription but before cleaning or URL resolution. It has no category
-front matter. `message.md` is the processed, laptop-facing representation with
-category front matter.
+as voice transcription but before cleaning or URL resolution. `message.md` is the
+processed body. Neither carries front matter: the item's fields belong to
+`index.md`, and duplicating them would create a second source of truth. Both
+files are provenance — a faithful record of what arrived and what the pipeline
+made of it — and neither is what the laptop reads.
 
 Every retained Telegram message is an explicit ordered segment. For example:
 
@@ -219,6 +224,53 @@ segment.
 
 ---
 
+# 6a. `index.md`
+
+`index.md` is the item's contract. It is written by the last processing step and
+is the only per-item file the laptop side reads: nothing else in the item has to
+be opened to decide what the item is and what should happen to it.
+
+```markdown
+---
+id: 2026-08-11_100
+captured_at: 2026-08-11T14:33:28Z
+origin: instagram
+via: "@ai_machinelearning_big_data (forwarded channel)"
+intent: "Interesting thought to ponder upon"
+kind: note
+canonical_url: https://www.instagram.com/reel/DbW0FoHI1OO/
+extraction: none
+---
+
+## Captured
+
+> Interesting thought to ponder upon
+
+## Links
+
+| # | link | handler | status |
+|---|------|---------|--------|
+| 1 | [A reel worth watching](https://www.instagram.com/reel/DbW0FoHI1OO/) | instagram | resolved |
+```
+
+The frontmatter is the machine-readable part and is authoritative. A field is
+present only when it is actually known — an absent field is information, and an
+invented one would be trusted and act on the reader. `intent` in particular is
+quoted verbatim, never rewritten and never guessed: it is detected from three
+positional heuristics over the segments and left empty whenever they disagree.
+
+`## Captured` holds the user's own words and nothing else. `## Links` is the
+resolved link table. Segments do not appear here at all — how many Telegram
+messages carried an item is a transport detail that belongs in
+`capture/message.md`.
+
+Fields that describe retrieved content — the title, authors, publication date,
+venue, and the sections listing extracted sources and their leads — arrive with
+content extraction and are absent until then. The file is Markdown rather than
+Org because extracted web text has to be embeddable without escaping.
+
+---
+
 # 7. `metadata.json`
 
 A small `metadata.json` can preserve useful source information that belongs with the exported item.
@@ -256,6 +308,7 @@ For example:
 
 ```text
 2026-08-08_18492/
+├── index.md
 ├── metadata.json
 ├── links.json
 └── capture/
@@ -395,10 +448,10 @@ staging returns to `received`.
 
 Processing steps are ordinary ordered Python functions registered from the
 strict, commented `config.yaml`. The shipped order transcribes Telegram voice
-attachments, cleans text, then resolves recognized short URLs. Voice output is
-materialized in `capture/source.md` before the text transforms. Expected future
-steps include OCR, other transcription, extraction, and item-level
-classification.
+attachments, cleans text, discovers the item's links, resolves them, and renders
+`index.md` last. Voice output is materialized in `capture/source.md` before the
+text transforms. Expected future steps include OCR, other transcription,
+extraction, and item-level classification.
 
 The repository already contains reusable implementations for cautious text
 cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
@@ -472,7 +525,7 @@ replace that member's raw payload, content, and attachments
     ↓
 regenerate the segmented capture/source.md
     ↓
-run the configured processors and regenerate capture/message.md
+run the configured processors, regenerate capture/message.md and index.md
     ↓
 increment the metadata revision
     ↓
@@ -641,12 +694,17 @@ The synchronization command also generates:
 ~/info-triage-inbox/inbox.md
 ```
 
-This file contains one section per current item, ordered by its UTC
-`received_at`. Each section contains a human-readable timestamp, a blockquoted
-list of user-facing `capture/message.md` front-matter fields, a relative link to the
-item directory, and the processed Markdown body. It deliberately excludes
-operational metadata such as Telegram identities, revisions, and attachment
-internals.
+`inbox.md` is the items' `index.md` files concatenated, oldest first by UTC
+`received_at`, under one `## <id>` heading each and with their own headings
+demoted one level. Because it is a concatenation there is no drift and no second
+source of truth: whatever an item claims about itself, it claims identically in
+both places. Each item's frontmatter is fenced as a YAML block, since frontmatter
+is only unambiguous at the top of a file.
+
+A short generated header gives the two operational numbers — how many items are
+waiting and how old the oldest is — and tells the reader which files are
+provenance and how to file an item. Operational metadata such as Telegram
+identities, revisions, and attachment internals never appears.
 
 `inbox.md` is a derived snapshot rather than acknowledgement state. It is
 replaced atomically after every successful sync, so edits to it are not

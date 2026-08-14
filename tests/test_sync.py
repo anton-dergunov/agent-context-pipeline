@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from info_triage.sync import (
@@ -19,13 +20,20 @@ from info_triage.sync import (
 )
 
 
+def index_text(name: str, captured_at: str, body: str = "> a note") -> str:
+    return (
+        f"---\nid: {name}\ncaptured_at: {captured_at}\nintent: null\n---\n\n## Captured\n\n{body}\n"
+    )
+
+
 def write_item(
     inbox: Path,
     name: str,
     *,
     received_at: str,
     revision: int = 1,
-    message: str = "---\ncategory: Other\n---\n\nmessage",
+    message: str = "## Segment 1 — text\n\nmessage",
+    index: str | None = None,
 ) -> Path:
     item = inbox / name
     item.mkdir(parents=True)
@@ -37,6 +45,10 @@ def write_item(
                 "received_at": received_at,
             }
         ),
+        encoding="utf-8",
+    )
+    (item / "index.md").write_text(
+        index_text(name, received_at) if index is None else index,
         encoding="utf-8",
     )
     capture = item / "capture"
@@ -115,41 +127,49 @@ class SyncUnitTests(unittest.TestCase):
             (local_inbox / item.name).mkdir()
             self.assertIsNone(deletion_decision(item, {item.name: 2}, local_inbox))
 
-    def test_rendered_inbox_is_ordered_and_separates_metadata_from_body(self):
+    def test_rendered_inbox_concatenates_index_files_oldest_first(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
             write_item(
                 inbox,
                 "2026-08-10_2",
                 received_at="2026-08-10T11:30:00+01:00",
-                message="---\ncategory: Career\npriority: High\n---\n\n# Later\n\n---\nbody\n\n",
+                index=(
+                    '---\nid: 2026-08-10_2\nintent: "later one"\n---\n\n'
+                    "## Captured\n\n> later\n\n## Links\n\n| # | link |\n|---|------|\n"
+                ),
             )
-            write_item(
-                inbox,
-                "2026-08-09_1",
-                received_at="2026-08-09T10:00:00+00:00",
-                message="---\ncategory: Other\n---\n\nEarlier",
-            )
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
 
             result = render_inbox(inbox)
 
-            self.assertLess(
-                result.index("2026-08-09 10:00:00 UTC"), result.index("2026-08-10 10:30:00 UTC")
-            )
+            self.assertLess(result.index("## 2026-08-09_1"), result.index("## 2026-08-10_2"))
+            # Frontmatter is only unambiguous at the top of a file, so it is fenced here.
             self.assertIn(
-                "> **Metadata**\n>\n> - Category: `Career`\n> - Priority: `High`\n"
-                "> - Item directory: [open](./2026-08-10_2/)",
+                '## 2026-08-10_2\n\n```yaml\nid: 2026-08-10_2\nintent: "later one"\n```\n\n'
+                "### Captured\n\n> later\n\n### Links",
                 result,
             )
-            self.assertIn("\n\n# Later\n\n---\nbody\n\n", result)
+            self.assertNotIn("\n## Captured", result)
             self.assertNotIn("chat_id", result)
+
+    def test_header_counts_the_waiting_items_and_the_oldest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            oldest = datetime.now(UTC) - timedelta(days=3, hours=2)
+            write_item(inbox, "2026-08-09_1", received_at=oldest.isoformat())
+            write_item(inbox, "2026-08-10_2", received_at=datetime.now(UTC).isoformat())
+
+            result = render_inbox(inbox)
+
+            self.assertTrue(result.startswith("# Inbox — 2 items, oldest 3 days\n"))
 
     def test_empty_inbox_contains_only_generated_header(self):
         with tempfile.TemporaryDirectory() as temporary:
             result = render_inbox(Path(temporary))
-            self.assertTrue(result.startswith("# Inbox\n"))
+            self.assertTrue(result.startswith("# Inbox — 0 items\n"))
             self.assertIn("overwritten on every sync", result)
-            self.assertNotIn("## ", result)
+            self.assertNotIn("\n## ", result)
 
     def test_generation_failure_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -160,6 +180,7 @@ class SyncUnitTests(unittest.TestCase):
             (item / "metadata.json").write_text(
                 json.dumps({"received_at": "not-a-time"}), encoding="utf-8"
             )
+            (item / "index.md").write_text("---\nid: x\n---\n", encoding="utf-8")
             (item / "capture").mkdir()
             (item / "capture" / "message.md").write_text("message", encoding="utf-8")
 
@@ -198,6 +219,18 @@ class SyncUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
                 render_inbox(inbox)
 
+    def test_missing_index_preserves_previous_inbox(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            (inbox / "inbox.md").write_text("previous", encoding="utf-8")
+            item = write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+            (item / "index.md").unlink()
+
+            with self.assertRaisesRegex(SyncError, "Missing index.md"):
+                generate_inbox(inbox)
+
+            self.assertEqual((inbox / "inbox.md").read_text(), "previous")
+
 
 class SynchronizeTests(unittest.TestCase):
     def test_sync_deletes_delivered_revision_and_restores_newer_revision(self):
@@ -219,7 +252,7 @@ class SynchronizeTests(unittest.TestCase):
                 "2026-08-09_2",
                 received_at="2026-08-09T09:00:00+00:00",
                 revision=2,
-                message="---\ncategory: Life\n---\n\nedited",
+                index=index_text("2026-08-09_2", "2026-08-09T09:00:00Z", body="> edited"),
             )
             write_item(
                 remote,

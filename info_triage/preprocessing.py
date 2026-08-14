@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import (
+    IndexRenderConfig,
     LinkDiscoveryConfig,
     StepConfig,
     TextCleaningConfig,
@@ -19,6 +20,7 @@ from .extractors.media.transcription import (
     resolve_backend_and_model,
     resolve_transcription_threads,
 )
+from .index import render_index
 from .links import build_link_table, canonicalize_url, link_priority, route_handler
 from .models import (
     ProcessingIssue,
@@ -33,6 +35,7 @@ from .utilities.url_resolution import LinkResolution, URLResolver, enrich_links
 
 NO_SPEECH_TEXT = "[No speech recognized]"
 LINK_TABLE_NAME = "links.json"
+INDEX_NAME = "index.md"
 
 
 def read_capture_payloads(job: ProcessingJob) -> list[dict[str, Any]]:
@@ -437,6 +440,62 @@ class TextCleaningStep:
         result.message_markdown = cleaned
 
 
+class IndexRenderStep:
+    """Write the item's `index.md`, the only per-item contract the laptop reads."""
+
+    name = "index-render"
+
+    def __init__(self, *, linklist_threshold: int) -> None:
+        self.linklist_threshold = linklist_threshold
+
+    @staticmethod
+    def applies(job: ProcessingJob) -> bool:
+        del job
+        return True
+
+    def run(
+        self,
+        job: ProcessingJob,
+        result: ProcessingResult,
+        workspace: Path,
+    ) -> ProcessingStepOutcome | None:
+        # This step never declares failure: a rolled-back index leaves a ready
+        # item without the one file synchronization requires, which would hold up
+        # every other item. Whatever cannot be read is simply left out.
+        issues = []
+        try:
+            metadata = json.loads((job.path / "metadata.json").read_text(encoding="utf-8"))
+            if not isinstance(metadata, dict):
+                raise ValueError("metadata.json does not contain an object")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            metadata = {}
+            issues.append(
+                ProcessingIssue("invalid-input", str(error), error_type=type(error).__name__)
+            )
+        try:
+            payloads = read_capture_payloads(job)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+            payloads = []
+            issues.append(
+                ProcessingIssue("invalid-input", str(error), error_type=type(error).__name__)
+            )
+
+        destination = workspace / INDEX_NAME
+        destination.write_text(
+            render_index(
+                job.path.name,
+                metadata,
+                payloads,
+                result.message_markdown,
+                result.links,
+                linklist_threshold=self.linklist_threshold,
+            ),
+            encoding="utf-8",
+        )
+        result.put_generated_file(Path(INDEX_NAME), destination)
+        return ProcessingStepOutcome.partial(*issues) if issues else None
+
+
 def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
     """Construct ordered processing steps from validated configuration."""
     steps = []
@@ -465,6 +524,8 @@ def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
             steps.append(TextCleaningStep())
         elif isinstance(config, LinkDiscoveryConfig):
             steps.append(LinkDiscoveryStep())
+        elif isinstance(config, IndexRenderConfig):
+            steps.append(IndexRenderStep(linklist_threshold=config.linklist_threshold))
         else:
             raise TypeError(f"Unsupported processing configuration: {config!r}")
     return steps

@@ -47,18 +47,6 @@ def atomic_write_bytes(path: Path, content: bytes) -> None:
     temporary.replace(path)
 
 
-def render_message(category: str | None, content: str) -> str:
-    if category is None:
-        return content
-    return f"---\ncategory: {category}\n---\n\n{content}"
-
-
-def original_content(category: str | None, message: str) -> str:
-    if category is None:
-        return message
-    return message.removeprefix(render_message(category, ""))
-
-
 class CaptureStore:
     """Store captured content in files and operational state in SQLite."""
 
@@ -350,7 +338,7 @@ class CaptureStore:
         capture_path = item_path / CAPTURE_DIR
         capture_path.mkdir(parents=True, exist_ok=True)
         atomic_write(capture_path / "source.md", content)
-        atomic_write(capture_path / "message.md", render_message(category, content))
+        atomic_write(capture_path / "message.md", content)
         existing_metadata = self._read_metadata(item_path)
         attachment_manifest = existing_metadata.get("attachments", [])
         warnings = existing_metadata.get("download_warnings", [])
@@ -718,9 +706,7 @@ class CaptureStore:
                         shutil.copyfile(generated.source_path, temporary)
                     source = result.source_markdown
                     if source is None:
-                        source = original_content(
-                            item.category, result.message_markdown
-                        )
+                        source = result.message_markdown
                     for name, content in (
                         ("source.md", source),
                         ("message.md", result.message_markdown),

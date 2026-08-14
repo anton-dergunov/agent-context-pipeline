@@ -92,7 +92,7 @@ class ProcessingTests(unittest.TestCase):
             ).read_text()
             self.assertEqual(
                 message,
-                "---\ncategory: Other\n---\n\nfirst\nprocessed",
+                "first\nprocessed",
             )
             records = [
                 json.loads(line)
@@ -213,7 +213,7 @@ class ProcessingTests(unittest.TestCase):
             ready = data_dir / "inbox" / "2026-08-09_1"
             self.assertEqual(
                 (ready / "capture" / "message.md").read_text(),
-                "---\ncategory: Other\n---\n\noriginal\nprocessed",
+                "original\nprocessed",
             )
             self.assertFalse((ready / "generated" / "discarded.txt").exists())
             stats = {row["processor"]: row for row in store.processor_statistics()}
@@ -301,7 +301,7 @@ class ProcessingTests(unittest.TestCase):
             ).read_text()
             self.assertEqual(
                 message,
-                "---\ncategory: Other\n---\n\nnew\nrevision 2",
+                "new\nrevision 2",
             )
             source = (
                 Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "source.md"
@@ -352,7 +352,7 @@ class ProcessingTests(unittest.TestCase):
             ).read_text()
             self.assertEqual(
                 message,
-                "---\ncategory: Life\n---\n\nsource\nrevision 2",
+                "source\nrevision 2",
             )
 
     def test_category_change_rebuilds_source_from_raw_telegram_payload(self):
@@ -384,10 +384,7 @@ class ProcessingTests(unittest.TestCase):
             store.promote_if_current(categorized)
 
             self.assertEqual((ready / "capture" / "source.md").read_text(), source)
-            self.assertEqual(
-                (ready / "capture" / "message.md").read_text(),
-                "---\ncategory: Life\n---\n\n" + source,
-            )
+            self.assertEqual((ready / "capture" / "message.md").read_text(), source)
 
     def test_restart_returns_interrupted_processing_to_queue(self):
         with tempfile.TemporaryDirectory() as temporary:
