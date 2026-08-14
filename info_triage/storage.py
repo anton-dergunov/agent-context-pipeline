@@ -87,6 +87,7 @@ class CaptureStore:
                     short_text TEXT,
                     error TEXT,
                     processing_step TEXT,
+                    problems TEXT,
                     PRIMARY KEY (chat_id, message_id)
                 )
                 """
@@ -101,6 +102,8 @@ class CaptureStore:
                 )
             if "processing_step" not in columns:
                 connection.execute("ALTER TABLE items ADD COLUMN processing_step TEXT")
+            if "problems" not in columns:
+                connection.execute("ALTER TABLE items ADD COLUMN problems TEXT")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS item_messages (
@@ -189,7 +192,7 @@ class CaptureStore:
             return connection.execute(
                 """
                 SELECT message_id, status, category, revision, created_at,
-                       updated_at, short_text, error, processing_step
+                       updated_at, short_text, error, processing_step, problems
                 FROM items
                 WHERE status = ?
                 ORDER BY updated_at DESC
@@ -303,7 +306,10 @@ class CaptureStore:
                     updated_at = excluded.updated_at,
                     short_text = excluded.short_text,
                     error = excluded.error,
-                    processing_step = excluded.processing_step
+                    processing_step = excluded.processing_step,
+                    -- A re-captured revision is processed again from scratch, so
+                    -- the previous revision's problems no longer describe it.
+                    problems = NULL
                 """,
                 (
                     chat_id,
@@ -723,13 +729,22 @@ class CaptureStore:
                     raise
 
             staging_path.rename(inbox_path)
+            problems = result.problems if result is not None else []
             connection.execute(
                 """
                 UPDATE items SET status = 'ready', processing_step = NULL,
-                    error = NULL, updated_at = ?
+                    error = NULL, problems = ?, updated_at = ?
                 WHERE chat_id = ? AND message_id = ? AND revision = ?
                 """,
-                (now_iso(), item.chat_id, item.message_id, item.revision),
+                (
+                    json.dumps([problem.to_dict() for problem in problems], ensure_ascii=False)
+                    if problems
+                    else None,
+                    now_iso(),
+                    item.chat_id,
+                    item.message_id,
+                    item.revision,
+                ),
             )
             return True
 

@@ -134,6 +134,9 @@ class ProcessingResult:
     generated_files: list[GeneratedFile] = field(default_factory=list)
     links: list[LinkTableEntry] = field(default_factory=list)
     extractions: list["ExtractionRecord"] = field(default_factory=list)
+    # What preprocessing could not do. Deliberately outside the per-step snapshot:
+    # a rolled-back step still has to answer for itself.
+    problems: list["ProcessingProblem"] = field(default_factory=list)
 
     def put_generated_file(self, relative_path: Path, source_path: Path) -> None:
         """Hand over a generated file, replacing any earlier one at that path."""
@@ -157,6 +160,34 @@ class ProcessingIssue:
     def __post_init__(self) -> None:
         if re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", self.reason) is None:
             raise ValueError(f"Invalid processing issue reason: {self.reason}")
+
+
+@dataclass(frozen=True)
+class ProcessingProblem:
+    """One preprocessing problem the item carries with it into the inbox.
+
+    Enrichment is nice to have; the captured message is not. A problem is what a
+    step could not do, recorded so it is visible in the item, on the dashboard and
+    in the log — never a reason to withhold the item.
+    """
+
+    step: str
+    outcome: Literal["partial", "failed"]
+    issue: ProcessingIssue
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in (
+                ("step", self.step),
+                ("outcome", self.outcome),
+                ("reason", self.issue.reason),
+                ("message", self.issue.message),
+                ("target", self.issue.target),
+                ("error_type", self.issue.error_type),
+            )
+            if value is not None
+        }
 
 
 @dataclass(frozen=True)

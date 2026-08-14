@@ -326,11 +326,24 @@ Ordered segment headings stay in `capture/message.md`, where they describe how
 the item arrived. They never appear in the index, which is about what the item
 is rather than how many Telegram messages carried it.
 
+`## Problems` appears only when preprocessing hit some, and lists each one as its
+step, outcome, reason key, target and message, with a `problems` count in the
+frontmatter. It is what turns a missing `title` or a thin `## Sources` from a
+mystery into a fact about the run.
+
 All configured steps run through shared telemetry. A clean run is `succeeded`;
 a completed run with recoverable target-level issues is `partial`; and a
 declared `failed` run has its changes discarded before the next step. Unexpected
-Python exceptions are logged with their type and traceback and remain serious
-item failures. `data/logs/processor-runs.jsonl` contains one compact JSON event
+Python exceptions are logged with their type and traceback and are discarded the
+same way. **No preprocessing failure of any kind withholds an item.** A step that
+raises, a step that returns nothing usable, and a step that hands over a file it
+does not own all cost their own output and nothing else: the item is delivered
+with its capture text, whatever earlier steps produced, and a `## Problems`
+section naming what went wrong. Only an item whose capture text cannot be read,
+or which cannot be committed into the inbox at all, stays behind as `failed` —
+there is nothing to deliver in either case.
+
+`data/logs/processor-runs.jsonl` contains one compact JSON event
 per physical line. Successful events never contain processor inputs or results;
 problem events contain the untruncated input Markdown and failed targets, but no
 transformed result or binary media.

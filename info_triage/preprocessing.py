@@ -706,6 +706,7 @@ class IndexRenderStep:
                 result.message_markdown,
                 result.links,
                 result.extractions,
+                result.problems,
                 linklist_threshold=self.linklist_threshold,
                 lead_words=self.lead_words,
             ),

@@ -136,7 +136,7 @@ class ProcessingTests(unittest.TestCase):
             )
             self.assertEqual(generated.read_text(), "recognized text")
 
-    def test_worker_refuses_generated_files_from_outside_the_workspace(self):
+    def test_generated_files_from_outside_the_workspace_are_dropped_not_fatal(self):
         class OutsideStep(AppendStep):
             name = "outside"
 
@@ -163,14 +163,20 @@ class ProcessingTests(unittest.TestCase):
             worker.start()
             coordinator.submit(item)
             try:
-                failed = wait_for_status(store, 1, "failed")
+                ready = wait_for_status(store, 1, "ready")
             finally:
                 worker.stop()
 
-            self.assertIn("generated/cached.txt", failed["error"])
-            self.assertIn("processing workspace", failed["error"])
+            item_path = Path(temporary) / "data" / "inbox" / "2026-08-09_1"
+            self.assertEqual((item_path / "capture" / "source.md").read_text(), "image")
+            self.assertFalse((item_path / "generated" / "cached.txt").exists())
+            problems = json.loads(ready["problems"])
+            self.assertEqual(problems[0]["reason"], "unusable-generated-file")
+            self.assertEqual(problems[0]["step"], "outside")
 
-    def test_failure_keeps_item_and_worker_continues(self):
+    def test_a_raising_step_never_costs_the_item(self):
+        """The hard requirement: capture always ships, enrichment is a bonus."""
+
         class SometimesFails(AppendStep):
             name = "sometimes-fails"
 
@@ -181,7 +187,7 @@ class ProcessingTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
-            pipeline = ProcessingPipeline([SometimesFails()])
+            pipeline = ProcessingPipeline([SometimesFails(), AppendStep()])
             worker = ProcessingWorker(store, pipeline)
             coordinator = ProcessingCoordinator(store, pipeline, worker)
             for message_id in (1, 2):
@@ -194,23 +200,27 @@ class ProcessingTests(unittest.TestCase):
                 coordinator.submit(item)
             worker.start()
             try:
-                failed = wait_for_status(store, 1, "failed")
+                delivered = wait_for_status(store, 1, "ready")
                 wait_for_status(store, 2, "ready")
             finally:
                 worker.stop()
 
-            self.assertEqual(failed["processing_step"], "sometimes-fails")
-            self.assertIn("deliberate failure", failed["error"])
-            self.assertTrue((Path(temporary) / "staging" / "2026-08-09_1").is_dir())
+            # The item is in the inbox with its capture text, and the step that
+            # followed the failing one still ran.
+            self.assertEqual(
+                (Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text(),
+                "1\nprocessed",
+            )
+            self.assertIsNone(delivered["error"])
+            problems = json.loads(delivered["problems"])
+            self.assertEqual(problems[0]["step"], "sometimes-fails")
+            self.assertEqual(problems[0]["outcome"], "failed")
+            self.assertEqual(problems[0]["error_type"], "RuntimeError")
             failure_record = json.loads(
-                (Path(temporary) / "logs" / "processor-runs.jsonl")
-                .read_text()
-                .splitlines()[0]
+                (Path(temporary) / "logs" / "processor-runs.jsonl").read_text().splitlines()[0]
             )
             self.assertEqual(failure_record["outcome"], "failed")
-            self.assertEqual(
-                failure_record["issues"][0]["error_type"], "RuntimeError"
-            )
+            self.assertEqual(failure_record["issues"][0]["error_type"], "RuntimeError")
             self.assertIn("RuntimeError: deliberate failure", failure_record["traceback"])
 
     def test_declared_failure_rolls_back_and_later_step_continues(self):

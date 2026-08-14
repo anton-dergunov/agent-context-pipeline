@@ -15,10 +15,11 @@ from .models import (
     CapturedItem,
     ProcessingIssue,
     ProcessingJob,
+    ProcessingProblem,
     ProcessingResult,
     ProcessingStepOutcome,
 )
-from .storage import CAPTURE_DIR, CaptureStore, now_iso
+from .storage import CAPTURE_DIR, RESERVED_GENERATED_PATHS, CaptureStore, now_iso
 
 logger = logging.getLogger("info_triage")
 
@@ -109,11 +110,16 @@ class ProcessorTelemetry:
                 record["traceback"] = traceback_text
 
         line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
-        with self._lock:
-            self.log_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.log_path.open("a", encoding="utf-8") as output:
-                output.write(line)
-            self.store.record_processor_run(processor, outcome, issues)
+        try:
+            with self._lock:
+                self.log_path.parent.mkdir(parents=True, exist_ok=True)
+                with self.log_path.open("a", encoding="utf-8") as output:
+                    output.write(line)
+                self.store.record_processor_run(processor, outcome, issues)
+        except Exception:
+            # Losing the record of a run is bad; losing the item because its run
+            # could not be recorded is worse.
+            logger.exception("Could not record the %s run for item %s", processor, job.path.name)
 
 
 class ProcessingWorker:
@@ -166,6 +172,40 @@ class ProcessingWorker:
                 continue
             self._process(job)
 
+    @staticmethod
+    def _escaped_files(result: ProcessingResult, workspace_root: Path) -> list[ProcessingIssue]:
+        """Report generated files the store must not be asked to commit.
+
+        A file outside the workspace, or one that is not there at all, is a bug in
+        the step that handed it over. It costs the item that file — never the item.
+        """
+        issues = []
+        for generated in result.generated_files:
+            relative = generated.relative_path
+            try:
+                escaped = not generated.source_path.resolve().is_relative_to(workspace_root)
+                missing = not generated.source_path.is_file()
+            except OSError:
+                escaped, missing = False, True
+            if relative.is_absolute() or ".." in relative.parts:
+                fault = "an unsafe path inside the item"
+            elif relative.parts and relative.parts[0] in RESERVED_GENERATED_PATHS:
+                fault = "a path reserved for capture"
+            elif missing:
+                fault = f"{generated.source_path}, which is missing"
+            elif escaped:
+                fault = f"{generated.source_path}, outside the processing workspace"
+            else:
+                continue
+            issues.append(
+                ProcessingIssue(
+                    "unusable-generated-file",
+                    f"{relative} came from {fault}",
+                    target=str(relative),
+                )
+            )
+        return issues
+
     def _process(self, job: ProcessingJob) -> None:
         current_step = None
         try:
@@ -178,6 +218,7 @@ class ProcessingWorker:
             prefix = f"{job.path.name}-r{job.revision}-"
             with tempfile.TemporaryDirectory(prefix=prefix) as workspace_text:
                 workspace = Path(workspace_text)
+                workspace_root = workspace.resolve()
                 for index, step in enumerate(steps):
                     current_step = step.name
                     if not self.store.set_processing_step(job, current_step):
@@ -192,6 +233,7 @@ class ProcessingWorker:
                     step_workspace = workspace / f"step-{index:02d}"
                     step_workspace.mkdir()
                     started = time.monotonic()
+                    traceback_text = None
                     try:
                         declared_outcome = step.run(job, result, step_workspace)
                         if declared_outcome is None:
@@ -204,28 +246,40 @@ class ProcessingWorker:
                                 f"{declared_outcome!r}"
                             )
                     except Exception as error:
-                        duration_ms = (time.monotonic() - started) * 1000
-                        issue = ProcessingIssue(
-                            _exception_reason(error),
-                            str(error),
-                            error_type=type(error).__name__,
-                        )
-                        self.telemetry.record(
-                            job,
+                        # An unexpected exception is a serious processor problem and
+                        # keeps its type and traceback — but the item still ships. The
+                        # captured message is the point; enrichment is a bonus.
+                        traceback_text = traceback.format_exc()
+                        logger.exception(
+                            "Processor %s failed for Telegram item %s",
                             step.name,
-                            "failed",
-                            duration_ms,
-                            (issue,),
-                            processor_input=processor_input,
-                            traceback_text=traceback.format_exc(),
+                            job.message_id,
                         )
-                        raise
+                        outcome = ProcessingStepOutcome.failed(
+                            ProcessingIssue(
+                                _exception_reason(error),
+                                str(error),
+                                error_type=type(error).__name__,
+                            )
+                        )
+                    else:
+                        escaped = self._escaped_files(result, workspace_root)
+                        if escaped:
+                            logger.error(
+                                "Processor %s handed over files it does not own", step.name
+                            )
+                            outcome = ProcessingStepOutcome.failed(*escaped)
 
                     if outcome.status == "failed":
                         result.message_markdown = snapshot.message_markdown
                         result.source_markdown = snapshot.source_markdown
                         result.generated_files = snapshot.generated_files
                         result.links = snapshot.links
+                    if outcome.status != "succeeded":
+                        result.problems.extend(
+                            ProcessingProblem(step.name, outcome.status, issue)
+                            for issue in outcome.issues
+                        )
                     duration_ms = (time.monotonic() - started) * 1000
                     self.telemetry.record(
                         job,
@@ -234,17 +288,9 @@ class ProcessingWorker:
                         duration_ms,
                         outcome.issues,
                         processor_input=processor_input if outcome.status != "succeeded" else None,
+                        traceback_text=traceback_text,
                     )
                 current_step = None
-                workspace_root = workspace.resolve()
-                for generated in result.generated_files:
-                    if not generated.source_path.resolve().is_relative_to(
-                        workspace_root
-                    ):
-                        raise ValueError(
-                            "Generated files must come from the processing workspace: "
-                            f"{generated.relative_path} came from {generated.source_path}"
-                        )
                 self.store.promote_if_current(job, result)
         except Exception as error:
             if self.store.fail_if_current(job, str(error), current_step):

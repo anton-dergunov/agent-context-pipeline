@@ -1,6 +1,7 @@
 """Small read-only operational dashboard and health endpoint."""
 
 import html
+import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -123,6 +124,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 )
             if item["error"]:
                 message += f'<div class="error">{html.escape(item["error"])}</div>'
+            message += self._problem_details(item["problems"])
             rows.append(
                 "<tr>"
                 f"<td>{html.escape(item_id)}</td>"
@@ -136,6 +138,30 @@ class WebHandler(BaseHTTPRequestHandler):
         if not rows:
             rows.append('<tr><td colspan="6" class="empty">No items</td></tr>')
         return heading, rows
+
+    @staticmethod
+    def _problem_details(problems: str | None) -> str:
+        """Show what enrichment could not do for an item that was delivered anyway."""
+        if not problems:
+            return ""
+        try:
+            records = json.loads(problems)
+        except json.JSONDecodeError:
+            return ""
+        if not isinstance(records, list):
+            return ""
+        rows = []
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            outcome = str(record.get("outcome", "partial"))
+            css = "failed" if outcome == "failed" else "partial"
+            text = f"{record.get('step', '?')} {outcome} — {record.get('reason', '?')}"
+            target = record.get("target")
+            if target:
+                text += f" — {target}"
+            rows.append(f'<div class="{html.escape(css)}">{html.escape(text)}</div>')
+        return "".join(rows)
 
     def _processor_table(self) -> tuple[str, list[str]]:
         heading = (

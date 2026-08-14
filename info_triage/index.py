@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .extraction import CONTENT_NAME, ExtractionRecord
-from .models import LinkTableEntry
+from .models import LinkTableEntry, ProcessingProblem
 from .rendering import SEGMENT_HEADING_RE, is_forwarded, payload_order, segment_kind
 from .utilities.markdown import escape_markdown_destination, escape_markdown_label
 from .utilities.url_resolution import iter_link_occurrences
@@ -403,6 +403,25 @@ def _links_table(links: Sequence[LinkTableEntry]) -> str:
     return "\n".join(rows)
 
 
+def _problems_section(problems: Sequence[ProcessingProblem]) -> str:
+    """State what enrichment could not do, so a thin item is never a mystery.
+
+    The item is here either way; this is what to blame when a field is missing
+    and whether opening the source is worth it.
+    """
+    lines = []
+    for problem in problems:
+        issue = problem.issue
+        head = f"- `{problem.step}` {problem.outcome} — `{issue.reason}`"
+        if issue.target:
+            head += f" — {' '.join(str(issue.target).split())}"
+        detail = " ".join(issue.message.split())
+        if detail:
+            head += f" — {detail}"
+        lines.append(head)
+    return "\n".join(lines)
+
+
 def _without_segment_headings(body: str) -> str:
     """Drop the segment headings: a transport detail never belongs in the index."""
     kept: list[str] = []
@@ -446,6 +465,7 @@ def render_index(
     body: str,
     links: Sequence[LinkTableEntry],
     extractions: Sequence[ExtractionRecord] = (),
+    problems: Sequence[ProcessingProblem] = (),
     *,
     linklist_threshold: int,
     lead_words: int = 120,
@@ -496,6 +516,10 @@ def render_index(
     link_count = len(_captured(links))
     if link_count > 5:
         fields.append(("link_count", str(link_count)))
+    if problems:
+        # Says the enrichment below is incomplete without saying what is wrong with
+        # it — `## Problems` does that, and the item is delivered either way.
+        fields.append(("problems", str(len(problems))))
 
     sections = [
         "---",
@@ -514,4 +538,6 @@ def render_index(
     listed = _listed(links)
     if listed:
         sections.extend(["", "## Links", "", _links_table(listed)])
+    if problems:
+        sections.extend(["", "## Problems", "", _problems_section(problems)])
     return "\n".join(sections) + "\n"

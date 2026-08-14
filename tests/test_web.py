@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from info_triage.models import ProcessingIssue
+from info_triage.models import ProcessingIssue, ProcessingProblem, ProcessingResult
 from info_triage.storage import CaptureStore
 from info_triage.web import WebHandler
 
@@ -55,6 +55,33 @@ class WebTests(unittest.TestCase):
                 if row["processor"] == "voice-<transcription>"
             )
             self.assertEqual(zero_row["runs"], 0)
+
+
+    def test_a_delivered_item_shows_the_problems_it_carried(self):
+        """Items ship even when enrichment fails, so the dashboard has to say so."""
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            item = store.capture(10, 1, "a note", received_at="2026-08-09T10:00:00+00:00")
+            store.promote_if_current(
+                item,
+                ProcessingResult(
+                    message_markdown="a note",
+                    problems=[
+                        ProcessingProblem(
+                            "url-resolution",
+                            "partial",
+                            ProcessingIssue("redirect-limit", "too many hops", "https://t.co/<a>"),
+                        )
+                    ],
+                ),
+            )
+
+            handler = object.__new__(WebHandler)
+            handler.store = store
+            page = handler._dashboard("ready")
+
+            self.assertIn("url-resolution partial — redirect-limit", page)
+            self.assertIn("https://t.co/&lt;a&gt;", page)
 
 
 if __name__ == "__main__":

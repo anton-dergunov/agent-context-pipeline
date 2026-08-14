@@ -2,7 +2,7 @@ import pytest
 
 from info_triage.extraction import ExtractionRecord
 from info_triage.index import build_segments, detect_intent, render_index
-from info_triage.models import LinkTableEntry
+from info_triage.models import LinkTableEntry, ProcessingIssue, ProcessingProblem
 
 METADATA = {"received_at": "2026-08-11T15:33:28+01:00"}
 
@@ -28,7 +28,15 @@ def link(n=1, **values):
     return LinkTableEntry(n=n, **{**defaults, **values})
 
 
-def index(payloads, message, links=(), metadata=METADATA, threshold=8, extractions=()):
+def index(
+    payloads,
+    message,
+    links=(),
+    metadata=METADATA,
+    threshold=8,
+    extractions=(),
+    problems=(),
+):
     return render_index(
         "2026-08-11_100",
         metadata,
@@ -36,6 +44,7 @@ def index(payloads, message, links=(), metadata=METADATA, threshold=8, extractio
         message,
         list(links),
         list(extractions),
+        list(problems),
         linklist_threshold=threshold,
     )
 
@@ -512,3 +521,49 @@ def test_harvested_links_do_not_turn_a_small_item_into_a_link_list():
     assert field(index([payload(1, 100, text="…")], body(("text", "…")), captured), "kind") == (
         "linklist"
     )
+
+
+def test_preprocessing_problems_are_declared_in_the_item():
+    """A thin item must say what failed, and still be an item."""
+    problems = [
+        ProcessingProblem(
+            "content-extraction",
+            "partial",
+            ProcessingIssue("wall-clock-exceeded", "Extraction budget of 300s was spent"),
+        ),
+        ProcessingProblem(
+            "url-resolution",
+            "failed",
+            ProcessingIssue(
+                "exception-connection-error",
+                "connection reset",
+                target="https://example.com/1",
+                error_type="ConnectionError",
+            ),
+        ),
+    ]
+
+    rendered = index(
+        [payload(1, 100, text="look https://example.com/1")],
+        body(("text", "look https://example.com/1")),
+        [link(1)],
+        problems=problems,
+    )
+
+    assert field(rendered, "problems") == "2"
+    assert "## Problems" in rendered
+    assert "- `content-extraction` partial — `wall-clock-exceeded`" in rendered
+    assert (
+        "- `url-resolution` failed — `exception-connection-error` — "
+        "https://example.com/1 — connection reset"
+    ) in rendered
+    # The capture itself is still the point of the file.
+    assert "## Captured" in rendered
+    assert "look https://example.com/1" in rendered
+
+
+def test_an_item_without_problems_says_nothing_about_them():
+    rendered = index([payload(1, 100, text="hello")], body(("text", "hello")))
+
+    assert field(rendered, "problems") is None
+    assert "## Problems" not in rendered
