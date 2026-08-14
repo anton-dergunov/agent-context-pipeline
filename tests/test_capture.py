@@ -178,10 +178,43 @@ class CaptureStoreTests(unittest.TestCase):
             self.assertEqual(metadata["category"], "Other")
             self.assertEqual(metadata["revision"], 1)
             self.assertEqual(
-                (item / "message.md").read_text(),
+                (item / "capture" / "message.md").read_text(),
                 "---\ncategory: Other\n---\n\nplain",
             )
-            self.assertEqual((item / "source.md").read_text(), "plain")
+            self.assertEqual((item / "capture" / "source.md").read_text(), "plain")
+
+    def test_capture_artifacts_live_under_capture_beside_root_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            voice = AttachmentSpec(
+                "voice", "voice", "unique-voice", 3, "audio/ogg", None, ".ogg", 1
+            )
+            promote(
+                store,
+                store.capture(
+                    10,
+                    1,
+                    "spoken",
+                    received_at="2026-08-09T10:00:00+00:00",
+                    telegram_payload={"message_id": 1, "voice": {"file_id": "voice"}},
+                    attachments=[DownloadedAttachment(voice, b"ogg")],
+                ),
+            )
+            item = Path(temporary) / "inbox" / "2026-08-09_1"
+
+            self.assertEqual(
+                sorted(entry.name for entry in item.iterdir()),
+                ["capture", "metadata.json"],
+            )
+            self.assertEqual(
+                sorted(entry.name for entry in (item / "capture").iterdir()),
+                ["attachments", "message.md", "source.md", "telegram.json"],
+            )
+            metadata = json.loads((item / "metadata.json").read_text())
+            self.assertEqual(
+                metadata["attachments"][0]["path"],
+                "capture/attachments/01-voice.ogg",
+            )
 
     def test_partial_attachment_update_preserves_other_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -250,7 +283,7 @@ class CaptureStoreTests(unittest.TestCase):
                 (item_path / metadata["attachments"][0]["path"]).read_bytes(),
                 b"first-photo",
             )
-            message_text = (item_path / "message.md").read_text()
+            message_text = (item_path / "capture" / "message.md").read_text()
             self.assertIn("## Segment 1 — forwarded caption", message_text)
             self.assertIn("## Segment 2 — text", message_text)
             self.assertIn("Updated note", message_text)
@@ -288,7 +321,7 @@ class CaptureStoreTests(unittest.TestCase):
                 (item_path / metadata["attachments"][0]["path"]).read_bytes(),
                 b"second-photo",
             )
-            self.assertIn("Updated source", (item_path / "message.md").read_text())
+            self.assertIn("Updated source", (item_path / "capture" / "message.md").read_text())
 
     def test_pending_messages_survive_restart(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -424,14 +457,14 @@ class CaptureStoreTests(unittest.TestCase):
             )
             item = Path(temporary) / "inbox" / "2026-08-09_1"
             self.assertEqual(
-                (item / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
+                (item / "capture" / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
             self.assertEqual(
-                json.loads((item / "telegram.json").read_text())["message_id"], 1
+                json.loads((item / "capture" / "telegram.json").read_text())["message_id"], 1
             )
             promote(store, store.categorize(10, 1, "Life"))
             self.assertEqual(
-                (item / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
+                (item / "capture" / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
 
 

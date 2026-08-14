@@ -25,6 +25,10 @@ from .rendering import render_capture_payloads
 
 logger = logging.getLogger("info_triage")
 STATUSES = ("received", "processing", "ready", "failed")
+# Provenance lives under this directory; metadata.json stays at the item root.
+CAPTURE_DIR = "capture"
+# Paths a processing step may never generate: they belong to the capture layer.
+RESERVED_GENERATED_PATHS = (CAPTURE_DIR, "metadata.json")
 
 
 def now_iso() -> str:
@@ -68,8 +72,6 @@ class CaptureStore:
         self.staging_dir.mkdir(parents=True, exist_ok=True)
         self.inbox_dir.mkdir(parents=True, exist_ok=True)
         self._initialize_database()
-        self._migrate_item_directories()
-        self._upgrade_metadata()
         self._reconcile_interrupted_items()
 
     @contextmanager
@@ -366,8 +368,10 @@ class CaptureStore:
         media_group_id: str | None = None,
         source_message_ids: list[int] | None = None,
     ) -> None:
-        atomic_write(item_path / "source.md", content)
-        atomic_write(item_path / "message.md", render_message(category, content))
+        capture_path = item_path / CAPTURE_DIR
+        capture_path.mkdir(parents=True, exist_ok=True)
+        atomic_write(capture_path / "source.md", content)
+        atomic_write(capture_path / "message.md", render_message(category, content))
         existing_metadata = self._read_metadata(item_path)
         attachment_manifest = existing_metadata.get("attachments", [])
         warnings = existing_metadata.get("download_warnings", [])
@@ -380,7 +384,7 @@ class CaptureStore:
             )
         if telegram_payload is not None:
             atomic_write(
-                item_path / "telegram.json",
+                capture_path / "telegram.json",
                 json.dumps(telegram_payload, ensure_ascii=False, indent=2) + "\n",
             )
         metadata = {
@@ -411,8 +415,8 @@ class CaptureStore:
         existing_manifest: list[dict[str, Any]],
         replace_source_ids: set[int] | None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
-        attachments_dir = item_path / "attachments"
-        temporary_dir = item_path / ".attachments.tmp"
+        attachments_dir = item_path / CAPTURE_DIR / "attachments"
+        temporary_dir = item_path / CAPTURE_DIR / ".attachments.tmp"
         if temporary_dir.exists():
             shutil.rmtree(temporary_dir)
         temporary_dir.mkdir()
@@ -456,7 +460,7 @@ class CaptureStore:
                 )
                 next_index += 1
                 atomic_write_bytes(temporary_dir / filename, attachment.data)
-                record["path"] = f"attachments/{filename}"
+                record["path"] = f"{CAPTURE_DIR}/attachments/{filename}"
                 record["download_status"] = "downloaded"
             manifest.append(record)
         warnings = [
@@ -485,51 +489,6 @@ class CaptureStore:
         if staging_path.is_dir():
             return staging_path
         return self.inbox_dir / item_name
-
-    def _migrate_item_directories(self) -> None:
-        for parent in (self.staging_dir, self.inbox_dir):
-            for item_path in list(parent.iterdir()):
-                if not item_path.is_dir():
-                    continue
-                try:
-                    metadata = self._read_metadata(item_path)
-                    item = self.get_item(
-                        int(metadata["chat_id"]), int(metadata["message_id"])
-                    )
-                    if item is None:
-                        continue
-                    new_path = parent / self.item_name(
-                        item["created_at"], item["message_id"]
-                    )
-                    if new_path == item_path:
-                        continue
-                    if new_path.exists():
-                        raise RuntimeError(f"Item directory already exists: {new_path}")
-                    item_path.rename(new_path)
-                    logger.info("Renamed item %s to %s", item_path.name, new_path.name)
-                except Exception:
-                    logger.exception("Could not migrate item directory %s", item_path)
-
-    def _upgrade_metadata(self) -> None:
-        for parent in (self.staging_dir, self.inbox_dir):
-            for item_path in parent.iterdir():
-                if not item_path.is_dir():
-                    continue
-                try:
-                    metadata = self._read_metadata(item_path)
-                    item = self.get_item(
-                        int(metadata["chat_id"]), int(metadata["message_id"])
-                    )
-                    if item is None:
-                        continue
-                    metadata["category"] = item["category"]
-                    metadata["revision"] = item["revision"]
-                    atomic_write(
-                        item_path / "metadata.json",
-                        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
-                    )
-                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
-                    logger.warning("Could not upgrade metadata for %s", item_path)
 
     def _reconcile_interrupted_items(self) -> None:
         """Repair only transitions that may have been interrupted by shutdown."""
@@ -694,7 +653,7 @@ class CaptureStore:
                     raise RuntimeError(f"Both staging and inbox contain {item_name}")
                 inbox_path.rename(staging_path)
             metadata = self._read_metadata(staging_path)
-            payload_path = staging_path / "telegram.json"
+            payload_path = staging_path / CAPTURE_DIR / "telegram.json"
             if payload_path.is_file():
                 payload_value = json.loads(payload_path.read_text(encoding="utf-8"))
                 if isinstance(payload_value, dict) and isinstance(
@@ -706,13 +665,9 @@ class CaptureStore:
                 else:
                     payloads = [payload_value]
                 content = render_capture_payloads(payloads)
-            elif (staging_path / "source.md").is_file():
-                content = (staging_path / "source.md").read_text(encoding="utf-8")
             else:
-                content = original_content(
-                    item["category"],
-                    (staging_path / "message.md").read_text(encoding="utf-8"),
-                )
+                source_path = staging_path / CAPTURE_DIR / "source.md"
+                content = source_path.read_text(encoding="utf-8")
             revision = item["revision"] + 1
             self._write_item(
                 staging_path,
@@ -767,12 +722,16 @@ class CaptureStore:
             if inbox_path.exists():
                 raise RuntimeError(f"Inbox already contains {item_name}")
             if result is not None:
+                capture_path = staging_path / CAPTURE_DIR
+                capture_path.mkdir(parents=True, exist_ok=True)
                 pending_files: list[tuple[Path, Path]] = []
                 try:
                     for generated in result.generated_files:
                         relative = generated.relative_path
                         if relative.is_absolute() or ".." in relative.parts:
                             raise ValueError(f"Unsafe generated path: {relative}")
+                        if relative.parts[0] in RESERVED_GENERATED_PATHS:
+                            raise ValueError(f"Reserved generated path: {relative}")
                         destination = staging_path / relative
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         temporary = destination.with_name(f".{destination.name}.tmp")
@@ -787,7 +746,7 @@ class CaptureStore:
                         ("source.md", source),
                         ("message.md", result.message_markdown),
                     ):
-                        destination = staging_path / name
+                        destination = capture_path / name
                         temporary = destination.with_name(f".{destination.name}.tmp")
                         temporary.write_text(content, encoding="utf-8")
                         pending_files.append((temporary, destination))
@@ -965,7 +924,7 @@ class CaptureStore:
         item_path = self._path_for_row(item)
         metadata = self._read_metadata(item_path) if item_path.is_dir() else {}
         payloads = []
-        payload_path = item_path / "telegram.json"
+        payload_path = item_path / CAPTURE_DIR / "telegram.json"
         if payload_path.is_file():
             payload = json.loads(payload_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict) and isinstance(payload.get("messages"), list):

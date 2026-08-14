@@ -12,7 +12,6 @@ from info_triage.sync import (
     atomic_write_text,
     deletion_decision,
     generate_inbox,
-    migrate_legacy_directories,
     read_manifest,
     render_inbox,
     synchronize,
@@ -40,7 +39,9 @@ def write_item(
         ),
         encoding="utf-8",
     )
-    (item / "message.md").write_text(message, encoding="utf-8")
+    capture = item / "capture"
+    capture.mkdir()
+    (capture / "message.md").write_text(message, encoding="utf-8")
     return item
 
 
@@ -76,7 +77,7 @@ class FakeSyncCommands:
 class SyncUnitTests(unittest.TestCase):
     def test_item_name_validation(self):
         self.assertTrue(valid_item_name("2026-08-09_123"))
-        self.assertTrue(valid_item_name("-100_123"))
+        self.assertFalse(valid_item_name("-100_123"))
         self.assertFalse(valid_item_name("inbox.md"))
         self.assertFalse(valid_item_name("../2026-08-09_123"))
 
@@ -91,32 +92,18 @@ class SyncUnitTests(unittest.TestCase):
             self.assertEqual(target.read_text(), "new")
             self.assertEqual(list(root.iterdir()), [target])
 
-    def test_manifest_migrates_legacy_names_and_keeps_highest_revision(self):
+    def test_manifest_keeps_highest_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             manifest = Path(temporary) / "delivered-items"
-            manifest.write_text("-100_7\n2026-08-09_7 2\n2026-08-09_7 1\n")
-            self.assertEqual(
-                read_manifest(manifest, {7: "2026-08-09_7"}),
-                {"2026-08-09_7": 2},
-            )
+            manifest.write_text("2026-08-09_7 2\n2026-08-09_7 1\n")
+            self.assertEqual(read_manifest(manifest), {"2026-08-09_7": 2})
 
     def test_manifest_rejects_invalid_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             manifest = Path(temporary) / "delivered-items"
             manifest.write_text("2026-08-09_7 nope\n")
             with self.assertRaisesRegex(SyncError, "Invalid delivered revision"):
-                read_manifest(manifest, {})
-
-    def test_legacy_local_directory_is_renamed_to_remote_modern_name(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            inbox = Path(temporary)
-            legacy = inbox / "-100_7"
-            legacy.mkdir()
-
-            migrate_legacy_directories(inbox, {7: "2026-08-09_7"})
-
-            self.assertFalse(legacy.exists())
-            self.assertTrue((inbox / "2026-08-09_7").is_dir())
+                read_manifest(manifest)
 
     def test_revision_decides_between_delete_and_restore(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -173,7 +160,8 @@ class SyncUnitTests(unittest.TestCase):
             (item / "metadata.json").write_text(
                 json.dumps({"received_at": "not-a-time"}), encoding="utf-8"
             )
-            (item / "message.md").write_text("message", encoding="utf-8")
+            (item / "capture").mkdir()
+            (item / "capture" / "message.md").write_text("message", encoding="utf-8")
 
             with self.assertRaisesRegex(SyncError, "Invalid received_at"):
                 generate_inbox(inbox)
@@ -191,10 +179,24 @@ class SyncUnitTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(SyncError, "Missing message.md"):
+            with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
                 generate_inbox(inbox)
 
             self.assertEqual((inbox / "inbox.md").read_text(), "previous")
+
+    def test_message_outside_capture_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            item = inbox / "2026-08-09_1"
+            item.mkdir()
+            (item / "metadata.json").write_text(
+                json.dumps({"received_at": "2026-08-09T10:00:00+00:00"}),
+                encoding="utf-8",
+            )
+            (item / "message.md").write_text("message", encoding="utf-8")
+
+            with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
+                render_inbox(inbox)
 
 
 class SynchronizeTests(unittest.TestCase):

@@ -51,6 +51,10 @@ processing:
       # CPU inference threads used by the voice processor.
       threads: 1
 
+    # Cleaning runs before the URL work: zero-width characters and homoglyphs can
+    # glue themselves to a URL and defeat link discovery.
+    - name: text-cleaning
+
     - name: url-resolution
       # Redirect-only compatibility calls resolve just recognized shorteners by default.
       # Per-request read timeout after connecting.
@@ -62,5 +66,3 @@ processing:
       # Download at most 20 MiB for PDF metadata and first-page title text.
       max_pdf_bytes: 20971520
       resolve_all: false
-
-    - name: text-cleaning

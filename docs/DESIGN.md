@@ -145,13 +145,19 @@ For example:
 ```text
 staging/
 └── 2026-08-08_18492/
-    ├── source.md
-    ├── message.md
     ├── metadata.json
-    ├── telegram.json
-    └── attachments/
-        └── 01-photo.jpg
+    └── capture/
+        ├── source.md
+        ├── message.md
+        ├── telegram.json
+        └── attachments/
+            └── 01-photo.jpg
 ```
+
+`metadata.json` stays at the item root because it is the item's identity, and
+because synchronization reads every item's revision through a metadata-only
+transfer. Everything captured from Telegram is provenance and lives under
+`capture/`. Paths recorded inside `metadata.json` are relative to the item root.
 
 The directory name is based on the Telegram creation date and message ID:
 
@@ -165,12 +171,13 @@ The important property is that the directory name remains stable if the Telegram
 
 ---
 
-# 6. `source.md` and `message.md`
+# 6. `capture/source.md` and `capture/message.md`
 
-Every ready item contains both Markdown files. `source.md` is the materialized
-text checkpoint after source-to-text work such as voice transcription but
-before URL resolution or cleanup. It has no category front matter. `message.md`
-is the processed, laptop-facing representation with category front matter.
+Every ready item contains both Markdown files, side by side under `capture/`.
+`source.md` is the materialized text checkpoint after source-to-text work such
+as voice transcription but before cleaning or URL resolution. It has no category
+front matter. `message.md` is the processed, laptop-facing representation with
+category front matter.
 
 Every retained Telegram message is an explicit ordered segment. For example:
 
@@ -185,13 +192,19 @@ The segment kind records known structure such as `text`, `caption`, `voice`, or
 `location`. Explicit Telegram forwarding provenance adds `forwarded`; the
 application does not infer personal commentary from text length or URLs.
 
-The configured pipeline materializes `source.md`, resolves URLs, cleans text,
+The configured pipeline materializes `source.md`, cleans text, resolves URLs,
 and then renders `message.md`. It does not summarize the content. Each revision
 is reconstructed from retained Telegram data rather than a previously processed
 Markdown file.
 
-The complete original Telegram payload remains in `telegram.json`, and
-downloaded source media remains in `attachments/`.
+Cleaning deliberately precedes URL resolution: zero-width characters and
+homoglyphs can attach themselves to a URL and hide it from link discovery.
+Link destinations and titles inserted by resolution are therefore not cleaned
+afterwards, and a second cleaning pass is not the answer — canonicalization
+belongs in link discovery.
+
+The complete original Telegram payload remains in `capture/telegram.json`, and
+downloaded source media remains in `capture/attachments/`.
 
 For a location or venue, the segment contains a small readable location block
 with coordinates and a maps link. A voice transcript is the body of its `voice`
@@ -230,19 +243,20 @@ optional media-group ID, and any attachment-download warnings.
 
 # 8. Attachments and Extracted Content
 
-Files associated with the item live directly inside the same directory.
+Files associated with the item live inside the same item directory.
 
 For example:
 
 ```text
 2026-08-08_18492/
-├── source.md
-├── message.md
 ├── metadata.json
-├── telegram.json
-└── attachments/
-    ├── 01-photo.jpg
-    └── 02-video.mp4
+└── capture/
+    ├── source.md
+    ├── message.md
+    ├── telegram.json
+    └── attachments/
+        ├── 01-photo.jpg
+        └── 02-video.mp4
 ```
 
 Different item types can produce different files.
@@ -373,9 +387,10 @@ staging returns to `received`.
 
 Processing steps are ordinary ordered Python functions registered from the
 strict, commented `config.yaml`. The shipped order transcribes Telegram voice
-attachments, resolves recognized short URLs, then cleans text. Voice output is
-materialized in `source.md` before the text transforms. Expected future steps
-include OCR, other transcription, extraction, and item-level classification.
+attachments, cleans text, then resolves recognized short URLs. Voice output is
+materialized in `capture/source.md` before the text transforms. Expected future
+steps include OCR, other transcription, extraction, and item-level
+classification.
 
 The repository already contains reusable implementations for cautious text
 cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
@@ -385,9 +400,10 @@ reuses the local transcription engine, URL resolver, and text cleaner; their
 standalone commands remain available.
 
 Steps write only to a revision-specific temporary workspace. Storage commits
-`source.md`, `message.md`, and generated output only if the claimed revision
-remains current. `telegram.json` and original media preserve the exact captured
-source. A later Telegram edit therefore supersedes a slow result without
+`capture/source.md`, `capture/message.md`, and generated output only if the
+claimed revision remains current. Generated output is item-root-relative and may
+not land inside `capture/`, which belongs to the capture layer alone.
+`capture/telegram.json` and original media preserve the exact captured source. A later Telegram edit therefore supersedes a slow result without
 blocking capture.
 
 Each step has its own nested workspace and a snapshot of the accumulated
@@ -446,9 +462,9 @@ receive edited message
     ↓
 replace that member's raw payload, content, and attachments
     ↓
-regenerate the segmented source.md
+regenerate the segmented capture/source.md
     ↓
-run the configured processors and regenerate message.md
+run the configured processors and regenerate capture/message.md
     ↓
 increment the metadata revision
     ↓
@@ -619,7 +635,7 @@ The synchronization command also generates:
 
 This file contains one section per current item, ordered by its UTC
 `received_at`. Each section contains a human-readable timestamp, a blockquoted
-list of user-facing `message.md` front-matter fields, a relative link to the
+list of user-facing `capture/message.md` front-matter fields, a relative link to the
 item directory, and the processed Markdown body. It deliberately excludes
 operational metadata such as Telegram identities, revisions, and attachment
 internals.

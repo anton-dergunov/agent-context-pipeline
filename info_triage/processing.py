@@ -17,7 +17,7 @@ from .models import (
     ProcessingResult,
     ProcessingStepOutcome,
 )
-from .storage import CaptureStore, now_iso, original_content, render_message
+from .storage import CAPTURE_DIR, CaptureStore, now_iso, render_message
 
 logger = logging.getLogger("info_triage")
 
@@ -169,14 +169,7 @@ class ProcessingWorker:
         current_step = None
         try:
             steps = self.pipeline.steps_for(job)
-            source_path = job.path / "source.md"
-            if source_path.is_file():
-                source = source_path.read_text(encoding="utf-8")
-            else:
-                source = original_content(
-                    job.category,
-                    (job.path / "message.md").read_text(encoding="utf-8"),
-                )
+            source = (job.path / CAPTURE_DIR / "source.md").read_text(encoding="utf-8")
             result = ProcessingResult(
                 message_markdown=source,
                 source_markdown=source,

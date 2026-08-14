@@ -28,11 +28,11 @@ Telegram message
 
 The directory date is the UTC creation date supplied by Telegram.
 
-Each completed item contains a materialized `source.md`, processed `message.md`,
-`metadata.json`, and the complete received Telegram payload in `telegram.json`.
-Useful source media is kept in
-`attachments/`: documents, photos, video, animations, voice/audio notes, and
-video notes. Albums are one logical message. Consecutive logical messages whose
+Each completed item keeps `metadata.json` at its root and everything captured
+from Telegram under `capture/`: a materialized `source.md`, a processed
+`message.md`, the complete received Telegram payload in `telegram.json`, and
+useful source media in `capture/attachments/` — documents, photos, video,
+animations, voice/audio notes, and video notes. Albums are one logical message. Consecutive logical messages whose
 Telegram timestamps are no more than three seconds apart are combined into one
 item after a four-second quiet period. Every constituent Telegram message is an
 ordered `## Segment N — kind` section. Telegram-provided forwarding provenance
@@ -61,19 +61,20 @@ the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
 processes at most one item at a time. The shipped ordered pipeline performs
-voice transcription when applicable, bounded URL/title enrichment, and text
-cleaning.
+voice transcription when applicable, text cleaning, and then bounded URL/title
+enrichment.
 
 Voice transcription first materializes the complete segmented body in
-`source.md`. URL/title enrichment converts bare links to `[page title](URL)`
-Markdown where bounded public HTML or PDF metadata/first-page text provides a
-trustworthy title. Blocked ordinary requests get one anonymous
-Chrome-compatible HTTP retry. Text
-cleaning then produces the laptop-facing `message.md`; category front matter is
+`capture/source.md`. Text cleaning runs next, so that invisible characters and
+look-alike letters cannot hide a link from the step that follows. URL/title
+enrichment then converts bare links to `[page title](URL)` Markdown where
+bounded public HTML or PDF metadata/first-page text provides a trustworthy
+title; blocked ordinary requests get one anonymous Chrome-compatible HTTP retry.
+The result is the laptop-facing `capture/message.md`; category front matter is
 added only after those body transforms.
-Raw Telegram data remains in `telegram.json`, and original downloaded media
-remains in `attachments/`. Both Markdown files are committed only if their
-source revision is still current.
+Raw Telegram data remains in `capture/telegram.json`, and original downloaded
+media remains in `capture/attachments/`. Both Markdown files are committed only
+if their source revision is still current.
 
 Every configured step is instrumented centrally. The daemon appends compact
 JSONL run records to `data/logs/processor-runs.jsonl` and keeps cumulative

@@ -49,8 +49,8 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
 
     assert [step.name for step in config.processing_steps] == [
         "voice-transcription",
-        "url-resolution",
         "text-cleaning",
+        "url-resolution",
     ]
     voice = config.processing_steps[0]
     assert isinstance(voice, VoiceTranscriptionConfig)

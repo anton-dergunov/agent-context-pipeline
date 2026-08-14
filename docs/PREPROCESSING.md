@@ -6,22 +6,28 @@ ordered `processing.steps` sequence.
 
 ## Current behaviour
 
-| Telegram content | Automatic preprocessing | `message.md` result |
+| Telegram content | Automatic preprocessing | `capture/message.md` result |
 | --- | --- | --- |
-| Voice note (`voice`) | Transcribe locally, resolve URLs, clean text | Transcript in its ordered `voice` segment |
-| Plain text or caption | Resolve recognized short URLs, clean text | Processed text in its ordered segment |
-| Location or venue | Resolve URLs, clean text | Existing readable location block in its segment |
-| Document | Resolve URLs and clean accompanying caption | Caption in its segment |
-| Photo | Resolve URLs and clean accompanying caption | Caption in its segment |
-| Video | Resolve URLs and clean accompanying caption | Caption in its segment |
-| Animation | Resolve URLs and clean accompanying caption | Caption in its segment |
-| Generic audio (`audio`) | Resolve URLs and clean accompanying caption | Caption in its segment |
-| Video note (`video_note`) | Resolve URLs and clean accompanying caption | Caption in its segment |
+| Voice note (`voice`) | Transcribe locally, clean text, resolve URLs | Transcript in its ordered `voice` segment |
+| Plain text or caption | Clean text, resolve recognized short URLs | Processed text in its ordered segment |
+| Location or venue | Clean text, resolve URLs | Existing readable location block in its segment |
+| Document | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Photo | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Video | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Animation | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Generic audio (`audio`) | Clean accompanying caption, then resolve its URLs | Caption in its segment |
+| Video note (`video_note`) | Clean accompanying caption, then resolve its URLs | Caption in its segment |
 
 Original downloaded attachments and the complete Telegram payload are always
-retained. `source.md` contains the segmented text after source materialization
-(including voice transcription) but before URL resolution or cleaning.
-`message.md` contains the transformed body with category front matter.
+retained. Both Markdown files live under the item's `capture/` directory:
+`source.md` contains the segmented text after source materialization (including
+voice transcription) but before cleaning or URL resolution, and `message.md`
+contains the transformed body with category front matter.
+
+Cleaning runs before URL resolution so that zero-width characters and homoglyphs
+cannot hide a link from the resolver. Link destinations and titles inserted by
+resolution are consequently not cleaned; canonicalizing them is link discovery's
+job, not a second cleaning pass.
 
 Every Telegram source message is represented uniformly:
 
@@ -84,13 +90,19 @@ The processor failure and stable reason are visible on the Processors dashboard
 tab and in the append-only processor log.
 
 No separate transcript artifact is generated. The transcript exists in both
-the materialized `source.md` and processed `message.md`; the original voice file
-remains under `attachments/` and the original Telegram data remains in
-`telegram.json`.
+the materialized `capture/source.md` and processed `capture/message.md`; the
+original voice file remains under `capture/attachments/` and the original
+Telegram data remains in `capture/telegram.json`.
 
-## URL/title enrichment and text cleaning
+## Text cleaning and URL/title enrichment
 
-The URL processor recognizes bare HTTP(S) URLs, Markdown autolinks, and inline
+Text cleaning runs first and reuses `clean_text` with its internal link
+resolution disabled. It normalizes social-media formatting, strips invisible
+characters and look-alike letters that can hide a link from the resolver, and
+removes URL tracking parameters from links already present in the body. Ordered
+segment headings are protected while it runs.
+
+The URL processor then recognizes bare HTTP(S) URLs, Markdown autolinks, and inline
 links whose visible label is exactly their destination. It resolves redirect
 chains and replaces those constructs with `[page title](final URL)` when a
 trustworthy title is available. Existing links such as
@@ -113,9 +125,10 @@ as bare text. Request, redirect, content-type, size, safety, and missing-title
 problems produce stable partial reasons. Usable output is retained and the item
 remains deliverable.
 
-Text cleaning runs afterward and reuses `clean_text` with its internal link
-resolution disabled. This normalizes social-media formatting and removes URL
-tracking parameters without making the network request twice.
+Because enrichment runs after cleaning, the destinations and titles it inserts
+are not cleaned. Tracking parameters on a resolved destination therefore survive
+in `capture/message.md`. Canonicalizing them belongs to link discovery; do not
+add a second cleaning pass.
 
 The standalone `info-triage-resolve-urls` command performs title enrichment by
 default. `--urls-only` restores redirect-only output, `--cache` persists final
@@ -139,7 +152,7 @@ Enabling a processor does not scan, move, or rewrite existing ready items. New
 captures use the current catalogue. If an older item later receives a Telegram
 edit or category change, that new revision goes through the current pipeline.
 Each revision is reconstructed from the retained Telegram payload rather than a
-previously processed `message.md`, and revision checks prevent a slow result
+previously processed `capture/message.md`, and revision checks prevent a slow result
 from overwriting a newer edit.
 
 ## Standalone extractors

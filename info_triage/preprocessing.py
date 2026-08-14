@@ -26,6 +26,7 @@ from .models import (
     ProcessingStepOutcome,
 )
 from .rendering import render_capture_payloads
+from .storage import CAPTURE_DIR
 from .utilities.text_cleaning import clean_text
 from .utilities.url_resolution import URLResolver, enrich_links
 
@@ -94,9 +95,9 @@ class VoiceTranscriptionStep:
             warning = attachment.get("warning") or "the attachment was not downloaded"
             raise RuntimeError(f"Voice attachment is unavailable: {warning}")
 
-        item_root = job.path.resolve()
+        attachments_root = (job.path / CAPTURE_DIR / "attachments").resolve()
         attachment_path = (job.path / relative_path).resolve()
-        if not attachment_path.is_relative_to(item_root):
+        if not attachment_path.is_relative_to(attachments_root):
             raise ValueError(f"Unsafe voice attachment path: {relative_path}")
         if not attachment_path.is_file():
             raise FileNotFoundError(f"Voice attachment is missing: {relative_path}")
@@ -104,7 +105,8 @@ class VoiceTranscriptionStep:
 
     @staticmethod
     def _payloads(job: ProcessingJob) -> list[dict[str, Any]]:
-        value = json.loads((job.path / "telegram.json").read_text(encoding="utf-8"))
+        payload_path = job.path / CAPTURE_DIR / "telegram.json"
+        value = json.loads(payload_path.read_text(encoding="utf-8"))
         payloads = value.get("messages") if isinstance(value, dict) else None
         if payloads is None and isinstance(value, dict):
             payloads = [value]

@@ -9,13 +9,15 @@ import shlex
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-MODERN_ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
-LEGACY_ITEM_NAME = re.compile(r"^-?\d+_(\d+)$")
+ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
+# Mirrors storage.CAPTURE_DIR. Declared here so the laptop-side synchronizer stays
+# independent of the daemon's storage layer, as atomic_write_text already is.
+CAPTURE_DIR = "capture"
 FRONT_MATTER_FIELD = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):[ \t]*(.*)$")
 
 GENERATED_HEADER = """# Inbox
@@ -68,7 +70,7 @@ def run_command(command: list[str]) -> None:
 
 
 def valid_item_name(name: str) -> bool:
-    return bool(MODERN_ITEM_NAME.fullmatch(name) or LEGACY_ITEM_NAME.fullmatch(name))
+    return bool(ITEM_NAME.fullmatch(name))
 
 
 def _require_integer(value: object, field: str, item: str, *, default: int | None = None) -> int:
@@ -80,6 +82,11 @@ def _require_integer(value: object, field: str, item: str, *, default: int | Non
 
 
 def read_remote_items(metadata_dir: Path) -> list[RemoteItem]:
+    """Read the revision of every NAS item from the metadata-only mirror.
+
+    Only metadata.json is transferred here, so the item layout cannot be checked
+    at this point; _local_item() enforces it after the full download.
+    """
     items = []
     for item_path in sorted(metadata_dir.iterdir()):
         if not item_path.is_dir():
@@ -102,30 +109,7 @@ def read_remote_items(metadata_dir: Path) -> list[RemoteItem]:
     return items
 
 
-def build_name_map(remote_items: Iterable[RemoteItem]) -> dict[int, str]:
-    result = {}
-    for item in sorted(remote_items):
-        result.setdefault(item.message_id, item.name)
-    return result
-
-
-def migrate_legacy_directories(local_inbox: Path, name_map: dict[int, str]) -> None:
-    for message_id, new_name in sorted(name_map.items()):
-        if not MODERN_ITEM_NAME.fullmatch(new_name):
-            continue
-        new_path = local_inbox / new_name
-        if new_path.is_dir():
-            continue
-        candidates = sorted(local_inbox.glob(f"*_{message_id}"))
-        for legacy_path in candidates:
-            if legacy_path.is_dir() and LEGACY_ITEM_NAME.fullmatch(legacy_path.name):
-                legacy_name = legacy_path.name
-                legacy_path.rename(new_path)
-                print(f"Renamed laptop item: {legacy_name} -> {new_name}")
-                break
-
-
-def read_manifest(path: Path, name_map: dict[int, str]) -> dict[str, int]:
+def read_manifest(path: Path) -> dict[str, int]:
     revisions: dict[str, int] = {}
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -147,9 +131,6 @@ def read_manifest(path: Path, name_map: dict[int, str]) -> dict[str, int]:
                 raise SyncError(f"Invalid delivered revision for {name}: {fields[1]}") from error
             if revision < 0 or str(revision) != fields[1]:
                 raise SyncError(f"Invalid delivered revision for {name}: {fields[1]}")
-        legacy_match = LEGACY_ITEM_NAME.fullmatch(name)
-        if legacy_match:
-            name = name_map.get(int(legacy_match.group(1)), name)
         revisions[name] = max(revisions.get(name, -1), revision)
     return revisions
 
@@ -240,11 +221,11 @@ def _local_item(item_path: Path) -> tuple[datetime, str, list[tuple[str, str]], 
     if not valid_item_name(name):
         raise SyncError(f"Unexpected local inbox directory: {name}")
     metadata_path = item_path / "metadata.json"
-    message_path = item_path / "message.md"
+    message_path = item_path / CAPTURE_DIR / "message.md"
     if not metadata_path.is_file():
         raise SyncError(f"Missing metadata.json for local item: {name}")
     if not message_path.is_file():
-        raise SyncError(f"Missing message.md for local item: {name}")
+        raise SyncError(f"Missing {CAPTURE_DIR}/message.md for local item: {name}")
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         message = message_path.read_text(encoding="utf-8")
@@ -310,9 +291,9 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
                 "rsync",
                 "-az",
                 "--include",
-                "*/",
+                "/*/",
                 "--include",
-                "metadata.json",
+                "/*/metadata.json",
                 "--exclude",
                 "*",
                 f"{config.remote}:{config.remote_inbox}/",
@@ -320,11 +301,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
             ]
         )
         remote_items = read_remote_items(remote_metadata)
-        name_map = build_name_map(remote_items)
-
-        print("==> Migrating legacy laptop item names")
-        migrate_legacy_directories(config.local_inbox, name_map)
-        delivered = read_manifest(config.manifest, name_map)
+        delivered = read_manifest(config.manifest)
         write_manifest(config.manifest, delivered)
 
         print("==> Removing items processed on the laptop")

@@ -88,7 +88,7 @@ class ProcessingTests(unittest.TestCase):
 
             self.assertEqual(calls, [1, 2])
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "message.md"
+                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
@@ -212,7 +212,7 @@ class ProcessingTests(unittest.TestCase):
 
             ready = data_dir / "inbox" / "2026-08-09_1"
             self.assertEqual(
-                (ready / "message.md").read_text(),
+                (ready / "capture" / "message.md").read_text(),
                 "---\ncategory: Other\n---\n\noriginal\nprocessed",
             )
             self.assertFalse((ready / "generated" / "discarded.txt").exists())
@@ -297,14 +297,14 @@ class ProcessingTests(unittest.TestCase):
 
             self.assertEqual(item["revision"], 2)
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "message.md"
+                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
                 "---\ncategory: Other\n---\n\nnew\nrevision 2",
             )
             source = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "source.md"
+                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "source.md"
             ).read_text()
             self.assertEqual(source, "new")
             stats = store.processor_statistics()[0]
@@ -348,7 +348,7 @@ class ProcessingTests(unittest.TestCase):
             self.assertEqual(item["revision"], 2)
             self.assertEqual(item["category"], "Life")
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "message.md"
+                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
@@ -378,14 +378,14 @@ class ProcessingTests(unittest.TestCase):
             # The retained raw payload, not either derived Markdown file, owns
             # source reconstruction for the next revision.
             ready = data_dir / "inbox" / "2026-08-09_1"
-            (ready / "source.md").write_text("stale transformed text")
-            (ready / "message.md").write_text("stale transformed text")
+            (ready / "capture" / "source.md").write_text("stale transformed text")
+            (ready / "capture" / "message.md").write_text("stale transformed text")
             categorized = store.categorize(10, 1, "Life")
             store.promote_if_current(categorized)
 
-            self.assertEqual((ready / "source.md").read_text(), source)
+            self.assertEqual((ready / "capture" / "source.md").read_text(), source)
             self.assertEqual(
-                (ready / "message.md").read_text(),
+                (ready / "capture" / "message.md").read_text(),
                 "---\ncategory: Life\n---\n\n" + source,
             )
 

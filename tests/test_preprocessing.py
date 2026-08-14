@@ -94,7 +94,7 @@ def staged_job(tmp_path, payloads, attachments, content=""):
         item.category,
         item.path,
     )
-    source = (job.path / "message.md").read_text(encoding="utf-8")
+    source = (job.path / "capture" / "message.md").read_text(encoding="utf-8")
     return store, item, job, ProcessingResult(source)
 
 
@@ -302,12 +302,12 @@ def test_ready_item_is_not_backfilled_but_later_revision_is_processed(tmp_path):
     finally:
         worker.stop()
 
-    message = (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text()
+    message = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text()
     assert message == (
         "---\ncategory: Life\n---\n\n"
         "## Segment 1 — voice\n\nAfter revision"
     )
-    source = (tmp_path / "inbox" / "2026-08-09_1" / "source.md").read_text()
+    source = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "source.md").read_text()
     assert source == "## Segment 1 — voice\n\nAfter revision"
 
 
@@ -322,7 +322,7 @@ def test_plain_item_still_bypasses_worker(tmp_path):
     coordinator.submit(item)
 
     assert store.get_item(10, 1)["status"] == "ready"
-    assert (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text().endswith("plain")
+    assert (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text().endswith("plain")
 
 
 def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
@@ -356,8 +356,8 @@ def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
     assert ready["error"] is None
     item_path = tmp_path / "inbox" / "2026-08-09_1"
     assert item_path.is_dir()
-    assert (item_path / "attachments" / "01-voice.ogg").read_bytes() == b"media"
-    assert (item_path / "message.md").read_text().endswith("Keep this raw note")
+    assert (item_path / "capture" / "attachments" / "01-voice.ogg").read_bytes() == b"media"
+    assert (item_path / "capture" / "message.md").read_text().endswith("Keep this raw note")
     stats = {row["processor"]: row for row in store.processor_statistics()}
     assert stats["voice-transcription"]["failed"] == 1
     assert stats["voice-transcription"]["reasons"][0]["reason"] == "transcription-failed"
@@ -376,7 +376,7 @@ class FakeResolver:
         return LinkResolution(self.resolve(url), "Resolved article")
 
 
-def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
+def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
     source = (
         "## Segment 1 — text\n\n"
         "𝗨𝘀𝗲𝗳𝘂𝗹  link: https://t.co/example"
@@ -397,6 +397,7 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
     )
     pipeline = ProcessingPipeline(
         [
+            TextCleaningStep(),
             URLResolutionStep(
                 timeout_seconds=1,
                 retries=0,
@@ -405,7 +406,6 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
                 resolve_all=False,
                 resolver=resolver,
             ),
-            TextCleaningStep(),
         ]
     )
     worker = ProcessingWorker(store, pipeline)
@@ -419,11 +419,13 @@ def test_url_resolution_then_cleaning_preserves_materialized_source(tmp_path):
         worker.stop()
 
     ready = tmp_path / "inbox" / "2026-08-09_1"
-    assert (ready / "source.md").read_text() == source
-    assert (ready / "message.md").read_text() == (
+    assert (ready / "capture" / "source.md").read_text() == source
+    # Cleaning runs first, so the resolved destination is inserted afterwards and keeps
+    # its tracking parameters. Canonicalization moves into link discovery.
+    assert (ready / "capture" / "message.md").read_text() == (
         "---\ncategory: Other\n---\n\n"
         "## Segment 1 — text\n\n"
-        "Useful link: [Resolved article](https://example.com/article?id=7)"
+        "Useful link: [Resolved article](https://example.com/article?utm_source=social&id=7)"
     )
 
 
@@ -450,7 +452,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         resolve_all=False,
         resolver=resolver,
     )
-    pipeline = ProcessingPipeline([step, TextCleaningStep()])
+    pipeline = ProcessingPipeline([TextCleaningStep(), step])
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
 
@@ -461,7 +463,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
     finally:
         worker.stop()
 
-    message = (tmp_path / "inbox" / "2026-08-09_1" / "message.md").read_text()
+    message = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text()
     assert message.endswith("## Segment 1 — text\n\nKeep https://t.co/unavailable")
     stats_by_name = {row["processor"]: row for row in store.processor_statistics()}
     stats = stats_by_name["url-resolution"]
