@@ -7,10 +7,12 @@ network pass and updates the table in place.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from .extractors.artifacts import HarvestedLink
 from .extractors.router import route_url
 from .models import LinkTableEntry
 from .rendering import SEGMENT_HEADING_RE, entity_slice, payload_order
@@ -330,3 +332,49 @@ def build_link_table(payloads: list[dict[str, Any]], body: str) -> list[LinkTabl
     for entry in kept:
         entry.priority = link_priority(entry.handler, entry.canonical, sole_link=sole_link)
     return entries
+
+
+def harvest_entries(
+    entries: list[LinkTableEntry],
+    harvested: Sequence[HarvestedLink],
+    *,
+    from_segment: int | None = None,
+    limit: int | None = None,
+) -> list[LinkTableEntry]:
+    """Append the links a finished extraction offers, and return the new rows.
+
+    Nothing the user did not send is worth a row of its own unless it could be
+    extracted: a link the item already carries, a store or social link, and a
+    channel self-reference are dropped rather than recorded, because a video
+    description's sponsorship pile would otherwise swamp the item's link table.
+    """
+    known = {entry.canonical for entry in entries}
+    added: list[LinkTableEntry] = []
+    for link in harvested:
+        if limit is not None and len(added) >= limit:
+            break
+        url = _with_scheme(link.url.strip())
+        if urlsplit(url).scheme.lower() not in DEFAULT_PORTS:
+            continue
+        canonical = canonicalize_url(unwrap_url(url))
+        if canonical in known:
+            continue
+        if exclusion_reason(link.url, canonical) or is_deprioritized(canonical):
+            continue
+        known.add(canonical)
+        handler, identity = route_target(canonical)
+        entry = LinkTableEntry(
+            n=len(entries) + 1,
+            raw=link.url,
+            canonical=canonical,
+            handler=handler,
+            identity=identity,
+            priority=link_priority(handler, canonical, sole_link=False),
+            status="harvested",
+            from_segment=from_segment,
+            origin="harvest",
+            via=link.via,
+        )
+        entries.append(entry)
+        added.append(entry)
+    return added

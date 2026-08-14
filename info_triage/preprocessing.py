@@ -18,11 +18,13 @@ from .config import (
 )
 from .extraction import (
     EXTRACTED_DIR,
+    HARVEST_LIMIT,
     ContentExtractor,
     ExtractionSettings,
     committed_files,
     describe,
     extraction_directory_name,
+    harvest_links,
 )
 from .extractors.media.transcription import (
     Transcriber,
@@ -35,6 +37,7 @@ from .links import (
     DEPRIORITIZED_PRIORITY,
     build_link_table,
     canonicalize_url,
+    harvest_entries,
     link_priority,
     route_target,
     unwrap_url,
@@ -468,7 +471,15 @@ class TextCleaningStep:
 
 
 class ContentExtractionStep:
-    """Retrieve the content behind the item's highest-priority links."""
+    """Retrieve the content behind the item's highest-priority links.
+
+    A wrapper is not the thing that was shared: a LinkedIn post announcing a paper
+    is transport for the paper. So a finished extraction may offer links of its
+    own, which are extracted in a second pass sharing the same budget. Those never
+    offer links in turn — the depth is exactly one, and structurally so, because
+    the post's paper is the journey while the paper's bibliography is a different
+    research task.
+    """
 
     name = "content-extraction"
 
@@ -492,21 +503,34 @@ class ContentExtractionStep:
         del job
         return True
 
-    def _candidates(self, result: ProcessingResult) -> list[LinkTableEntry]:
-        """Rank the links worth a body, and drop the ones that are title-only."""
-        distinct = [
+    @staticmethod
+    def _extractable(links: list[LinkTableEntry]) -> list[LinkTableEntry]:
+        """Return the rows worth a body, dropping the ones that are title-only."""
+        return [
             entry
-            for entry in result.links
+            for entry in links
             if entry.status not in ("excluded", "duplicate")
             and entry.priority != DEPRIORITIZED_PRIORITY
         ]
-        budget = (
+
+    def _budget(self, result: ProcessingResult) -> int:
+        """Return how many bodies this item may spend, counting what it carries.
+
+        Only the links the item arrived with are counted, so the budget and the
+        `kind` the index reports are decided by the same set of rows.
+        """
+        distinct = self._extractable(result.links)
+        return (
             self.linklist_extract_budget
             if len(distinct) >= self.linklist_threshold
             else self.extract_budget
         )
-        ranked = sorted(distinct, key=lambda entry: (entry.priority, entry.n))
-        return ranked[:budget]
+
+    def _candidates(self, result: ProcessingResult) -> list[LinkTableEntry]:
+        """Rank the links worth a body, and drop the ones that are title-only."""
+        extractable = self._extractable(result.links)
+        ranked = sorted(extractable, key=lambda entry: (entry.priority, entry.n))
+        return ranked[: self._budget(result)]
 
     def run(
         self,
@@ -517,22 +541,40 @@ class ContentExtractionStep:
         del job
         issues: list[ProcessingIssue] = []
         deadline = time.monotonic() + self.wall_clock_seconds
-        for position, entry in enumerate(self._candidates(result), 1):
-            if time.monotonic() >= deadline:
-                # Backpressure, not an error: the rest of the item's links stay
-                # title-only so one long video cannot stall the queue behind it.
-                entry.reason = "wall-clock-exceeded"
-                issues.append(
-                    ProcessingIssue(
-                        "wall-clock-exceeded",
-                        f"Extraction budget of {self.wall_clock_seconds:g}s was spent",
-                        target=entry.canonical,
+        remaining = self._budget(result)
+        position = 0
+        nested: list[tuple[LinkTableEntry, str | None]] = []
+
+        def extract_all(
+            candidates: list[tuple[LinkTableEntry, str | None]], *, harvest: bool
+        ) -> None:
+            nonlocal remaining, position
+            for entry, via in candidates[:remaining]:
+                if time.monotonic() >= deadline:
+                    # Backpressure, not an error: the rest of the item's links stay
+                    # title-only so one long video cannot stall the queue behind it.
+                    entry.reason = "wall-clock-exceeded"
+                    issues.append(
+                        ProcessingIssue(
+                            "wall-clock-exceeded",
+                            f"Extraction budget of {self.wall_clock_seconds:g}s was spent",
+                            target=entry.canonical,
+                        )
                     )
-                )
-                break
-            issue = self._extract(entry, position, result, workspace)
-            if issue is not None:
-                issues.append(issue)
+                    remaining = 0
+                    return
+                position += 1
+                remaining -= 1
+                issue, source = self._extract(entry, position, via, result, workspace)
+                if issue is not None:
+                    issues.append(issue)
+                if harvest and source is not None:
+                    nested.extend(self._harvest(entry, position, source, result))
+
+        extract_all([(entry, None) for entry in self._candidates(result)], harvest=True)
+        nested.sort(key=lambda candidate: (candidate[0].priority, candidate[0].n))
+        extract_all(nested, harvest=False)
+
         if result.links:
             # The table now carries each row's extraction status, so links.json
             # stays the one place a surprising result can be traced from.
@@ -543,20 +585,25 @@ class ContentExtractionStep:
         self,
         entry: LinkTableEntry,
         position: int,
+        via: str | None,
         result: ProcessingResult,
         workspace: Path,
-    ) -> ProcessingIssue | None:
+    ) -> tuple[ProcessingIssue | None, Path | None]:
+        """Retrieve one link, returning what went wrong and what to harvest from."""
         try:
             source = self.extractor.retrieve(entry.canonical, entry.handler, workspace)
         except Exception as error:
             # A failed extraction is information the index must carry, never a
             # reason to hold up an item that already has its capture text.
             entry.reason = "extraction-failed"
-            return ProcessingIssue(
-                "extraction-failed",
-                str(error),
-                target=entry.canonical,
-                error_type=type(error).__name__,
+            return (
+                ProcessingIssue(
+                    "extraction-failed",
+                    str(error),
+                    target=entry.canonical,
+                    error_type=type(error).__name__,
+                ),
+                None,
             )
 
         name = extraction_directory_name(position, entry.handler, entry.identity)
@@ -570,16 +617,39 @@ class ContentExtractionStep:
             identity=entry.identity,
             relative_directory=str(relative_root),
             canonical_url=entry.canonical,
+            via=via,
         )
         result.extractions.append(record)
         entry.extraction = record.status
+        if entry.title is None and record.title:
+            # A harvested row was never resolved, so this is the only name it has.
+            entry.title = record.title
         if record.retrieved:
-            return None
-        return ProcessingIssue(
-            record.reason or "extraction-unavailable",
-            f"{entry.handler} extraction reported {record.status}",
-            target=entry.canonical,
+            return None, source
+        return (
+            ProcessingIssue(
+                record.reason or "extraction-unavailable",
+                f"{entry.handler} extraction reported {record.status}",
+                target=entry.canonical,
+            ),
+            None,
         )
+
+    @staticmethod
+    def _harvest(
+        entry: LinkTableEntry,
+        position: int,
+        source: Path,
+        result: ProcessingResult,
+    ) -> list[tuple[LinkTableEntry, str | None]]:
+        """Add what this extraction points at to the table, ready for one more round."""
+        rows = harvest_entries(
+            result.links,
+            harvest_links(entry.handler, source),
+            from_segment=entry.from_segment,
+            limit=HARVEST_LIMIT.get(entry.handler),
+        )
+        return [(row, f"{position:02d} · {row.via}") for row in rows]
 
 
 class IndexRenderStep:

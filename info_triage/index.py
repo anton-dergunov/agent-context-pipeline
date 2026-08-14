@@ -142,6 +142,16 @@ def _distinct(links: Sequence[LinkTableEntry]) -> list[LinkTableEntry]:
     return [entry for entry in links if entry.status not in UNLISTED_STATUSES]
 
 
+def _captured(links: Sequence[LinkTableEntry]) -> list[LinkTableEntry]:
+    """Return the links the item arrived with, excluding what extraction found.
+
+    Whether an item is a link list is a fact about what was shared. Three links
+    harvested from a video description must not make one a reading list, and the
+    extraction budget was decided on the same set of rows.
+    """
+    return [entry for entry in _distinct(links) if entry.origin != "harvest"]
+
+
 def _primary_link(links: Sequence[LinkTableEntry]) -> LinkTableEntry | None:
     distinct = _distinct(links)
     if not distinct:
@@ -229,10 +239,10 @@ def _kind(
     primary: ExtractionRecord | None,
     linklist_threshold: int,
 ) -> str | None:
-    distinct = _distinct(links)
-    if not distinct:
+    captured = _captured(links)
+    if not captured:
         return "note"
-    if len(distinct) >= linklist_threshold:
+    if len(captured) >= linklist_threshold:
         return "linklist"
     # Otherwise the item is whatever its best extraction turned out to be.
     return primary.kind if primary is not None else None
@@ -483,7 +493,7 @@ def render_index(
         fields.append(("reason", reason))
     if extractions:
         fields.append(("sources", str(len(extractions))))
-    link_count = len(_distinct(links))
+    link_count = len(_captured(links))
     if link_count > 5:
         fields.append(("link_count", str(link_count)))
 

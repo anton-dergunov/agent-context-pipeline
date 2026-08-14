@@ -102,6 +102,8 @@ class LinkTableEntry:
     reason: str | None = None
     origin: str = "entity"
     duplicate_of: int | None = None
+    # Where a harvested row was found inside the extraction that offered it.
+    via: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -119,6 +121,7 @@ class LinkTableEntry:
             "reason": self.reason,
             "origin": self.origin,
             "duplicate_of": self.duplicate_of,
+            "via": self.via,
         }
 
 

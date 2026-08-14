@@ -37,7 +37,7 @@ Each post is written to `linkedin_output/<numeric-id>/`:
 
 ```text
 content.md                   the displayed post body plus a LINKS section
-comments.md                  the returned public comments, first comment leading
+comments.md                  the author's own comments, then everything else
 metadata.json                normalized author, URNs, counts, links, and media
 status.json                  complete, partial, blocked, or failed, with a reason
 raw/comments.json / .txt     incomplete anonymous public comment selection
@@ -47,6 +47,8 @@ raw/response.html            retained only when the fetch or parse failed
 ```
 
 LinkedIn normally exposes only selected comments to anonymous visitors. `raw/comments.json` records both the total count reported by the page and the number actually returned, marks the result as incomplete, and separately preserves the first returned comment.
+
+`comments.md` leads with the comments the post's own author left, matched on their profile URL and falling back to their display name. This is not cosmetic ordering: on this platform the paper or the repository is regularly in the author's own first comment while the rest of the thread is engagement filler. Nothing is discarded — every returned comment is kept, below the author's.
 
 URLs are not resolved. In particular, `lnkd.in` values remain shortened. The extractor may unwrap a LinkedIn tracking redirect when its query string already contains the visible short URL, but it never requests the short URL or its destination.
 

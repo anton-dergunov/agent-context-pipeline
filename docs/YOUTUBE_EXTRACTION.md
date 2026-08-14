@@ -72,7 +72,8 @@ The default output is `youtube_output/<video_id>/`:
 
 ```text
 content.md                 title, description, transcript, and on-screen text
-comments.md                bounded parents with nested replies
+comments.md                the uploader's own comments, then bounded parents
+                           with nested replies
 metadata.json              normalized stable fields
 status.json                complete, partial or failed, plus per-stage outcomes
 raw/metadata_raw.json      complete yt-dlp response with access values redacted
@@ -84,6 +85,10 @@ raw/media/                 Shorts only
 raw/ocr/                   Shorts only
 raw/ocr_text.txt           Shorts only when OCR runs
 ```
+
+`comments.md` repeats the uploader's own comments and replies at the top, where a
+correction or a follow-up link is worth finding. The full ranked selection follows
+unchanged.
 
 ## Managed yt-dlp updates
 

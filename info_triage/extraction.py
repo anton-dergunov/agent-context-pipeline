@@ -28,6 +28,7 @@ from .extractors.artifacts import (
     CONTENT_NAME,
     METADATA_NAME,
     STATUS_NAME,
+    HarvestedLink,
 )
 
 EXTRACTED_DIR = "extracted"
@@ -191,6 +192,7 @@ def describe(
     identity: str,
     relative_directory: str,
     canonical_url: str,
+    via: str | None = None,
 ) -> ExtractionRecord:
     """Read one finished extraction directory into the record the index renders."""
     status = _read_json(directory / STATUS_NAME, {}) or {}
@@ -207,6 +209,7 @@ def describe(
         directory=relative_directory,
         status=str(status.get("status") or "failed"),
         reason=status.get("reason") or None,
+        via=via,
     )
     if not record.retrieved:
         return record
@@ -458,6 +461,29 @@ def _degrade(directory: Path, stage: str, error: Exception) -> None:
     )
 
 
+# The one per-handler bound on how many links a finished extraction may offer.
+# Description link piles are mostly sponsorship; the paper is near the top.
+HARVEST_LIMIT = {"youtube": 3}
+
+
+def harvest_links(handler: str, directory: Path) -> list[HarvestedLink]:
+    """Return the links a finished extraction offers for one further round.
+
+    Only wrappers harvest. A paper, a Medium article, an arbitrary web page and an
+    Instagram post are terminal: their outbound links are a bibliography, a back
+    catalogue, site navigation, or nothing at all — never what was saved.
+    """
+    if handler == "linkedin":
+        from .extractors.linkedin.prepare import harvest_links as harvest
+
+        return harvest(directory)
+    if handler == "youtube":
+        from .extractors.youtube.prepare import harvest_links as harvest
+
+        return harvest(directory)
+    return []
+
+
 def committed_files(source: Path, relative_root: Path) -> list[tuple[Path, Path]]:
     """Pair every file in a finished extraction with its path inside the item."""
     return [
@@ -479,11 +505,14 @@ __all__ = [
     "COMMENTS_NAME",
     "CONTENT_NAME",
     "EXTRACTED_DIR",
+    "HARVEST_LIMIT",
     "ContentExtractor",
     "ExtractionError",
     "ExtractionRecord",
     "ExtractionSettings",
+    "HarvestedLink",
     "committed_files",
     "describe",
     "extraction_directory_name",
+    "harvest_links",
 ]

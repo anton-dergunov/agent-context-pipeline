@@ -11,6 +11,7 @@ from info_triage.extraction import (
     cache_key,
     describe,
     extraction_directory_name,
+    harvest_links,
 )
 from info_triage.models import LinkTableEntry, ProcessingJob, ProcessingResult
 from info_triage.preprocessing import ContentExtractionStep
@@ -287,3 +288,110 @@ def test_publication_dates_survive_every_provider_encoding(metadata, expected):
     from info_triage.extraction import _published
 
     assert _published(metadata) == expected
+
+
+AUTHOR = {"name": "Maxime Labonne", "url": "https://www.linkedin.com/in/maxime-labonne"}
+PAPER = "https://arxiv.org/abs/2606.19857"
+
+
+def write_linkedin(directory, comment_url):
+    """A post whose author's own comment carries the artifact, plus filler."""
+    write_extraction(directory, title="LLMs don't need readable text", author=AUTHOR)
+    (directory / "metadata.json").write_text(
+        json.dumps({"author": AUTHOR, "headline": "LLMs don't need readable text", "links": []}),
+        encoding="utf-8",
+    )
+    (directory / "raw").mkdir(exist_ok=True)
+    (directory / "raw" / "comments.json").write_text(
+        json.dumps(
+            {
+                "comments": [
+                    {
+                        "author_name": "Maxime Labonne",
+                        "author_url": AUTHOR["url"],
+                        "text": f"Paper: {comment_url}",
+                        "links": [{"url": comment_url}],
+                    },
+                    {
+                        "author_name": "Fan Account",
+                        "author_url": "https://linkedin.com/in/fan",
+                        "text": "Amazing work 🔥",
+                        "links": [],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return directory
+
+
+class WrapperExtractor:
+    """Returns a LinkedIn post for LinkedIn URLs and a plain body for anything else."""
+
+    def __init__(self, tmp_path, comment_urls):
+        self.tmp_path = tmp_path
+        self.comment_urls = dict(comment_urls)
+        self.calls: list[str] = []
+
+    def retrieve(self, canonical_url, handler, scratch):
+        self.calls.append(canonical_url)
+        directory = self.tmp_path / "out" / str(len(self.calls))
+        if canonical_url in self.comment_urls:
+            return write_linkedin(directory, self.comment_urls[canonical_url])
+        return write_extraction(directory, title="BabelTele", abstract="We study tokenizers.")
+
+
+POST = "https://www.linkedin.com/posts/activity-7487448227336716288"
+
+
+def test_the_paper_in_the_authors_comment_becomes_a_second_source(tmp_path):
+    extractor = WrapperExtractor(tmp_path, {POST: PAPER})
+    links = [link(1, handler="linkedin", priority=2, canonical=POST)]
+
+    result, outcome = run_step(tmp_path, links, extractor=extractor)
+
+    assert outcome is None
+    assert extractor.calls == [POST, PAPER]
+    assert [record.directory for record in result.extractions] == [
+        "extracted/01-linkedin-id1",
+        "extracted/02-research-arxiv-2606.19857",
+    ]
+    assert result.extractions[1].via == "01 · author comment"
+    # The paper joined the table and carries the name its extraction gave it.
+    assert result.links[1].canonical == PAPER
+    assert result.links[1].origin == "harvest"
+    assert result.links[1].title == "BabelTele"
+
+
+def test_a_nested_extraction_never_harvests_in_turn(tmp_path):
+    """Depth is structural: the post's paper is the journey, its citations are not."""
+    second = "https://www.linkedin.com/posts/activity-999"
+    extractor = WrapperExtractor(tmp_path, {POST: second, second: PAPER})
+    links = [link(1, handler="linkedin", priority=2, canonical=POST)]
+
+    result, _ = run_step(tmp_path, links, extractor=extractor)
+
+    assert extractor.calls == [POST, second]
+    assert len(result.extractions) == 2
+    assert PAPER not in [entry.canonical for entry in result.links]
+
+
+def test_an_exhausted_budget_still_records_what_the_extraction_pointed_at(tmp_path):
+    extractor = WrapperExtractor(tmp_path, {POST: PAPER})
+    links = [link(1, handler="linkedin", priority=2, canonical=POST)]
+
+    result, _ = run_step(tmp_path, links, extractor=extractor, extract_budget=1)
+
+    assert extractor.calls == [POST]
+    assert result.links[1].canonical == PAPER
+    assert result.links[1].status == "harvested"
+    assert result.links[1].extraction is None
+
+
+@pytest.mark.parametrize("handler", ["research", "medium", "document", "instagram"])
+def test_terminal_handlers_offer_nothing_to_follow(tmp_path, handler):
+    """A paper's bibliography and a page's navigation are not what was saved."""
+    directory = write_linkedin(tmp_path / handler, PAPER)
+
+    assert harvest_links(handler, directory) == []

@@ -8,6 +8,7 @@ rule that replaces a per-extractor list of patterns.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal
 
 CONTENT_NAME = "content.md"
@@ -33,3 +34,16 @@ BLOCKING_REASONS = frozenset({"access-blocked", "auth-wall", "login-required"})
 def status_for_reason(reason: str | None) -> str:
     """Return the failing status a stable reason key belongs to."""
     return "blocked" if reason in BLOCKING_REASONS else "failed"
+
+
+@dataclass(frozen=True, slots=True)
+class HarvestedLink:
+    """A link a finished extraction offers for one further round of retrieval.
+
+    `via` names where inside the extraction the link was found — "author comment",
+    "description" — so the item's index can say why a source it never received is
+    part of it.
+    """
+
+    url: str
+    via: str

@@ -214,9 +214,38 @@ title-only never spend the budget. A per-item `wall_clock_seconds` ceiling (600)
 is checked before each extraction; on exceeding it the remaining links stay
 title-only and the item reports `wall-clock-exceeded`.
 
+A retrieved page may point at the thing that was actually shared. A LinkedIn post
+announcing a paper is transport for the paper, and on that platform the link is
+regularly in the author's own first comment rather than in the post. So a finished
+extraction is asked what it points at, and those links are extracted in a second
+pass out of the same budget and the same wall clock:
+
+| Handler | Links followed |
+|---|---|
+| linkedin | the post body, plus the comments the post's own author left; when the author left none, the first comment carrying a link off LinkedIn |
+| youtube | the description, capped at three |
+| research, medium, document, instagram | none |
+
+A paper's bibliography, a Medium author's back catalogue and a web page's
+navigation are not what was saved, so those handlers follow nothing. **The depth
+is exactly one and is structural, not a setting**: a link found this way is
+retrieved but is never itself asked what it points at.
+
+Followed links join the item's link table with `origin: harvest` and the `via`
+that names where they were found, so `index.md` can say why a source the item was
+never sent is part of it. They are ranked like any other link, which is what
+promotes the item to what it turned out to be — a LinkedIn post whose author
+comment carries an arXiv paper is `kind: paper`, and its lead is the abstract
+rather than the post's prose. They do not count towards `link_count` or the
+link-list threshold: whether an item is a reading list is a fact about what
+arrived. Links that would never earn extraction anyway — sponsorship, merch,
+social profiles, channel self-references — are dropped rather than recorded.
+
 Every extraction directory has the same shape whichever handler produced it:
 `content.md` is the body, `comments.md` holds comments where the handler has any
-and policy admits them, `metadata.json` carries the handler's own fields, and
+and policy admits them — LinkedIn and YouTube lead with the author's own comments,
+and Instagram's never reach `content.md` or the index at all —
+`metadata.json` carries the handler's own fields, and
 `status.json` records `complete`, `partial`, `blocked` or `failed` with a stable
 reason. Everything retrieved but not converted — source HTML, PDFs, downloaded
 media, per-frame OCR, raw provider payloads — is kept under `raw/`, which is

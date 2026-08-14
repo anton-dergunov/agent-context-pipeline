@@ -437,3 +437,78 @@ def test_an_excluded_link_leaves_links_json_but_never_the_index():
 
     assert "example.com/1" in rendered
     assert "example.com/2" not in rendered
+
+
+# Nested extraction — the item is promoted to what it turned out to be.
+
+
+def test_a_post_whose_author_comment_carries_a_paper_is_indexed_as_the_paper():
+    """The LinkedIn wrapper is transport; the paper is the artifact `vet` judges."""
+    links = [
+        link(1, handler="linkedin", priority=2, canonical="https://linkedin.com/posts/activity-7"),
+        link(
+            2,
+            handler="research",
+            priority=1,
+            canonical="https://arxiv.org/abs/2606.19857",
+            status="harvested",
+            origin="harvest",
+            via="author comment",
+            title="BabelTele",
+        ),
+    ]
+    extractions = [
+        extraction(
+            1,
+            handler="linkedin",
+            directory="extracted/01-linkedin-7",
+            kind="post",
+            title="LLMs don't need readable text",
+            word_count=280,
+            excerpt="The post's own marketing prose.",
+        ),
+        extraction(
+            2,
+            handler="research",
+            directory="extracted/02-research-arxiv-2606.19857",
+            kind="paper",
+            title="BabelTele",
+            word_count=9400,
+            abstract="We study byte-level tokenizers.",
+            via="01 · author comment",
+        ),
+    ]
+
+    rendered = index(
+        [payload(1, 100, text="…")], body(("text", "…")), links, extractions=extractions
+    )
+
+    assert field(rendered, "kind") == "paper"
+    assert field(rendered, "title") == '"BabelTele"'
+    assert field(rendered, "canonical_url") == "https://arxiv.org/abs/2606.19857"
+    assert field(rendered, "sources") == "2"
+    # The abstract leads, not the post that pointed at it.
+    assert "> We study byte-level tokenizers." in rendered
+    assert "marketing prose" not in rendered
+    # Provenance for a source the user never sent stays visible.
+    assert "via 01 · author comment" in rendered
+
+
+def test_harvested_links_do_not_turn_a_small_item_into_a_link_list():
+    """The budget was decided on what arrived; the reported kind must agree."""
+    links = [link(n, handler="youtube" if n == 1 else "document") for n in range(1, 6)]
+    links.extend(
+        link(n, status="harvested", origin="harvest", via="description") for n in range(6, 9)
+    )
+
+    rendered = index([payload(1, 100, text="…")], body(("text", "…")), links)
+
+    assert field(rendered, "kind") != "linklist"
+    assert field(rendered, "link_count") is None
+    # Every row is still listed, harvested or not.
+    assert rendered.count("| document |") == 7
+    # The same eight rows, all of them the user's, are a link list.
+    captured = [link(n) for n in range(1, 9)]
+    assert field(index([payload(1, 100, text="…")], body(("text", "…")), captured), "kind") == (
+        "linklist"
+    )

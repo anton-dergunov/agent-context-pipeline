@@ -1,9 +1,11 @@
 import pytest
 
+from info_triage.extractors.artifacts import HarvestedLink
 from info_triage.links import (
     build_link_table,
     canonicalize_url,
     exclusion_reason,
+    harvest_entries,
     is_deprioritized,
     link_priority,
     unwrap_url,
@@ -219,3 +221,84 @@ def test_excluded_rows_stay_in_the_table_but_never_earn_a_priority():
     ]
     # The surviving row is the only link, so it earns the sole-link priority.
     assert table[0].priority == 2
+
+
+def harvested(*urls, via="author comment"):
+    return [HarvestedLink(url, via) for url in urls]
+
+
+def table(*urls):
+    return build_link_table([], " ".join(urls))
+
+
+def test_a_harvested_link_joins_the_table_ranked_on_its_own_merits():
+    entries = table("https://linkedin.com/posts/activity-7487448227336716288")
+
+    added = harvest_entries(entries, harvested("https://arxiv.org/abs/2606.19857"))
+
+    assert [entry.n for entry in added] == [2]
+    assert entries[1].origin == "harvest"
+    assert entries[1].status == "harvested"
+    assert entries[1].via == "author comment"
+    assert entries[1].handler == "research"
+    # The paper outranks the post that carried it, which is the whole point.
+    assert entries[1].priority < entries[0].priority
+
+
+def test_a_harvested_link_the_item_already_carries_is_not_a_second_row():
+    entries = table("https://arxiv.org/abs/2606.19857")
+
+    added = harvest_entries(entries, harvested("https://arxiv.org/abs/2606.19857?utm_source=x"))
+
+    assert added == []
+    assert len(entries) == 1
+
+
+def test_social_store_and_hashtag_links_are_never_harvested():
+    entries = table("https://youtube.com/watch?v=abc")
+
+    added = harvest_entries(
+        entries,
+        harvested(
+            "https://twitter.com/example",
+            "https://amzn.to/xyz",
+            "https://instagram.com/explore/tags/ml",
+            "https://patreon.com/example",
+            "https://example.com/slides.pdf",
+            via="description",
+        ),
+    )
+
+    assert [entry.canonical for entry in added] == ["https://example.com/slides.pdf"]
+
+
+def test_the_cap_is_reached_only_by_links_that_survived_the_filter():
+    """A description lists its sponsors first; capping before filtering finds none."""
+    entries = table("https://youtube.com/watch?v=abc")
+
+    added = harvest_entries(
+        entries,
+        harvested(
+            "https://twitter.com/example",
+            "https://patreon.com/example",
+            "https://arxiv.org/abs/2410.04840",
+            "https://github.com/example/policy",
+            "https://example.com/slides.pdf",
+            "https://example.com/notes.pdf",
+            via="description",
+        ),
+        limit=3,
+    )
+
+    assert [entry.canonical for entry in added] == [
+        "https://arxiv.org/abs/2410.04840",
+        "https://github.com/example/policy",
+        "https://example.com/slides.pdf",
+    ]
+
+
+def test_a_harvested_channel_link_is_dropped_rather_than_recorded_as_excluded():
+    entries = table("https://youtube.com/watch?v=abc")
+
+    assert harvest_entries(entries, harvested("https://t.me/somechannel")) == []
+    assert len(entries) == 1
