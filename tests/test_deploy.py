@@ -70,7 +70,7 @@ class DeployScriptTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 [command[0] for command in commands],
-                ["ssh", "rsync", "rsync", "ssh", "ssh", "sleep", "curl"],
+                ["ssh", "rsync", "rsync", "ssh", "ssh", "curl"],
             )
             mirror = commands[1]
             self.assertIn("--delete", mirror)
@@ -80,8 +80,27 @@ class DeployScriptTests(unittest.TestCase):
             self.assertEqual(commands[2][-2:], [".env", "server:/volume1/docker/info-triage/.env"])
             self.assertIn("chmod 600", commands[3][2])
             self.assertIn("deploy-container info-triage", commands[4][2])
-            self.assertEqual(commands[5], ["sleep", "3"])
-            self.assertEqual(commands[6][0:4], ["curl", "--fail", "--silent", "--show-error"])
+            self.assertEqual(
+                commands[5],
+                [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--connect-timeout",
+                    "2",
+                    "--max-time",
+                    "5",
+                    "--retry",
+                    "60",
+                    "--retry-all-errors",
+                    "--retry-delay",
+                    "1",
+                    "--retry-max-time",
+                    "60",
+                    "http://192.168.1.10:8000/health",
+                ],
+            )
             self.assertIn("Deployment complete", result.stdout)
             self.assertNotIn(
                 secret, result.stdout + result.stderr + (root / "commands.log").read_text()

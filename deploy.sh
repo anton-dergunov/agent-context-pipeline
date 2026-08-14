@@ -36,13 +36,16 @@ echo "==> Building and restarting container"
 ssh "$REMOTE" \
     'sudo -n /usr/local/sbin/deploy-container info-triage'
 
-echo "==> Waiting for service"
-
-sleep 3
-
 echo "==> Health check"
 
-curl --fail --silent --show-error "$URL"
+curl --fail --silent --show-error \
+    --connect-timeout 2 \
+    --max-time 5 \
+    --retry 60 \
+    --retry-all-errors \
+    --retry-delay 1 \
+    --retry-max-time 60 \
+    "$URL"
 
 echo
 echo "==> Deployment complete"

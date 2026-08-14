@@ -894,11 +894,16 @@ ssh "$REMOTE" \
 
 echo "==> Waiting for service"
 
-sleep 3
-
 echo "==> Health check"
 
-curl --fail --silent --show-error "$URL"
+curl --fail --silent --show-error \
+    --connect-timeout 2 \
+    --max-time 5 \
+    --retry 60 \
+    --retry-all-errors \
+    --retry-delay 1 \
+    --retry-max-time 60 \
+    "$URL"
 
 echo
 echo "==> Deployment complete"
@@ -923,9 +928,10 @@ The script performs:
 3.  Passwordless execution of only `deploy-container info-triage`.
 4.  `docker compose up -d --build` as root.
 5.  Display of Compose container status.
-6.  A three-second wait and an HTTP health check.
-7.  An HTTP request from the Mac to verify that the deployed service is
-    reachable.
+6.  A health check from the Mac that retries connection failures, empty
+    replies, timeouts, and unsuccessful HTTP responses for up to 60 seconds.
+7.  Confirmation that the deployed service is reachable before reporting a
+    successful deployment.
 
 Because of:
 
