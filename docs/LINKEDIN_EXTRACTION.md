@@ -36,16 +36,17 @@ Input files contain one URL per line. Empty lines and lines beginning with `#` a
 Each post is written to `linkedin_output/<numeric-id>/`:
 
 ```text
-post.txt                 complete displayed post body plus a LINKS section
-comments.json / .txt     incomplete anonymous public comment selection
-metadata.json            normalized author, URNs, counts, links, and media
-metadata_raw.json        matching JSON-LD and extraction provenance
-status.json              complete, partial, blocked, or failed stages
-media/                    post images and link-preview thumbnails
-llm_input.json / .txt    compact input for downstream processing
+content.md                   the displayed post body plus a LINKS section
+comments.md                  the returned public comments, first comment leading
+metadata.json                normalized author, URNs, counts, links, and media
+status.json                  complete, partial, blocked, or failed, with a reason
+raw/comments.json / .txt     incomplete anonymous public comment selection
+raw/metadata_raw.json        matching JSON-LD and extraction provenance
+raw/media/                   post images and link-preview thumbnails
+raw/response.html            retained only when the fetch or parse failed
 ```
 
-LinkedIn normally exposes only selected comments to anonymous visitors. `comments.json` records both the total count reported by the page and the number actually returned, marks the result as incomplete, and separately preserves the first returned comment.
+LinkedIn normally exposes only selected comments to anonymous visitors. `raw/comments.json` records both the total count reported by the page and the number actually returned, marks the result as incomplete, and separately preserves the first returned comment.
 
 URLs are not resolved. In particular, `lnkd.in` values remain shortened. The extractor may unwrap a LinkedIn tracking redirect when its query string already contains the visible short URL, but it never requests the short URL or its destination.
 

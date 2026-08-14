@@ -8,15 +8,15 @@ ordered `processing.steps` sequence.
 
 | Telegram content | Automatic preprocessing | `capture/message.md` result |
 | --- | --- | --- |
-| Voice note (`voice`) | Transcribe locally, clean text, discover and resolve URLs, render the index | Transcript in its ordered `voice` segment |
-| Plain text or caption | Clean text, discover and resolve URLs, render the index | Processed text in its ordered segment |
-| Location or venue | Clean text, discover and resolve URLs, render the index | Existing readable location block in its segment |
-| Document | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
-| Photo | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
-| Video | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
-| Animation | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
-| Generic audio (`audio`) | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
-| Video note (`video_note`) | Clean accompanying caption, discover and resolve its URLs, render the index | Caption in its segment |
+| Voice note (`voice`) | Transcribe locally, clean text, discover and resolve URLs, extract the content behind them, render the index | Transcript in its ordered `voice` segment |
+| Plain text or caption | Clean text, discover and resolve URLs, extract the content behind them, render the index | Processed text in its ordered segment |
+| Location or venue | Clean text, discover and resolve URLs, extract the content behind them, render the index | Existing readable location block in its segment |
+| Document | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
+| Photo | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
+| Video | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
+| Animation | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
+| Generic audio (`audio`) | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
+| Video note (`video_note`) | Clean accompanying caption, discover and resolve its URLs, extract the content behind them, render the index | Caption in its segment |
 
 Every item ends with `index.md` at its root: the item's own account of itself,
 and the only file the laptop side reads. Original downloaded attachments and the
@@ -30,8 +30,10 @@ Cleaning runs before link discovery so that zero-width characters and homoglyphs
 cannot hide a link from it. Discovery runs before URL resolution, which is the
 only step that uses the network. Link destinations and titles inserted by
 resolution are consequently not cleaned; canonicalizing them is link discovery's
-job, not a second cleaning pass. Index rendering runs last, so it sees the
-finished body and the resolved table.
+job, not a second cleaning pass. Content extraction runs on the resolved table
+and writes one `extracted/NN-<handler>-<id>/` directory per retrieved source.
+Index rendering runs last, so it sees the finished body, the resolved table and
+everything extraction retrieved.
 
 Every Telegram source message is represented uniformly:
 
@@ -132,9 +134,19 @@ and sender-identifying parameters (`utm_*`, `igsh`, `si`, `is`, `fbclid`, `rcm`,
 deduplicated on the canonical URL, so one target is one row however many times
 it appears.
 
+Some links are not part of the item at all and are excluded outright, with the
+reason recorded so a surprising row can still be traced. A Telegram channel,
+invite or web-preview link (`t.me/<channel>`, `t.me/+invite`, `t.me/joinchat/…`,
+`t.me/s/<channel>`) is about the channel a post arrived from, never about the
+item; a link to one post inside a channel is content and is kept. A bare domain
+named in prose is excluded too: Telegram marks `BIKEPACKING.com` in pasted text
+as a link entity even though the user never shared it. Excluded rows stay in
+`links.json` and never reach `index.md`.
+
 Every row records the position `n`, the raw and canonical URLs, the anchor text
 when the link came from an entity, the segment it came from, the handler that
-would extract it, its extraction priority, and a status. Research providers rank
+would extract it, the handler's target identity, its extraction priority, a
+status, and — once extraction has run — what extraction made of it. Research providers rank
 highest, then the item's only link, then code repositories, then articles and
 documents, and finally links that need a nested extraction. Profile roots,
 channels, hashtag pages, image CDNs and store links are ranked last: they are
@@ -187,28 +199,91 @@ URLs and successful titles, and `--report` writes a per-URL JSON audit. The
 `--strict` exits nonzero after writing output when any attempted enrichment has
 an expected problem.
 
+## Content extraction
+
+Content extraction is the only step that retrieves bodies. It takes the resolved
+link table, works down it in priority order, and writes one
+`extracted/NN-<handler>-<identity>/` directory per source into the item.
+
+Two budgets bound it. `extract_budget` (5) links get a full extraction, dropping
+to `linklist_extract_budget` (2) when the item carries at least
+`processing.linklist_threshold` distinct links — a curated list of 43 resources
+routes as a list of titles, and 43 extracted bodies would cost a fortune without
+changing the routing decision. Rows that are excluded, duplicates, or ranked
+title-only never spend the budget. A per-item `wall_clock_seconds` ceiling (600)
+is checked before each extraction; on exceeding it the remaining links stay
+title-only and the item reports `wall-clock-exceeded`.
+
+Every extraction directory has the same shape whichever handler produced it:
+`content.md` is the body, `comments.md` holds comments where the handler has any
+and policy admits them, `metadata.json` carries the handler's own fields, and
+`status.json` records `complete`, `partial`, `blocked` or `failed` with a stable
+reason. Everything retrieved but not converted — source HTML, PDFs, downloaded
+media, per-frame OCR, raw provider payloads — is kept under `raw/`, which is
+provenance and is never read by the routing side. Setting `keep_raw: false`
+turns it off.
+
+Results are cached outside the item, under `data/extraction-cache/`, keyed on the
+canonical URL. This is not an optimization but a requirement: an item is
+re-materialized from `telegram.json` on every Telegram edit, so without the cache
+adding a note to a message would re-download the paper attached to it. A cache
+entry's manifest is written last, so an interrupted extraction is re-run rather
+than served half-finished.
+
+**No extraction failure ever blocks an item.** A refusal, a timeout, an
+unparseable page, or a missing extractor is recorded against its link and
+reported as a partial step; the item still lands with its capture text, its link
+table and whatever else was retrieved. No language model runs anywhere in this
+path: extractors retrieve and convert, and never summarize.
+
+Medium and Instagram retrieve substantially more when given a session.
+`extractors.medium.cookie_file` and `extractors.instagram.session_file` /
+`cookies_file` are unset by default; both are account credentials and belong in a
+mounted secret, never in the repository. Without them a paywalled Medium article
+extracts as `partial` with reason `medium-member-preview`, or `blocked` when the
+site refuses outright.
+
 ## Index rendering
 
 Index rendering runs last and writes `index.md` at the item root. It is the only
-per-item contract: the laptop reads it, and `inbox.md` is nothing more than these
+per-item contract: the laptop reads it, and `triage.md` is nothing more than these
 files concatenated. It uses no network and adds no information of its own —
 everything it writes is already known from the retained payloads, the processed
 body, and the link table.
 
 Its frontmatter carries the item's `id`, its `captured_at` timestamp in UTC, the
 detected `origin`, the forwarding provenance as `via`, the detected `intent`, the
-`kind` when it is already certain, the primary `canonical_url`, the `extraction`
-state with a `reason` when links were left unresolved, and `link_count` when the
-item carries more than five distinct links. An item with no links is a `note`; an
-item with at least the configured `linklist_threshold` distinct links is a
-`linklist`, which is read as a titled table rather than as content. Fields that
-depend on content extraction are absent until extraction exists.
+`kind`, the primary `canonical_url`, the `extraction` state with a `reason` when
+it is not `ok`, the number of `sources`, and `link_count` when the item carries
+more than five distinct links. When extraction retrieved something, the
+frontmatter also carries the top source's `title`, `authors`, `published`,
+`venue` and `doi`. An item with no links is a `note`; an item with at least the
+configured `linklist_threshold` distinct links is a `linklist`, which is read as
+a titled table rather than as content; otherwise `kind` is promoted to what the
+top-priority extraction turned out to be. A field is omitted rather than
+guessed.
 
 `## Captured` quotes the user's own words and nothing else, and a transcript is
 marked as dictated so a garbled phrase reads as a recognition artifact rather
-than as meaning. `## Links` is the resolved table, one row per distinct target,
-showing the resolved title where there is one and the author's own anchor text
-otherwise.
+than as meaning.
+
+`## Sources` lists every extraction with its directory, what is known about it,
+its status, and **its word count**. The word count is the point: it is what lets
+a reader decide between a 200-word abstract and an 11,900-word body instead of
+guessing.
+
+`## Lead` quotes the top-priority source: a paper's complete abstract, otherwise
+the forwarded material itself when the item is a forwarded Telegram post, and
+otherwise the first `lead_words` (120) of `content.md`, cut at a paragraph
+boundary and marked with `…`. Quoting a forwarded post matters because it is the
+only place that material appears outside `capture/` — without it a link the post
+introduced looks as though it came from nowhere. The truncation is deliberate
+and visible; a summary would look complete and stop the reader from opening
+`content.md` when it actually matters.
+
+`## Links` is the resolved table, one row per distinct target, showing the
+resolved title where there is one and the author's own anchor text otherwise.
+Excluded rows are not listed.
 
 Intent detection uses three heuristics and no language model. Short text
 following the last link in a message is the note; a short link-free message

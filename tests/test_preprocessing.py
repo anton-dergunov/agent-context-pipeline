@@ -668,7 +668,7 @@ def test_index_render_commits_the_item_contract(tmp_path):
                 resolve_budget=40,
                 resolver=FakeResolver({}),
             ),
-            IndexRenderStep(linklist_threshold=8),
+            IndexRenderStep(linklist_threshold=8, lead_words=120),
         ]
     )
     worker = ProcessingWorker(store, pipeline)
@@ -699,7 +699,7 @@ def test_index_render_reports_unreadable_input_without_withholding_the_index(tmp
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    outcome = IndexRenderStep(linklist_threshold=8).run(job, result, workspace)
+    outcome = IndexRenderStep(linklist_threshold=8, lead_words=120).run(job, result, workspace)
 
     assert outcome.status == "partial"
     assert outcome.issues[0].reason == "invalid-input"
@@ -708,3 +708,42 @@ def test_index_render_reports_unreadable_input_without_withholding_the_index(tmp
     assert "captured_at: 2026-08-09T10:00:00Z" in index
     assert "> ## Segment 1 — text" not in index
     assert "> hello" in index
+
+
+def test_a_consent_interstitial_does_not_become_the_canonical_url(tmp_path):
+    """A European request for a YouTube video lands on a cookie wall, not the video."""
+    video = "https://www.youtube.com/shorts/YrSuA9ySnrE"
+    consent = (
+        "https://consent.youtube.com/ml?continue=https%3A%2F%2Fwww.youtube.com"
+        "%2Fshorts%2FYrSuA9ySnrE%3Fis%3DOUhfLp_OKQzrsA59%26cbrd%3D1&gl=GB&hl=en-GB"
+    )
+
+    class ConsentResolver(FakeResolver):
+        def resolve_link(self, url):
+            if url not in self.link_results:
+                if url == video:
+                    # The chain ends on the interstitial, whose title is generic.
+                    self.link_results[url] = LinkResolution(consent, None, "title-not-found")
+                else:
+                    self.link_results[url] = LinkResolution(url, "A Short")
+            return self.link_results[url]
+
+    payload = telegram_payload(
+        1, 100, text=video, entities=[{"type": "url", "offset": 0, "length": len(video)}]
+    )
+    store = CaptureStore(tmp_path)
+    store.capture(
+        10,
+        1,
+        render_capture_payloads([payload]),
+        received_at="2026-08-09T10:00:00+00:00",
+        telegram_payload=payload,
+    )
+    job = ProcessingJob(10, 1, 1, "Other", store.staging_dir / "2026-08-09_1")
+    result = ProcessingResult(message_markdown=render_capture_payloads([payload]))
+    links = link_table(job, result, resolver=ConsentResolver({}))
+
+    assert links[0].canonical == video
+    assert links[0].handler == "youtube"
+    assert links[0].status == "resolved"
+    assert "consent.youtube.com" not in links[0].canonical

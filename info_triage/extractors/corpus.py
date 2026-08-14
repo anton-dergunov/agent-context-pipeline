@@ -11,6 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from info_triage.extractors.artifacts import STATUS_NAME
 from info_triage.extractors.document.io import write_json
 from info_triage.extractors.router import route_url
 
@@ -36,18 +37,9 @@ def _output_path(stdout: str) -> Path | None:
 
 def _status(path: Path | None, returncode: int, stderr: str) -> dict[str, Any]:
     if path is not None:
-        status_path = path / "status.json"
         try:
-            value = json.loads(status_path.read_text(encoding="utf-8"))
+            value = json.loads((path / STATUS_NAME).read_text(encoding="utf-8"))
             if isinstance(value, dict):
-                if "status" not in value:
-                    download = value.get("download")
-                    if download == "complete" or returncode == 0:
-                        value["status"] = "complete"
-                    elif download in {"preview", "partial"}:
-                        value["status"] = "partial"
-                    else:
-                        value["status"] = "failed"
                 return value
         except (OSError, json.JSONDecodeError):
             pass

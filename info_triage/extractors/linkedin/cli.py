@@ -8,6 +8,8 @@ import sys
 import time
 from pathlib import Path
 
+from info_triage.extractors.artifacts import STATUS_NAME
+
 from .client import AnonymousClient
 from .downloader import DownloadOptions, download_post
 from .urls import load_inputs
@@ -69,8 +71,8 @@ def main(argv: list[str] | None = None) -> int:
             time.sleep(args.request_delay)
         print(f"Downloading public LinkedIn post {reference.post_id} …", flush=True)
         post_dir, complete = download_post(client, reference, options)
-        status = json.loads((post_dir / "status.json").read_text(encoding="utf-8"))
-        print(f"  {status['download']}: {post_dir}", flush=True)
+        status = json.loads((post_dir / STATUS_NAME).read_text(encoding="utf-8"))
+        print(f"  {status['status']}: {post_dir}", flush=True)
         if not complete:
             all_complete = False
             for error in status.get("errors", []):

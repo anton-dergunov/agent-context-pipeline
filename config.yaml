@@ -37,8 +37,24 @@ extractors:
     # Instaloader updates remain lockfile-reviewed; only transient extraction retries run here.
     max_attempts: 3
     retry_backoff_seconds: 5
+    # Anonymous access is rate-limited and returns no comments. Point these at a
+    # mounted Instaloader session or cookie jar to extract reels reliably. Both
+    # are account credentials: mount them as secrets, never commit them.
+    session_file: null
+    instagram_user: null
+    cookies_file: null
+
+  medium:
+    # Without a member session Medium returns a preview: the title and a few
+    # opening paragraphs. That extracts as `partial`, not as a failure.
+    cookie_file: null
 
 processing:
+  # At or above this many distinct links the item is a link list: it is read as a
+  # titled table rather than as content, so extraction drops to a token budget.
+  # Both content-extraction and index-render read this, and must agree.
+  linklist_threshold: 8
+
   # Steps execute in this exact order. Remove a step to disable it.
   steps:
     - name: voice-transcription
@@ -74,8 +90,23 @@ processing:
       # A link list of 43 entries is worth reading as titles, not as bodies.
       resolve_budget: 40
 
+    # The only step that retrieves content. Extraction never blocks an item:
+    # every failure is recorded against its link and the item lands regardless.
+    - name: content-extraction
+      # Links given a full extraction, highest priority first.
+      extract_budget: 5
+      # ... and how many when the item is a link list. Extracting 43 article
+      # bodies costs a fortune and cannot change the routing decision.
+      linklist_extract_budget: 2
+      # Per-item ceiling. On exceeding it the remaining links stay title-only so
+      # one 77-minute video cannot stall the text items queued behind it.
+      wall_clock_seconds: 600
+      # Retain what each extractor downloaded under `<extraction>/raw/`. It is
+      # provenance for a human; nothing in the routing path reads it.
+      keep_raw: true
+
     # The last step: everything the item knows about itself, in one file.
     - name: index-render
-      # At or above this many distinct links the item is a link list, which is
-      # read as a titled table rather than as content.
-      linklist_threshold: 8
+      # Words of `content.md` quoted as the item's lead. Papers quote the
+      # complete abstract instead.
+      lead_words: 120

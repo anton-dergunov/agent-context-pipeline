@@ -19,7 +19,7 @@ from .utilities.url_resolution import embedded_destination, iter_link_occurrence
 # Parameters that identify the sender rather than the destination. This list is
 # separate from text cleaning's UNWANTED_PARAMS because destinations resolved
 # after cleaning never pass through the cleaner again.
-TRACKING_PARAMETERS = frozenset({"igsh", "si", "is", "fbclid", "rcm"})
+TRACKING_PARAMETERS = frozenset({"cbrd", "igsh", "si", "is", "fbclid", "rcm"})
 TRACKING_PARAMETER_PREFIXES = ("utm_", "cp_landing")
 
 DEFAULT_PORTS = {"http": "80", "https": "443"}
@@ -72,6 +72,8 @@ STORE_HOSTS = frozenset(
     }
 )
 HASHTAG_PATH_MARKERS = ("/hashtag/", "/explore/tags/", "/tags/")
+
+TELEGRAM_HOSTS = frozenset({"t.me", "telegram.me", "telegram.dog"})
 
 
 @dataclass(frozen=True)
@@ -206,6 +208,46 @@ def body_links(text: str) -> list[DiscoveredLink]:
     return found
 
 
+def is_telegram_channel_url(url: str) -> bool:
+    """Return whether a Telegram link points at a channel rather than at a post.
+
+    Forwarded channel posts almost always carry a subscribe link, which is about
+    the channel this arrived from and never about what the item is for.
+    """
+    if _bare_host(url) not in TELEGRAM_HOSTS:
+        return False
+    parts = [part.lower() for part in _path_parts(url)]
+    if not parts or parts[0].startswith("+") or parts[0] == "joinchat":
+        return True
+    if parts[0] == "s":
+        # /s/<channel> is the channel's web preview; /s/<channel>/<id> is a post.
+        return len(parts) <= 2
+    # /<channel> is the channel itself; /<channel>/<id> is one post inside it.
+    return len(parts) == 1
+
+
+def is_bare_hostname(raw: str, url: str) -> bool:
+    """Return whether a link is a domain named in prose rather than shared.
+
+    Telegram marks a bare domain in message text as a link entity, so pasted
+    prose citing its sources ("Reddit", "BIKEPACKING.com") arrives looking
+    exactly like a URL the user chose to send.
+    """
+    if urlsplit(raw.strip()).scheme:
+        return False
+    parsed = urlsplit(url)
+    return not parsed.path.strip("/") and not parsed.query
+
+
+def exclusion_reason(raw: str, url: str) -> str | None:
+    """Return why a discovered link is not part of the item, or None to keep it."""
+    if is_telegram_channel_url(url):
+        return "telegram-channel"
+    if is_bare_hostname(raw, url):
+        return "bare-hostname"
+    return None
+
+
 def is_repository_url(url: str) -> bool:
     return _bare_host(url) in REPOSITORY_HOSTS and len(_path_parts(url)) >= 2
 
@@ -239,12 +281,13 @@ def link_priority(handler: str, canonical: str, *, sole_link: bool) -> int:
     return NESTED_PRIORITY
 
 
-def route_handler(url: str) -> str:
-    """Select the extractor for a URL without touching the network."""
+def route_target(url: str) -> tuple[str, str]:
+    """Select the extractor and its target identity, without touching the network."""
     try:
-        return route_url(url, resolve_redirectors=False).handler
+        route = route_url(url, resolve_redirectors=False)
     except ValueError:
-        return "document"
+        return "document", ""
+    return route.handler, route.identity
 
 
 def build_link_table(payloads: list[dict[str, Any]], body: str) -> list[LinkTableEntry]:
@@ -261,21 +304,29 @@ def build_link_table(payloads: list[dict[str, Any]], body: str) -> list[LinkTabl
             if existing.label is None and link.label:
                 existing.label = link.label
             continue
+        excluded = exclusion_reason(link.url, canonical)
+        handler, identity = route_target(canonical)
         positions[canonical] = len(entries)
         entries.append(
             LinkTableEntry(
                 n=len(entries) + 1,
                 raw=link.url,
                 canonical=canonical,
-                handler=route_handler(canonical),
-                priority=DOCUMENT_PRIORITY,
+                handler=handler,
+                identity=identity,
+                priority=DEPRIORITIZED_PRIORITY if excluded else DOCUMENT_PRIORITY,
+                status="excluded" if excluded else "discovered",
+                reason=excluded,
                 from_segment=link.from_segment,
                 label=link.label,
                 origin=link.origin,
             )
         )
 
-    sole_link = len(entries) == 1
-    for entry in entries:
+    # Excluded rows stay in links.json so a surprising link can still be traced
+    # back to where it came from, but they are not part of the item.
+    kept = [entry for entry in entries if entry.status != "excluded"]
+    sole_link = len(kept) == 1
+    for entry in kept:
         entry.priority = link_priority(entry.handler, entry.canonical, sole_link=sole_link)
     return entries

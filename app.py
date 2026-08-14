@@ -36,7 +36,7 @@ def main() -> None:
     config = load_config(config_path)
 
     store = CaptureStore(config.data_dir)
-    pipeline = ProcessingPipeline(processing_steps_from_config(config.processing_steps))
+    pipeline = ProcessingPipeline(processing_steps_from_config(config))
     worker = ProcessingWorker(store, pipeline)
     coordinator = ProcessingCoordinator(store, pipeline, worker)
     asyncio.set_event_loop(asyncio.new_event_loop())

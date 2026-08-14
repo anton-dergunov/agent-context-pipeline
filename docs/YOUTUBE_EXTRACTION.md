@@ -71,19 +71,18 @@ audio contains no recognizable speech.
 The default output is `youtube_output/<video_id>/`:
 
 ```text
-metadata.json          normalized stable fields
-metadata_raw.json      complete yt-dlp response shape with access values redacted
-description.txt
-comments.json          bounded parents with nested replies
-comments.txt
-transcript.json        selected transcript, language, provenance, and quality
-transcript.txt         only the selected transcript text
-status.json
-llm_input.json
-llm_input.txt
-media/                 Shorts only
-ocr/                   Shorts only
-ocr_text.txt            Shorts only when OCR runs
+content.md                 title, description, transcript, and on-screen text
+comments.md                bounded parents with nested replies
+metadata.json              normalized stable fields
+status.json                complete, partial or failed, plus per-stage outcomes
+raw/metadata_raw.json      complete yt-dlp response with access values redacted
+raw/description.txt
+raw/comments.json / .txt   the comments as retrieved
+raw/transcript.json        selected transcript, language, provenance, and quality
+raw/transcript.txt         only the selected transcript text
+raw/media/                 Shorts only
+raw/ocr/                   Shorts only
+raw/ocr_text.txt           Shorts only when OCR runs
 ```
 
 ## Managed yt-dlp updates

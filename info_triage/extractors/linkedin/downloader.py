@@ -11,9 +11,11 @@ from urllib.parse import urlsplit
 
 import requests
 
+from info_triage.extractors.artifacts import METADATA_NAME, RAW_DIR, STATUS_NAME
+
 from .client import AnonymousClient, FetchError
 from .parser import Image, ParsedPost, ParseError, parse_post
-from .prepare import prepare_llm_input
+from .prepare import prepare_content
 from .urls import PostReference
 
 MAX_IMAGE_BYTES = 50 * 1024 * 1024
@@ -26,8 +28,13 @@ class DownloadOptions:
     request_delay: float = 1.0
 
 
+def _write_text(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(value, encoding="utf-8")
+
+
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def _image_extension(url: str, content_type: str) -> str:
@@ -174,41 +181,43 @@ def download_post(
     options: DownloadOptions,
 ) -> tuple[Path, bool]:
     post_dir = options.output_dir / reference.post_id
-    media_dir = post_dir / "media"
+    media_dir = post_dir / RAW_DIR / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     status: dict[str, Any] = {
         "post_id": reference.post_id,
         "request_url": reference.request_url,
-        "download": "started",
+        "status": "started",
         "errors": [],
     }
-    _write_json(post_dir / "status.json", status)
+    _write_json(post_dir / STATUS_NAME, status)
 
     html: str | None = None
     try:
         html, final_url = client.get_html(reference.request_url)
         post = parse_post(html, reference, final_url=final_url, max_comments=options.max_comments)
     except FetchError as exc:
-        status["download"] = exc.kind
+        status["status"] = exc.kind
+        status["reason"] = f"linkedin-{exc.kind}"
         status["errors"].append({"stage": "fetch", "error": str(exc)})
         if exc.body:
-            (post_dir / "response.html").write_text(exc.body, encoding="utf-8")
-        _write_json(post_dir / "status.json", status)
+            _write_text(post_dir / RAW_DIR / "response.html", exc.body)
+        _write_json(post_dir / STATUS_NAME, status)
         return post_dir, False
     except (ParseError, ValueError) as exc:
-        status["download"] = "failed"
+        status["status"] = "failed"
+        status["reason"] = "post-unparseable"
         status["errors"].append({"stage": "parse", "error": f"{type(exc).__name__}: {exc}"})
         if html:
-            (post_dir / "response.html").write_text(html, encoding="utf-8")
-        _write_json(post_dir / "status.json", status)
+            _write_text(post_dir / RAW_DIR / "response.html", html)
+        _write_json(post_dir / STATUS_NAME, status)
         return post_dir, False
 
-    (post_dir / "post.txt").write_text(_post_text(post), encoding="utf-8")
+    post_text = _post_text(post)
     comments_payload = _comments_payload(post)
-    _write_json(post_dir / "comments.json", comments_payload)
-    (post_dir / "comments.txt").write_text(_comments_text(post), encoding="utf-8")
+    _write_json(post_dir / RAW_DIR / "comments.json", comments_payload)
+    _write_text(post_dir / RAW_DIR / "comments.txt", _comments_text(post))
     _write_json(
-        post_dir / "metadata_raw.json",
+        post_dir / RAW_DIR / "metadata_raw.json",
         {
             "json_ld": post.raw_json_ld,
             "extraction_sources": post.extraction_sources,
@@ -231,11 +240,12 @@ def download_post(
             status["errors"].append({"stage": "media", "index": index, "error": item["error"]})
         media.append(item)
 
-    _write_json(post_dir / "metadata.json", _metadata(post, media))
-    prepare_llm_input(post_dir)
+    _write_json(post_dir / METADATA_NAME, _metadata(post, media))
+    prepare_content(post_dir, post_text)
     status.update(
         {
-            "download": "partial" if status["errors"] else "complete",
+            "status": "partial" if status["errors"] else "complete",
+            "reason": "media-incomplete" if status["errors"] else None,
             "post_text_chars": len(post.text),
             "media_found": len(post.images),
             "media_downloaded": sum(1 for item in media if item.get("file")),
@@ -243,5 +253,5 @@ def download_post(
             "public_comments_returned": len(post.comments),
         }
     )
-    _write_json(post_dir / "status.json", status)
+    _write_json(post_dir / STATUS_NAME, status)
     return post_dir, not status["errors"]

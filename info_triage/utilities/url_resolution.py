@@ -64,6 +64,10 @@ DEFAULT_USER_AGENT = (
 # Decoding these first avoids a network call and works when the redirector is
 # blocked by authentication or bot protection.
 QUERY_REDIRECTORS: dict[str, tuple[str, ...]] = {
+    # Google's cookie-consent interstitials, which a European request reaches
+    # instead of the page itself. They carry the real destination in continue=.
+    "consent.google.com": ("continue",),
+    "consent.youtube.com": ("continue",),
     "l.facebook.com": ("u",),
     "lm.facebook.com": ("u",),
     "www.google.com": ("q", "url"),

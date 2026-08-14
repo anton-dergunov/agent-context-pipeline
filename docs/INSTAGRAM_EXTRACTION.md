@@ -239,23 +239,27 @@ loaded sequentially so their peaks do not add together.
 Each `instagram_output/<shortcode>/` contains:
 
 ```text
-caption.txt                  original post caption
-comments.json / comments.txt
-metadata.json                stable, normalized metadata
-metadata_raw.json            raw Instagram structures for audit/future fields
-status.json                  partial failures are recorded here
-media/                       all original images/videos, in carousel order
-ocr/*.ocr.json               every OCR observation, bbox, confidence, and time
-ocr/*.ocr.raw.txt            all deduplicated text, including low-confidence noise
-ocr/*.ocr.txt                confidence-filtered, deduplicated text for one item
-ocr/status.json              OCR backend and per-file errors
-ocr_text.txt                 combined, LLM-ready visual text for the post
-transcripts/<media>.txt      plain spoken text, no timestamps
-transcripts/<media>.json     status, model, language, probability, and text
-transcripts/status.json      per-media transcription outcome/errors
-transcript.txt               combined spoken text for the post
-llm_input.json / .txt        metadata, comments, visual text, and spoken audio
+content.md                       caption, on-screen text, and spoken audio
+comments.md                      the owner's first comment and popular comments
+metadata.json                    stable, normalized metadata
+status.json                      partial failures are recorded here
+raw/caption.txt                  original post caption
+raw/comments.json / .txt         the selected comments, as retrieved
+raw/metadata_raw.json            raw Instagram structures for audit/future fields
+raw/media/                       all original images/videos, in carousel order
+raw/ocr/*.ocr.json               every OCR observation, bbox, confidence, and time
+raw/ocr/*.ocr.raw.txt            all deduplicated text, including low-confidence noise
+raw/ocr/*.ocr.txt                confidence-filtered, deduplicated text for one item
+raw/ocr/status.json              OCR backend and per-file errors
+raw/ocr_text.txt                 combined visual text for the post
+raw/transcripts/<media>.txt      plain spoken text, no timestamps
+raw/transcripts/<media>.json     status, model, language, probability, and text
+raw/transcripts/status.json      per-media transcription outcome/errors
+raw/transcript.txt               combined spoken text for the post
 ```
+
+Comments are retrieved and kept on disk but never enter `content.md`: they were
+measured at roughly 38% of an Instagram post's tokens and none of its signal.
 
 Comment output separately identifies the chronologically first scanned comment/reply by the post owner, and includes like counts so downstream code can re-rank the selected comments.
 

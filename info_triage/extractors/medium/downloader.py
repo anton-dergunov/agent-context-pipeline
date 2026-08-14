@@ -8,6 +8,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from info_triage.extractors.artifacts import (
+    CONTENT_NAME,
+    METADATA_NAME,
+    RAW_DIR,
+    STATUS_NAME,
+)
+
 from .direct import DirectClient, DirectError
 from .feed import FeedError, MediumFeedClient
 from .postprocess import html_to_markdown
@@ -20,12 +27,15 @@ class ExtractionMethod(StrEnum):
 
 
 DEFAULT_METHODS = (ExtractionMethod.RSS, ExtractionMethod.BROWSER)
+# A member-wall preview is title plus a few opening paragraphs: enough to
+# identify and route the article, not enough to judge it. It must say so.
+PREVIEW_REASON = "medium-member-preview"
 ARTIFACT_NAMES = (
-    "article.html",
-    "article.md",
-    "metadata.json",
-    "metadata_raw.json",
-    "response.html",
+    CONTENT_NAME,
+    METADATA_NAME,
+    f"{RAW_DIR}/article.html",
+    f"{RAW_DIR}/metadata_raw.json",
+    f"{RAW_DIR}/response.html",
 )
 
 
@@ -49,8 +59,13 @@ def parse_methods(value: str) -> tuple[ExtractionMethod, ...]:
         raise ValueError(f"unknown Medium extraction method; choose from: {supported}") from exc
 
 
+def _write_text(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(value, encoding="utf-8")
+
+
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def _clear_old_artifacts(article_dir: Path) -> None:
@@ -76,11 +91,11 @@ def _try_browser(
         status["errors"].append({"stage": "browser", "error": str(exc)})
         return False
 
-    (article_dir / "article.md").write_text(article.markdown, encoding="utf-8")
+    _write_text(article_dir / CONTENT_NAME, article.markdown)
     if article.html is not None:
-        (article_dir / "response.html").write_text(article.html, encoding="utf-8")
+        _write_text(article_dir / RAW_DIR / "response.html", article.html)
     if article.raw_json is not None:
-        _write_json(article_dir / "metadata_raw.json", article.raw_json)
+        _write_json(article_dir / RAW_DIR / "metadata_raw.json", article.raw_json)
     metadata = asdict(article)
     for key in ("markdown", "html", "raw_json"):
         metadata.pop(key)
@@ -93,13 +108,14 @@ def _try_browser(
             "extraction_source": article.source,
         }
     )
-    _write_json(article_dir / "metadata.json", metadata)
+    _write_json(article_dir / METADATA_NAME, metadata)
     status["attempts"].append(
         {"method": "browser", "source": article.source, "result": article.availability}
     )
     status.update(
         {
-            "download": "complete" if article.availability == "full" else "preview",
+            "status": "complete" if article.availability == "full" else "partial",
+            "reason": None if article.availability == "full" else PREVIEW_REASON,
             "availability": article.availability,
             "extraction_method": "browser",
             "markdown_chars": len(article.markdown),
@@ -140,8 +156,8 @@ def _try_rss(
         return False
 
     rendered = f"# {article.title}\n\n{markdown}"
-    (article_dir / "article.html").write_text(article.html, encoding="utf-8")
-    (article_dir / "article.md").write_text(rendered, encoding="utf-8")
+    _write_text(article_dir / RAW_DIR / "article.html", article.html)
+    _write_text(article_dir / CONTENT_NAME, rendered)
     metadata = asdict(article)
     metadata.pop("html")
     metadata.update(
@@ -153,11 +169,12 @@ def _try_rss(
             "extraction_source": "medium_rss",
         }
     )
-    _write_json(article_dir / "metadata.json", metadata)
+    _write_json(article_dir / METADATA_NAME, metadata)
     status["attempts"].append({"method": "rss", "result": article.availability})
     status.update(
         {
-            "download": "complete" if article.availability == "full" else "preview",
+            "status": "complete" if article.availability == "full" else "partial",
+            "reason": None if article.availability == "full" else PREVIEW_REASON,
             "availability": article.availability,
             "extraction_method": "rss",
             "markdown_chars": len(rendered),
@@ -183,11 +200,11 @@ def download_article(
         "source_url": reference.source_url,
         "feed_url": reference.feed_url,
         "configured_methods": [method.value for method in options.methods],
-        "download": "started",
+        "status": "started",
         "errors": [],
         "attempts": [],
     }
-    _write_json(article_dir / "status.json", status)
+    _write_json(article_dir / STATUS_NAME, status)
 
     for method in options.methods:
         if method is ExtractionMethod.RSS:
@@ -195,10 +212,17 @@ def download_article(
         else:
             complete = _try_browser(direct_client, reference, article_dir, status)
         if complete:
-            _write_json(article_dir / "status.json", status)
+            _write_json(article_dir / STATUS_NAME, status)
             return article_dir, True
 
-    status["download"] = "unavailable"
+    # A refusal is a fact about the source that routing must weigh; a failure
+    # only says this attempt did not work. Keep them apart.
+    refused = any(
+        "403" in str(item.get("error", "")) or "401" in str(item.get("error", ""))
+        for item in status["attempts"]
+    )
+    status["status"] = "blocked" if refused else "failed"
+    status["reason"] = "access-blocked" if refused else "article-unavailable"
     status["note"] = "No configured extraction method returned article content."
-    _write_json(article_dir / "status.json", status)
+    _write_json(article_dir / STATUS_NAME, status)
     return article_dir, False

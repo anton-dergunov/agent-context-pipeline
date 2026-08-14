@@ -11,11 +11,10 @@ import time
 from pathlib import Path
 
 from info_triage.config import ConfigError, load_config
+from info_triage.extractors.artifacts import RAW_DIR, STATUS_NAME
 from info_triage.extractors.media.ocr import (
     OCREngine,
     make_engine,
-    ocr_images,
-    ocr_video,
     rededuplicate_ocr_result,
 )
 from info_triage.extractors.media.runtime import (
@@ -27,20 +26,24 @@ from info_triage.extractors.media.transcription import (
     BACKEND_CHOICES,
     MODEL_CHOICES,
     Transcriber,
-    TranscriptResult,
     has_audio_stream,
     make_transcriber,
     resolve_backend_and_model,
     resolve_transcription_threads,
-    write_transcript_outputs,
 )
 
+from .analysis import (
+    IMAGE_SUFFIXES,
+    VIDEO_SUFFIXES,
+    OCRSettings,
+    TranscriptionSettings,
+    ocr_post,
+    transcribe_post,
+    write_ocr_text,
+)
 from .downloader import DownloadOptions, download_post, make_loader
-from .prepare import prepare_llm_input
+from .prepare import prepare_content
 from .urls import load_inputs
-
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
-VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".webm"}
 
 ENGINE_CHOICES = ["best", "auto", "rapidocr", "surya", "vision", "tesseract"]
 ENGINE_OVERRIDE_CHOICES = ["auto", "rapidocr", "surya", "vision", "tesseract"]
@@ -200,100 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _ocr_post(
-    post_dir: Path,
-    args: argparse.Namespace,
-    image_engine: OCREngine | None,
-    video_engine: OCREngine | None,
-) -> None:
-    media_dir = post_dir / "media"
-    ocr_dir = post_dir / "ocr"
-    ocr_dir.mkdir(parents=True, exist_ok=True)
-    errors: list[dict[str, str]] = []
-    processed: list[dict[str, str]] = []
-    sources = sorted(
-        path for path in media_dir.glob("*") if path.is_file() and not path.name.endswith(".part")
-    )
-    image_sources = [source for source in sources if source.suffix.lower() in IMAGE_SUFFIXES]
-    if image_sources and image_engine is not None:
-        try:
-            outputs = [ocr_dir / f"{source.stem}.ocr.json" for source in image_sources]
-            ocr_images(image_sources, outputs, image_engine, batch_size=args.ocr_batch_size)
-            processed.extend(
-                {"file": source.name, "engine": image_engine.name} for source in image_sources
-            )
-        except Exception as exc:
-            for source in image_sources:
-                errors.append({"file": source.name, "error": f"{type(exc).__name__}: {exc}"})
-
-    for source in sources:
-        output = ocr_dir / f"{source.stem}.ocr.json"
-        try:
-            if source.suffix.lower() in VIDEO_SUFFIXES:
-                if video_engine is None:
-                    continue
-                ocr_video(
-                    source,
-                    output,
-                    video_engine,
-                    mode=args.video_mode,
-                    sample_fps=args.video_sample_fps,
-                    max_height=args.video_max_height,
-                    batch_size=args.ocr_batch_size,
-                )
-                processed.append({"file": source.name, "engine": video_engine.name})
-        except Exception as exc:
-            errors.append({"file": source.name, "error": f"{type(exc).__name__}: {exc}"})
-
-    text_files = sorted(ocr_dir.glob("*.ocr.txt"))
-    combined = "\n\n".join(
-        path.read_text(encoding="utf-8").strip()
-        for path in text_files
-        if path.read_text(encoding="utf-8").strip()
-    )
-    (post_dir / "ocr_text.txt").write_text(combined + ("\n" if combined else ""), encoding="utf-8")
-    (ocr_dir / "status.json").write_text(
-        json.dumps({"processed": processed, "errors": errors}, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    prepare_llm_input(post_dir)
-
-
-def _transcribe_post(
-    post_dir: Path,
-    args: argparse.Namespace,
-    transcriber: Transcriber | None,
-    *,
-    backend: str,
-    model_name: str,
-) -> None:
-    media_dir = post_dir / "media"
-    sources = sorted(
-        path
-        for path in media_dir.glob("*")
-        if path.is_file()
-        and path.suffix.lower() in VIDEO_SUFFIXES
-        and not path.name.endswith(".part")
-    )
-    results: list[TranscriptResult] = []
-    for source in sources:
-        if transcriber is None:
-            results.append(TranscriptResult(source_file=str(source), status="no_audio"))
-        else:
-            results.append(
-                transcriber.transcribe(
-                    source,
-                    language=args.transcription_language,
-                    vad=args.transcription_vad,
-                    keep_segments=False,
-                )
-            )
-    write_transcript_outputs(post_dir, results, backend=backend, model_name=model_name)
-    prepare_llm_input(post_dir)
-
-
 def _retryable_download_status(status: dict) -> bool:
-    if status.get("download") != "failed" and status.get("comments") != "failed":
+    if status.get("status") != "failed" and status.get("comments") != "failed":
         return False
     message = " ".join(str(item.get("error", "")) for item in status.get("errors", [])).casefold()
     non_retryable = (
@@ -357,18 +268,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.rededuplicate_only:
         for _, shortcode in inputs:
             post_dir = args.output_dir / shortcode
-            for path in sorted((post_dir / "ocr").glob("*.ocr.json")):
+            for path in sorted((post_dir / RAW_DIR / "ocr").glob("*.ocr.json")):
                 rededuplicate_ocr_result(path)
-            text_files = sorted((post_dir / "ocr").glob("*.ocr.txt"))
-            combined = "\n\n".join(
-                path.read_text(encoding="utf-8").strip()
-                for path in text_files
-                if path.read_text(encoding="utf-8").strip()
-            )
-            (post_dir / "ocr_text.txt").write_text(
-                combined + ("\n" if combined else ""), encoding="utf-8"
-            )
-            prepare_llm_input(post_dir)
+            write_ocr_text(post_dir)
+            prepare_content(post_dir)
         return 0
 
     options = DownloadOptions(
@@ -389,15 +292,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Downloading {shortcode} …", flush=True)
             for attempt in range(max_attempts):
                 post_dir = download_post(loader, source_url, shortcode, options)
-                status = json.loads((post_dir / "status.json").read_text(encoding="utf-8"))
+                status = json.loads((post_dir / STATUS_NAME).read_text(encoding="utf-8"))
                 if not _retryable_download_status(status) or attempt + 1 >= max_attempts:
                     break
                 time.sleep(retry_backoff_seconds * (2**attempt))
             status["attempts"] = attempt + 1
-            (post_dir / "status.json").write_text(
+            (post_dir / STATUS_NAME).write_text(
                 json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
-            print(f"  {status['download']}: {post_dir}", flush=True)
+            print(f"  {status['status']}: {post_dir}", flush=True)
 
     if not args.skip_transcription:
         try:
@@ -410,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
         media_files = [
             path
             for _, shortcode in inputs
-            for path in (args.output_dir / shortcode / "media").glob("*")
+            for path in (args.output_dir / shortcode / RAW_DIR / "media").glob("*")
             if path.is_file() and path.suffix.lower() in VIDEO_SUFFIXES
         ]
         needs_model = False
@@ -438,18 +341,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         for _, shortcode in inputs:
             post_dir = args.output_dir / shortcode
-            if not (post_dir / "media").exists():
+            if not (post_dir / RAW_DIR / "media").exists():
                 print(
                     f"Skipping transcription for {shortcode}: no media directory", file=sys.stderr
                 )
                 continue
             print(f"Transcribing {shortcode} …", flush=True)
-            _transcribe_post(
+            transcribe_post(
                 post_dir,
-                args,
-                transcriber,
-                backend=transcription_backend,
-                model_name=transcription_model,
+                transcriber=transcriber,
+                settings=TranscriptionSettings(
+                    backend=transcription_backend,
+                    model_name=transcription_model,
+                    language=args.transcription_language,
+                    vad=args.transcription_vad,
+                ),
             )
         if transcriber is not None and hasattr(transcriber, "close"):
             transcriber.close()
@@ -460,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         media_files = [
             path
             for _, shortcode in inputs
-            for path in (args.output_dir / shortcode / "media").glob("*")
+            for path in (args.output_dir / shortcode / RAW_DIR / "media").glob("*")
             if path.is_file()
         ]
         needs_images = not args.skip_image_ocr and any(
@@ -503,11 +409,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"OCR engines: {', '.join(engines)} ({threads} thread(s))", flush=True)
         for _, shortcode in inputs:
             post_dir = args.output_dir / shortcode
-            if not (post_dir / "media").exists():
+            if not (post_dir / RAW_DIR / "media").exists():
                 print(f"Skipping OCR for {shortcode}: no media directory", file=sys.stderr)
                 continue
             print(f"OCR {shortcode} …", flush=True)
-            _ocr_post(post_dir, args, image_engine, video_engine)
+            ocr_post(
+                post_dir,
+                image_engine=image_engine,
+                video_engine=video_engine,
+                settings=OCRSettings(
+                    video_mode=args.video_mode,
+                    video_sample_fps=args.video_sample_fps,
+                    video_max_height=args.video_max_height,
+                    batch_size=args.ocr_batch_size,
+                ),
+            )
     return 0
 
 

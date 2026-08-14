@@ -57,17 +57,17 @@ def test_outputs_and_idempotent_media_download(tmp_path):
     post_dir, complete = download_post(client, reference, options)
     assert complete
     assert (
-        (post_dir / "post.txt")
+        (post_dir / "content.md")
         .read_text(encoding="utf-8")
         .endswith("LINKS\nhttps://lnkd.in/keep\n")
     )
-    assert (post_dir / "media/01_image.jpg").read_bytes() == b"jpeg-data"
-    comments = json.loads((post_dir / "comments.json").read_text(encoding="utf-8"))
+    assert (post_dir / "raw/media/01_image.jpg").read_bytes() == b"jpeg-data"
+    comments = json.loads((post_dir / "raw/comments.json").read_text(encoding="utf-8"))
     assert comments["is_complete"] is False
     assert comments["first_comment"]["text"] == "Useful"
     metadata = json.loads((post_dir / "metadata.json").read_text(encoding="utf-8"))
-    assert metadata["media"][0]["file"] == "media/01_image.jpg"
-    assert json.loads((post_dir / "status.json").read_text())["download"] == "complete"
+    assert metadata["media"][0]["file"] == "raw/media/01_image.jpg"
+    assert json.loads((post_dir / "status.json").read_text())["status"] == "complete"
 
     _, complete = download_post(client, reference, options)
     assert complete
@@ -85,7 +85,7 @@ def test_parser_failure_retains_response_html(tmp_path):
         BrokenClient(), reference, DownloadOptions(output_dir=tmp_path)
     )
     assert not complete
-    assert (post_dir / "response.html").exists()
+    assert (post_dir / "raw/response.html").exists()
     status = json.loads((post_dir / "status.json").read_text())
-    assert status["download"] == "failed"
+    assert status["status"] == "failed"
     assert status["errors"][0]["stage"] == "parse"

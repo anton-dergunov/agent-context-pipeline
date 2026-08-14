@@ -56,17 +56,19 @@ url_output/html/<stable-url-id>/
   content.md
   metadata.json
   status.json
-  source.html
+  raw/source.html
 
 url_output/pdf/<stable-url-id>/
   content.md
   metadata.json
   status.json
-  source.pdf
+  raw/source.pdf
 ```
 
-Raw sources are retained by default; pass `--no-keep-raw` after `--` to omit
-them. Writes use temporary sibling files and atomic replacement.
+Raw sources are retained under `raw/` by default; pass `--no-keep-raw` after `--`
+to omit them. A response the site refused (401, 403, 429) is reported as
+`blocked` rather than `failed`: a refusal is a fact about the source, while a
+failure only says this attempt did not work. Writes use temporary sibling files and atomic replacement.
 
 ## Research papers
 
@@ -83,11 +85,11 @@ one anonymous Chrome-compatible retry only; it does not import cookies or try
 to bypass access controls.
 
 Research output is written under
-`url_output/research/<provider>-<paper-id>/`. `paper.md` starts with normalized
-metadata and an abstract, followed by the extracted full paper. Affiliations
-are not separately parsed. If metadata succeeds but the body does not,
-`paper.md` is retained and `status.json` reports `partial` with
-`paper-body-unavailable`.
+`url_output/research/<provider>-<paper-id>/`. `content.md` starts with normalized
+metadata and an abstract, followed by the extracted full paper; the source HTML
+and PDF are kept under `raw/`. Affiliations are not separately parsed. If
+metadata succeeds but the body does not, `content.md` is retained and
+`status.json` reports `partial` with `paper-body-unavailable`.
 
 ## Live acceptance corpus
 

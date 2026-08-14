@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 LINKEDIN_HOSTS = {"linkedin.com", "www.linkedin.com"}
-POST_ID_RE = re.compile(r"-(share|ugcpost)-(\d+)(?:-|$)", re.IGNORECASE)
+POST_ID_RE = re.compile(r"-(activity|share|ugcpost)-(\d+)(?:-|$)", re.IGNORECASE)
 FEED_ID_RE = re.compile(r"^/feed/update/urn:li:(activity|share|ugcpost):(\d+)/?$", re.IGNORECASE)
 
 

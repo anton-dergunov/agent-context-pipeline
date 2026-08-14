@@ -11,6 +11,12 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
+from info_triage.extractors.artifacts import (
+    CONTENT_NAME,
+    METADATA_NAME,
+    RAW_DIR,
+    STATUS_NAME,
+)
 from info_triage.extractors.document.client import DocumentClient
 from info_triage.extractors.document.convert import html_to_markdown, pdf_to_markdown
 from info_triage.extractors.document.io import (
@@ -151,7 +157,7 @@ class ResearchExtractor:
                     except (json.JSONDecodeError, ValueError) as exc:
                         raise ExtractionError(str(exc), reason="metadata-unavailable") from exc
                     if self.options.keep_raw:
-                        write_bytes(directory / "metadata-source.json", result.body)
+                        write_bytes(directory / RAW_DIR / "metadata-source.json", result.body)
                 else:
                     if result.kind != "html":
                         raise ExtractionError(
@@ -161,7 +167,7 @@ class ResearchExtractor:
                         reference, _decode_html(result), result.final_url
                     )
                     if self.options.keep_raw:
-                        write_bytes(directory / "metadata-source.html", result.body)
+                        write_bytes(directory / RAW_DIR / "metadata-source.html", result.body)
                 if not metadata.get("title") and not metadata.get("abstract"):
                     raise ExtractionError(
                         "metadata page contained neither title nor abstract",
@@ -221,12 +227,12 @@ class ResearchExtractor:
                         "pdfplumber-adaptive-spacing-with-pypdf-quality-fallback"
                     )
                     if self.options.keep_raw:
-                        write_bytes(directory / "paper-source.pdf", result.body)
+                        write_bytes(directory / RAW_DIR / "paper-source.pdf", result.body)
                 elif result.kind == "html":
                     markdown = html_to_markdown(_decode_html(result), source_url=result.final_url)
                     details = {}
                     if self.options.keep_raw:
-                        write_bytes(directory / "paper-source.html", result.body)
+                        write_bytes(directory / RAW_DIR / "paper-source.html", result.body)
                 else:
                     raise ExtractionError(
                         f"paper body returned {result.kind}", reason="unsupported-content"
@@ -279,7 +285,7 @@ class ResearchExtractor:
                 metadata, metadata_result = self._metadata(reference, staging, status)
             except ExtractionError as exc:
                 status.update({"reason": exc.reason, "error": str(exc)})
-                write_json(staging / "status.json", status)
+                write_json(staging / STATUS_NAME, status)
                 publish_directory(staging, directory)
                 return directory, False
 
@@ -293,11 +299,11 @@ class ResearchExtractor:
                 complete = False
                 status.update({"status": "partial", "reason": exc.reason, "error": str(exc)})
             markdown = render_paper(metadata, body)
-            write_text(staging / "paper.md", markdown)
-            write_json(staging / "metadata.json", metadata)
+            write_text(staging / CONTENT_NAME, markdown)
+            write_json(staging / METADATA_NAME, metadata)
             status.update(
                 {"markdown_chars": len(markdown), "markdown_words": len(markdown.split())}
             )
-            write_json(staging / "status.json", status)
+            write_json(staging / STATUS_NAME, status)
             publish_directory(staging, directory)
             return directory, complete

@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
 from .config import (
+    AppConfig,
+    ContentExtractionConfig,
     IndexRenderConfig,
     LinkDiscoveryConfig,
-    StepConfig,
     TextCleaningConfig,
     URLResolutionConfig,
     VoiceTranscriptionConfig,
+)
+from .extraction import (
+    EXTRACTED_DIR,
+    ContentExtractor,
+    ExtractionSettings,
+    committed_files,
+    describe,
+    extraction_directory_name,
 )
 from .extractors.media.transcription import (
     Transcriber,
@@ -21,8 +31,16 @@ from .extractors.media.transcription import (
     resolve_transcription_threads,
 )
 from .index import render_index
-from .links import build_link_table, canonicalize_url, link_priority, route_handler
+from .links import (
+    DEPRIORITIZED_PRIORITY,
+    build_link_table,
+    canonicalize_url,
+    link_priority,
+    route_target,
+    unwrap_url,
+)
 from .models import (
+    LinkTableEntry,
     ProcessingIssue,
     ProcessingJob,
     ProcessingResult,
@@ -317,20 +335,29 @@ class URLResolutionStep:
     def _resolve_table(self, result: ProcessingResult) -> int:
         """Resolve table entries in priority order and return the budget left."""
         remaining = self.resolve_budget
-        sole_link = len(result.links) == 1
-        for entry in sorted(result.links, key=lambda entry: (entry.priority, entry.n)):
+        kept = [entry for entry in result.links if entry.status != "excluded"]
+        sole_link = len(kept) == 1
+        for entry in sorted(kept, key=lambda entry: (entry.priority, entry.n)):
             if remaining <= 0:
                 entry.status = "skipped"
                 entry.reason = "resolve-budget-exhausted"
                 continue
             remaining -= 1
             resolution = self.resolver.resolve_link(entry.raw)
-            canonical = canonicalize_url(resolution.url)
+            destination = unwrap_url(resolution.url)
+            if destination != resolution.url and remaining > 0:
+                # An interstitial — a cookie-consent page most often — is where a
+                # redirect chain can end while carrying the real target in its
+                # query. Following it recovers both the URL and the title.
+                remaining -= 1
+                resolution = self.resolver.resolve_link(destination)
+                destination = unwrap_url(resolution.url)
+            canonical = canonicalize_url(destination)
             if canonical != entry.canonical:
                 # A shortener can hide a paper behind an ordinary-looking URL, so
                 # the rank discovery guessed has to be recomputed with it.
                 entry.canonical = canonical
-                entry.handler = route_handler(canonical)
+                entry.handler, entry.identity = route_target(canonical)
                 entry.priority = link_priority(entry.handler, canonical, sole_link=sole_link)
             entry.title = resolution.title
             if resolution.title:
@@ -340,7 +367,7 @@ class URLResolutionStep:
                 entry.reason = resolution.reason or "title-not-found"
 
         seen: dict[str, int] = {}
-        for entry in result.links:
+        for entry in kept:
             first = seen.get(entry.canonical)
             if first is None:
                 seen[entry.canonical] = entry.n
@@ -440,13 +467,129 @@ class TextCleaningStep:
         result.message_markdown = cleaned
 
 
+class ContentExtractionStep:
+    """Retrieve the content behind the item's highest-priority links."""
+
+    name = "content-extraction"
+
+    def __init__(
+        self,
+        *,
+        extract_budget: int,
+        linklist_extract_budget: int,
+        linklist_threshold: int,
+        wall_clock_seconds: float,
+        extractor: ContentExtractor,
+    ) -> None:
+        self.extract_budget = extract_budget
+        self.linklist_extract_budget = linklist_extract_budget
+        self.linklist_threshold = linklist_threshold
+        self.wall_clock_seconds = wall_clock_seconds
+        self.extractor = extractor
+
+    @staticmethod
+    def applies(job: ProcessingJob) -> bool:
+        del job
+        return True
+
+    def _candidates(self, result: ProcessingResult) -> list[LinkTableEntry]:
+        """Rank the links worth a body, and drop the ones that are title-only."""
+        distinct = [
+            entry
+            for entry in result.links
+            if entry.status not in ("excluded", "duplicate")
+            and entry.priority != DEPRIORITIZED_PRIORITY
+        ]
+        budget = (
+            self.linklist_extract_budget
+            if len(distinct) >= self.linklist_threshold
+            else self.extract_budget
+        )
+        ranked = sorted(distinct, key=lambda entry: (entry.priority, entry.n))
+        return ranked[:budget]
+
+    def run(
+        self,
+        job: ProcessingJob,
+        result: ProcessingResult,
+        workspace: Path,
+    ) -> ProcessingStepOutcome | None:
+        del job
+        issues: list[ProcessingIssue] = []
+        deadline = time.monotonic() + self.wall_clock_seconds
+        for position, entry in enumerate(self._candidates(result), 1):
+            if time.monotonic() >= deadline:
+                # Backpressure, not an error: the rest of the item's links stay
+                # title-only so one long video cannot stall the queue behind it.
+                entry.reason = "wall-clock-exceeded"
+                issues.append(
+                    ProcessingIssue(
+                        "wall-clock-exceeded",
+                        f"Extraction budget of {self.wall_clock_seconds:g}s was spent",
+                        target=entry.canonical,
+                    )
+                )
+                break
+            issue = self._extract(entry, position, result, workspace)
+            if issue is not None:
+                issues.append(issue)
+        if result.links:
+            # The table now carries each row's extraction status, so links.json
+            # stays the one place a surprising result can be traced from.
+            write_link_table(result, workspace)
+        return ProcessingStepOutcome.partial(*issues) if issues else None
+
+    def _extract(
+        self,
+        entry: LinkTableEntry,
+        position: int,
+        result: ProcessingResult,
+        workspace: Path,
+    ) -> ProcessingIssue | None:
+        try:
+            source = self.extractor.retrieve(entry.canonical, entry.handler, workspace)
+        except Exception as error:
+            # A failed extraction is information the index must carry, never a
+            # reason to hold up an item that already has its capture text.
+            entry.reason = "extraction-failed"
+            return ProcessingIssue(
+                "extraction-failed",
+                str(error),
+                target=entry.canonical,
+                error_type=type(error).__name__,
+            )
+
+        name = extraction_directory_name(position, entry.handler, entry.identity)
+        relative_root = Path(EXTRACTED_DIR) / name
+        for relative_path, source_path in committed_files(source, relative_root):
+            result.put_generated_file(relative_path, source_path)
+        record = describe(
+            source,
+            link_n=entry.n,
+            handler=entry.handler,
+            identity=entry.identity,
+            relative_directory=str(relative_root),
+            canonical_url=entry.canonical,
+        )
+        result.extractions.append(record)
+        entry.extraction = record.status
+        if record.retrieved:
+            return None
+        return ProcessingIssue(
+            record.reason or "extraction-unavailable",
+            f"{entry.handler} extraction reported {record.status}",
+            target=entry.canonical,
+        )
+
+
 class IndexRenderStep:
     """Write the item's `index.md`, the only per-item contract the laptop reads."""
 
     name = "index-render"
 
-    def __init__(self, *, linklist_threshold: int) -> None:
+    def __init__(self, *, linklist_threshold: int, lead_words: int) -> None:
         self.linklist_threshold = linklist_threshold
+        self.lead_words = lead_words
 
     @staticmethod
     def applies(job: ProcessingJob) -> bool:
@@ -488,7 +631,9 @@ class IndexRenderStep:
                 payloads,
                 result.message_markdown,
                 result.links,
+                result.extractions,
                 linklist_threshold=self.linklist_threshold,
+                lead_words=self.lead_words,
             ),
             encoding="utf-8",
         )
@@ -496,10 +641,10 @@ class IndexRenderStep:
         return ProcessingStepOutcome.partial(*issues) if issues else None
 
 
-def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
+def processing_steps_from_config(app_config: AppConfig) -> list[Any]:
     """Construct ordered processing steps from validated configuration."""
     steps = []
-    for config in configs:
+    for config in app_config.processing_steps:
         if isinstance(config, VoiceTranscriptionConfig):
             steps.append(
                 VoiceTranscriptionStep(
@@ -524,8 +669,31 @@ def processing_steps_from_config(configs: tuple[StepConfig, ...]) -> list[Any]:
             steps.append(TextCleaningStep())
         elif isinstance(config, LinkDiscoveryConfig):
             steps.append(LinkDiscoveryStep())
+        elif isinstance(config, ContentExtractionConfig):
+            steps.append(
+                ContentExtractionStep(
+                    extract_budget=config.extract_budget,
+                    linklist_extract_budget=config.linklist_extract_budget,
+                    linklist_threshold=app_config.linklist_threshold,
+                    wall_clock_seconds=config.wall_clock_seconds,
+                    extractor=ContentExtractor(
+                        ExtractionSettings(
+                            data_dir=app_config.data_dir,
+                            keep_raw=config.keep_raw,
+                            youtube=app_config.youtube_extractor,
+                            instagram=app_config.instagram_extractor,
+                            medium=app_config.medium_extractor,
+                        )
+                    ),
+                )
+            )
         elif isinstance(config, IndexRenderConfig):
-            steps.append(IndexRenderStep(linklist_threshold=config.linklist_threshold))
+            steps.append(
+                IndexRenderStep(
+                    linklist_threshold=app_config.linklist_threshold,
+                    lead_words=config.lead_words,
+                )
+            )
         else:
             raise TypeError(f"Unsupported processing configuration: {config!r}")
     return steps

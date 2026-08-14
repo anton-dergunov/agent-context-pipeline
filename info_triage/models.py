@@ -3,7 +3,10 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from .extraction import ExtractionRecord
 
 CATEGORIES = ("ML", "Career", "Life", "Other")
 
@@ -89,7 +92,10 @@ class LinkTableEntry:
     canonical: str
     handler: str
     priority: int
+    identity: str = ""
     status: str = "discovered"
+    # What content extraction made of this row, when it was given a budget.
+    extraction: str | None = None
     from_segment: int | None = None
     label: str | None = None
     title: str | None = None
@@ -103,8 +109,10 @@ class LinkTableEntry:
             "raw": self.raw,
             "canonical": self.canonical,
             "handler": self.handler,
+            "identity": self.identity,
             "priority": self.priority,
             "status": self.status,
+            "extraction": self.extraction,
             "from_segment": self.from_segment,
             "label": self.label,
             "title": self.title,
@@ -122,6 +130,7 @@ class ProcessingResult:
     source_markdown: str | None = None
     generated_files: list[GeneratedFile] = field(default_factory=list)
     links: list[LinkTableEntry] = field(default_factory=list)
+    extractions: list["ExtractionRecord"] = field(default_factory=list)
 
     def put_generated_file(self, relative_path: Path, source_path: Path) -> None:
         """Hand over a generated file, replacing any earlier one at that path."""

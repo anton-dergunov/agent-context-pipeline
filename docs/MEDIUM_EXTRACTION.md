@@ -103,7 +103,7 @@ article content. RSS is therefore the better first method for these cases.
 
 The five URLs are kept in `tests/fixtures/medium_urls.txt`. Generated bodies live under
 the ignored `medium_output/` directory rather than being committed as test fixtures.
-Every result now has a non-empty `article.md`.
+Every result now has a non-empty `content.md`.
 
 An article URL published under a publication does not identify its author feed. If the
 author is known independently, an explicit documented feed can be supplied. For the
@@ -141,13 +141,18 @@ the downloader.
 Each article ID gets a status file. Available items also get:
 
 ```text
-response.html      browser-method page response when available
-article.html       exact RSS full/preview fragment when RSS was used
-article.md         Trafilatura Markdown output
-metadata.json      title, author, dates, tags, source, and full/preview label
-metadata_raw.json  structured Medium story payload
-status.json        configured ordered methods, attempts, winning method, and outcome
+content.md             Trafilatura Markdown output
+metadata.json          title, author, dates, tags, source, and full/preview label
+status.json            configured ordered methods, attempts, winning method, status
+raw/response.html      browser-method page response when available
+raw/article.html       exact RSS full/preview fragment when RSS was used
+raw/metadata_raw.json  structured Medium story payload
 ```
+
+A member preview — the title and a few opening paragraphs — is `partial` with
+reason `medium-member-preview`: enough to identify and route the article, not
+enough to judge it. A refused request is `blocked` with `access-blocked`, and
+only an article no method could reach at all is `failed`.
 
 ## Membership authentication
 
@@ -203,7 +208,7 @@ Convert HTML that was obtained separately and lawfully without making a request:
 
 ```bash
 uv run medium-html-to-markdown saved-page.html --source-url 'https://medium.com/...' \
-  --output article.md
+  --output content.md
 ```
 
 ## Search indexes and original sources

@@ -3,6 +3,7 @@ import pytest
 from info_triage.links import (
     build_link_table,
     canonicalize_url,
+    exclusion_reason,
     is_deprioritized,
     link_priority,
     unwrap_url,
@@ -159,3 +160,62 @@ def test_links_that_never_deserve_extraction(url):
 def test_specific_artifacts_on_social_hosts_are_not_deprioritized():
     assert not is_deprioritized("https://www.instagram.com/reel/abc/")
     assert link_priority("instagram", "https://www.instagram.com/reel/abc/", sole_link=False) == 5
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://t.me/+HRBIUUTaR-hhOTRi",
+        "https://t.me/joinchat/AAAAAE1234",
+        "https://t.me/MLunderhood",
+        "https://t.me/s/MLunderhood",
+        "https://telegram.me/some_channel",
+    ],
+)
+def test_a_link_to_a_channel_is_not_part_of_the_item(url):
+    """A forwarded post's subscribe link is about the channel, never about the item."""
+    assert exclusion_reason(url, url) == "telegram-channel"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://t.me/MLunderhood/1234",
+        "https://t.me/s/MLunderhood/1234",
+    ],
+)
+def test_a_link_to_one_post_inside_a_channel_is_content(url):
+    assert exclusion_reason(url, url) is None
+
+
+def test_a_bare_domain_named_in_prose_is_not_a_link_the_user_shared():
+    """Telegram marks bare domains in pasted text as link entities."""
+    assert exclusion_reason("BIKEPACKING.com", "https://bikepacking.com") == "bare-hostname"
+    assert exclusion_reason("Reddit.com", "https://reddit.com") == "bare-hostname"
+
+
+def test_a_schemeless_url_with_a_path_is_still_a_link():
+    assert exclusion_reason("youtu.be/QOrlzrnfJfs", "https://youtu.be/QOrlzrnfJfs") is None
+    assert exclusion_reason("https://example.com", "https://example.com") is None
+
+
+def test_excluded_rows_stay_in_the_table_but_never_earn_a_priority():
+    payloads = [
+        {
+            "message_id": 1,
+            "date": 1,
+            "text": "paper channel",
+            "entities": [
+                {"type": "text_link", "offset": 0, "length": 5, "url": "https://arxiv.org/abs/1"},
+                {"type": "text_link", "offset": 6, "length": 7, "url": "https://t.me/+invite"},
+            ],
+        }
+    ]
+    table = build_link_table(payloads, "")
+
+    assert [(entry.status, entry.reason) for entry in table] == [
+        ("discovered", None),
+        ("excluded", "telegram-channel"),
+    ]
+    # The surviving row is the only link, so it earns the sole-link priority.
+    assert table[0].priority == 2

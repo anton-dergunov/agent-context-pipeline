@@ -52,7 +52,7 @@ def test_arxiv_html_body_is_preferred_and_metadata_is_prepended(tmp_path):
         metadata_url
     )
     assert complete
-    paper = (path / "paper.md").read_text()
+    paper = (path / "content.md").read_text()
     assert paper.startswith("# A Useful Paper")
     assert "## Abstract" in paper
     assert "## Full paper" in paper
@@ -95,11 +95,11 @@ def test_metadata_success_retains_partial_markdown_when_body_fails(tmp_path):
         ResearchOptions(output_dir=tmp_path, keep_raw=False), client=client
     ).extract(pdf)
     assert not complete
-    assert "A compact abstract" in (path / "paper.md").read_text()
+    assert "A compact abstract" in (path / "content.md").read_text()
     status = json.loads((path / "status.json").read_text())
     assert status["status"] == "partial"
     assert status["reason"] == "paper-body-unavailable"
-    assert not (path / "metadata-source.html").exists()
+    assert not (path / "raw" / "metadata-source.html").exists()
 
 
 def test_openreview_uses_v1_after_v2_failure(tmp_path):
@@ -131,7 +131,7 @@ def test_openreview_uses_v1_after_v2_failure(tmp_path):
         f"https://openreview.net/forum?id={paper_id}"
     )
     assert not complete
-    assert "Legacy paper" in (path / "paper.md").read_text()
+    assert "Legacy paper" in (path / "content.md").read_text()
     assert client.calls[:2] == [v2, v1]
 
 
@@ -146,11 +146,11 @@ def test_failed_research_rerun_does_not_mix_old_paper_with_new_status(tmp_path):
     )
     extractor = ResearchExtractor(ResearchOptions(output_dir=tmp_path), client=client)
     path, _ = extractor.extract(page)
-    assert (path / "paper.md").exists()
+    assert (path / "content.md").exists()
 
     client.mapping[page] = ExtractionError("blocked", reason="access-blocked")
     _, complete = extractor.extract(page)
     assert not complete
-    assert not (path / "paper.md").exists()
+    assert not (path / "content.md").exists()
     assert json.loads((path / "status.json").read_text())["status"] == "failed"
     assert not list(path.parent.glob(f".{path.name}.*"))

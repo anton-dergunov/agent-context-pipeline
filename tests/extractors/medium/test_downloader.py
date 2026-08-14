@@ -56,14 +56,14 @@ def test_download_article_writes_markdown_and_availability(tmp_path):
         direct_client=_UnexpectedDirectClient(),
     )
     assert ok
-    assert (article_dir / "article.md").read_text() == (
+    assert (article_dir / "content.md").read_text() == (
         "# Example story\n\nArticle content for extraction.\n"
     )
     metadata = json.loads((article_dir / "metadata.json").read_text())
     assert metadata["availability"] == "full"
     assert metadata["extraction_method"] == "rss"
     assert metadata["extraction_source"] == "medium_rss"
-    assert json.loads((article_dir / "status.json").read_text())["download"] == "complete"
+    assert json.loads((article_dir / "status.json").read_text())["status"] == "complete"
 
 
 def test_download_article_reports_rolling_feed_miss(tmp_path):
@@ -71,12 +71,12 @@ def test_download_article_reports_rolling_feed_miss(tmp_path):
     article_dir, ok = download_article(_Client(()), reference, DownloadOptions(output_dir=tmp_path))
     assert not ok
     status = json.loads((article_dir / "status.json").read_text())
-    assert status["download"] == "unavailable"
+    assert status["status"] == "failed"
     assert status["attempts"] == [
         {"method": "rss", "result": "not_found", "feed_items_checked": 0},
         {"method": "browser", "result": "unavailable", "error": "client not configured"},
     ]
-    assert not (article_dir / "article.md").exists()
+    assert not (article_dir / "content.md").exists()
 
 
 def test_direct_preview_is_persisted_without_consulting_rss(tmp_path):
@@ -107,11 +107,12 @@ def test_direct_preview_is_persisted_without_consulting_rss(tmp_path):
         direct_client=_DirectClient(direct),
     )
     assert ok
-    assert "Several opening paragraphs" in (article_dir / "article.md").read_text()
+    assert "Several opening paragraphs" in (article_dir / "content.md").read_text()
     status = json.loads((article_dir / "status.json").read_text())
-    assert status["download"] == "preview"
+    assert status["status"] == "partial"
+    assert status["reason"] == "medium-member-preview"
     assert status["markdown_words"] == 6
-    assert (article_dir / "metadata_raw.json").exists()
+    assert (article_dir / "raw/metadata_raw.json").exists()
 
 
 def test_browser_can_be_configured_before_rss(tmp_path):

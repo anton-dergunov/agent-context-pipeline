@@ -1,5 +1,6 @@
 import pytest
 
+from info_triage.extraction import ExtractionRecord
 from info_triage.index import build_segments, detect_intent, render_index
 from info_triage.models import LinkTableEntry
 
@@ -27,15 +28,28 @@ def link(n=1, **values):
     return LinkTableEntry(n=n, **{**defaults, **values})
 
 
-def index(payloads, message, links=(), metadata=METADATA, threshold=8):
+def index(payloads, message, links=(), metadata=METADATA, threshold=8, extractions=()):
     return render_index(
         "2026-08-11_100",
         metadata,
         payloads,
         message,
         list(links),
+        list(extractions),
         linklist_threshold=threshold,
     )
+
+
+def extraction(link_n=1, **values):
+    defaults = {
+        "handler": "document",
+        "identity": "x",
+        "directory": f"extracted/{link_n:02d}-document-x",
+        "status": "complete",
+        "kind": "article",
+        "word_count": 1234,
+    }
+    return ExtractionRecord(link_n=link_n, **{**defaults, **values})
 
 
 def field(rendered, name):
@@ -266,7 +280,24 @@ def test_a_forward_without_a_note_says_so():
     message = body(("forwarded text", "somebody else's post"))
     rendered = index([payload(1, 100, text="…", forward_origin={"type": "channel"})], message)
     assert "> [forwarded — no note of your own]" in rendered
-    assert "somebody else's post" not in rendered
+    # Captured stays the user's own words; the forwarded material is not his.
+    assert "## Captured\n\n> [forwarded" in rendered
+
+
+def test_forwarded_material_is_the_lead_so_its_links_have_a_context():
+    """Without this the post body lives only in capture/ and its links look invented."""
+    message = body(("forwarded text", "Новая статья. Разбор на Хабре."))
+    rendered = index([payload(1, 100, text="…", forward_origin={"type": "channel"})], message)
+    assert "## Lead\n\n> Новая статья. Разбор на Хабре." in rendered
+
+
+def test_a_forwarded_lead_is_truncated_at_the_configured_length():
+    forwarded = " ".join(f"word{number}" for number in range(200))
+    message = body(("forwarded text", forwarded))
+    rendered = index([payload(1, 100, text="…", forward_origin={"type": "channel"})], message)
+    assert "word9 " in rendered
+    assert "word150" not in rendered
+    assert "…" in rendered
 
 
 def test_an_unpairable_body_keeps_everything_in_captured():
@@ -306,3 +337,103 @@ def test_a_body_that_cannot_be_paired_still_keeps_segment_headings_out():
     rendered = index([payload(1, 100, text="…")], message)
     assert "## Segment" not in rendered
     assert "> first\n>\n> second" in rendered
+
+
+def test_sources_print_the_word_count_that_makes_drill_down_a_choice():
+    """Without the cost, choosing between an abstract and a 12k-word body is blind."""
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://example.com/1")),
+        [link(1)],
+        extractions=[extraction(title="A Paper", authors=["A. Author"], published="2024-10-07")],
+    )
+
+    assert "## Sources" in rendered
+    assert "1. `extracted/01-document-x/` — A Paper · A. Author · 2024-10-07" in rendered
+    assert "complete · `content.md` 1,234 words" in rendered
+    assert field(rendered, "sources") == "1"
+
+
+def test_a_papers_lead_is_its_abstract_not_its_opening_prose():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://arxiv.org/abs/1")),
+        [link(1, handler="research", priority=1)],
+        extractions=[
+            extraction(kind="paper", abstract="We establish model collapse.", excerpt="Ignore me.")
+        ],
+    )
+
+    assert "## Lead\n\n> We establish model collapse." in rendered
+    assert "Ignore me" not in rendered
+
+
+def test_a_non_paper_lead_is_the_opening_of_its_body():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://example.com/1")),
+        [link(1)],
+        extractions=[extraction(excerpt="The article opens like this.")],
+    )
+
+    assert "## Lead\n\n> The article opens like this." in rendered
+
+
+def test_frontmatter_carries_what_extraction_learned():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://arxiv.org/abs/1")),
+        [link(1, handler="research", priority=1)],
+        extractions=[
+            extraction(
+                kind="paper",
+                title="Strong Model Collapse",
+                authors=["Elvis Dohmatob", "Julia Kempe"],
+                published="2024-10-07",
+                venue="arXiv",
+                doi="10.48550/arXiv.2410.04840",
+            )
+        ],
+    )
+
+    assert field(rendered, "kind") == "paper"
+    assert field(rendered, "title") == '"Strong Model Collapse"'
+    assert field(rendered, "authors") == '["Elvis Dohmatob", "Julia Kempe"]'
+    assert field(rendered, "venue") == '"arXiv"'
+    assert field(rendered, "extraction") == "ok"
+
+
+def test_a_blocked_source_says_so_rather_than_reading_as_a_gap():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://medium.com/x")),
+        [link(1, handler="medium")],
+        extractions=[extraction(status="blocked", reason="access-blocked", kind=None)],
+    )
+
+    assert field(rendered, "extraction") == "failed"
+    assert field(rendered, "reason") == "access-blocked"
+    assert "blocked (`access-blocked`)" in rendered
+
+
+def test_a_member_preview_is_partial_because_it_cannot_be_judged():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://medium.com/x")),
+        [link(1, handler="medium")],
+        extractions=[extraction(status="partial", reason="medium-member-preview", word_count=264)],
+    )
+
+    assert field(rendered, "extraction") == "partial"
+    assert field(rendered, "reason") == "medium-member-preview"
+
+
+def test_an_excluded_link_leaves_links_json_but_never_the_index():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://example.com/1")),
+        [link(1), link(2, status="excluded", reason="telegram-channel")],
+    )
+
+    assert "example.com/1" in rendered
+    assert "example.com/2" not in rendered

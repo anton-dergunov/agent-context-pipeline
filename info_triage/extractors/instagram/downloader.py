@@ -15,7 +15,9 @@ import browser_cookie3
 import instaloader
 import requests
 
-from .prepare import prepare_llm_input
+from info_triage.extractors.artifacts import METADATA_NAME, RAW_DIR, STATUS_NAME
+
+from .prepare import prepare_content
 
 
 @dataclass(slots=True)
@@ -43,10 +45,13 @@ def _json_value(value: Any) -> Any:
     return str(value)
 
 
+def _write_text(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(value, encoding="utf-8")
+
+
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(
-        json.dumps(_json_value(value), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    _write_text(path, json.dumps(_json_value(value), ensure_ascii=False, indent=2) + "\n")
 
 
 def _browser_cookies(browser: str):
@@ -240,12 +245,12 @@ def download_post(
     loader: instaloader.Instaloader, source_url: str, shortcode: str, options: DownloadOptions
 ) -> Path:
     post_dir = options.output_dir / shortcode
-    media_dir = post_dir / "media"
-    ocr_dir = post_dir / "ocr"
+    media_dir = post_dir / RAW_DIR / "media"
+    ocr_dir = post_dir / RAW_DIR / "ocr"
     media_dir.mkdir(parents=True, exist_ok=True)
     ocr_dir.mkdir(parents=True, exist_ok=True)
-    status: dict[str, Any] = {"shortcode": shortcode, "download": "started", "errors": []}
-    _write_json(post_dir / "status.json", status)
+    status: dict[str, Any] = {"shortcode": shortcode, "status": "started", "errors": []}
+    _write_json(post_dir / STATUS_NAME, status)
 
     try:
         post = instaloader.Post.from_shortcode(loader.context, shortcode)
@@ -274,16 +279,17 @@ def download_post(
             item.pop("download_url", None)
             downloaded.append(item["file"])
         metadata["media"] = media
-        _write_json(post_dir / "metadata.json", metadata)
-        (post_dir / "caption.txt").write_text(
-            (post.caption or "") + ("\n" if post.caption else ""), encoding="utf-8"
+        _write_json(post_dir / METADATA_NAME, metadata)
+        _write_text(
+            post_dir / RAW_DIR / "caption.txt",
+            (post.caption or "") + ("\n" if post.caption else ""),
         )
 
         try:
             comments, truncated = _read_comments(post, options.comment_scan_limit)
             selection = _select_comments(comments, post.owner_username, options.max_comments)
             selection.update({"scanned_count": len(comments), "scan_truncated": truncated})
-            _write_json(post_dir / "comments.json", selection)
+            _write_json(post_dir / RAW_DIR / "comments.json", selection)
             text_sections: list[str] = []
             if selection["submitter_first_comment"]:
                 text_sections.append(
@@ -295,15 +301,16 @@ def download_post(
                     for item in selection["comments"]
                 ]
                 text_sections.append("POPULAR COMMENTS\n" + "\n\n".join(rendered))
-            (post_dir / "comments.txt").write_text(
-                "\n\n".join(text_sections) + ("\n" if text_sections else ""), encoding="utf-8"
+            _write_text(
+                post_dir / RAW_DIR / "comments.txt",
+                "\n\n".join(text_sections) + ("\n" if text_sections else ""),
             )
             status["comments"] = "complete"
         except Exception as exc:
             status["comments"] = "failed"
             status["errors"].append({"stage": "comments", "error": f"{type(exc).__name__}: {exc}"})
             _write_json(
-                post_dir / "comments.json",
+                post_dir / RAW_DIR / "comments.json",
                 {"error": str(exc), "comments": [], "submitter_first_comment": None},
             )
 
@@ -311,17 +318,18 @@ def download_post(
         # not force Instaloader's lazy iPhone endpoint here: Instagram requires
         # login for it even when the public media itself downloaded correctly.
         raw = {"graphql_node": getattr(post, "_node", None)}
-        _write_json(post_dir / "metadata_raw.json", raw)
+        _write_json(post_dir / RAW_DIR / "metadata_raw.json", raw)
         status.update(
             {
-                "download": "complete",
+                "status": "complete",
                 "media_files": downloaded,
                 "owner_username": post.owner_username,
             }
         )
     except Exception as exc:
-        status["download"] = "failed"
+        status["status"] = "failed"
+        status["reason"] = "post-unavailable"
         status["errors"].append({"stage": "download", "error": f"{type(exc).__name__}: {exc}"})
-    _write_json(post_dir / "status.json", status)
-    prepare_llm_input(post_dir)
+    _write_json(post_dir / STATUS_NAME, status)
+    prepare_content(post_dir)
     return post_dir

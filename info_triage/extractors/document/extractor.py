@@ -10,6 +10,14 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
+from info_triage.extractors.artifacts import (
+    CONTENT_NAME,
+    METADATA_NAME,
+    RAW_DIR,
+    STATUS_NAME,
+    status_for_reason,
+)
+
 from .client import DocumentClient
 from .convert import html_to_markdown, pdf_to_markdown
 from .io import artifact_staging, publish_directory, write_bytes, write_json, write_text
@@ -126,16 +134,23 @@ class DocumentExtractor:
                 }
             )
             with artifact_staging(directory) as staging:
-                write_text(staging / "content.md", markdown)
-                write_json(staging / "metadata.json", metadata)
+                write_text(staging / CONTENT_NAME, markdown)
+                write_json(staging / METADATA_NAME, metadata)
                 if self.options.keep_raw:
-                    write_bytes(staging / f"source.{result.kind}", result.body)
-                write_json(staging / "status.json", status)
+                    write_bytes(staging / RAW_DIR / f"source.{result.kind}", result.body)
+                write_json(staging / STATUS_NAME, status)
                 publish_directory(staging, directory)
             return directory, True
         except ExtractionError as exc:
-            status.update({"reason": exc.reason, "error": str(exc), "failed_url": exc.url})
+            status.update(
+                {
+                    "status": status_for_reason(exc.reason),
+                    "reason": exc.reason,
+                    "error": str(exc),
+                    "failed_url": exc.url,
+                }
+            )
             with artifact_staging(directory) as staging:
-                write_json(staging / "status.json", status)
+                write_json(staging / STATUS_NAME, status)
                 publish_directory(staging, directory)
             return directory, False

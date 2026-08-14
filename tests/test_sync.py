@@ -174,7 +174,7 @@ class SyncUnitTests(unittest.TestCase):
     def test_generation_failure_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "inbox.md").write_text("previous", encoding="utf-8")
+            (inbox / "triage.md").write_text("previous", encoding="utf-8")
             item = inbox / "2026-08-09_1"
             item.mkdir()
             (item / "metadata.json").write_text(
@@ -187,12 +187,12 @@ class SyncUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(SyncError, "Invalid received_at"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "inbox.md").read_text(), "previous")
+            self.assertEqual((inbox / "triage.md").read_text(), "previous")
 
     def test_missing_message_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "inbox.md").write_text("previous", encoding="utf-8")
+            (inbox / "triage.md").write_text("previous", encoding="utf-8")
             item = inbox / "2026-08-09_1"
             item.mkdir()
             (item / "metadata.json").write_text(
@@ -203,7 +203,7 @@ class SyncUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "inbox.md").read_text(), "previous")
+            self.assertEqual((inbox / "triage.md").read_text(), "previous")
 
     def test_message_outside_capture_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -222,14 +222,14 @@ class SyncUnitTests(unittest.TestCase):
     def test_missing_index_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "inbox.md").write_text("previous", encoding="utf-8")
+            (inbox / "triage.md").write_text("previous", encoding="utf-8")
             item = write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             (item / "index.md").unlink()
 
             with self.assertRaisesRegex(SyncError, "Missing index.md"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "inbox.md").read_text(), "previous")
+            self.assertEqual((inbox / "triage.md").read_text(), "previous")
 
 
 class SynchronizeTests(unittest.TestCase):
@@ -275,7 +275,7 @@ class SynchronizeTests(unittest.TestCase):
                 (state / "delivered-items").read_text(),
                 "2026-08-08_1\t1\n2026-08-09_2\t2\n2026-08-10_3\t1\n",
             )
-            aggregate = (local / "inbox.md").read_text()
+            aggregate = (local / "triage.md").read_text()
             self.assertEqual(aggregate.count("## 2026-08-09"), 1)
             self.assertIn("edited", aggregate)
             self.assertTrue(

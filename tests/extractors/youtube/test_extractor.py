@@ -143,7 +143,7 @@ def test_short_without_usable_captions_reuses_whisper_and_exact_ocr_defaults(mon
     )
     output = extractor.extract(parse_video_url("https://www.youtube.com/shorts/WZxbzEpdjlU"))
 
-    transcript = json.loads((output / "transcript.json").read_text(encoding="utf-8"))
+    transcript = json.loads((output / "raw/transcript.json").read_text(encoding="utf-8"))
     assert transcript["source"] == "local_whisper"
     assert transcript["text"] == "Locally recognized speech"
     assert len(transcriber.calls) == 1
@@ -153,8 +153,8 @@ def test_short_without_usable_captions_reuses_whisper_and_exact_ocr_defaults(mon
         "max_height": 800,
         "batch_size": 8,
     }
-    assert "TRANSCRIPT (local_whisper)" in (output / "llm_input.txt").read_text(encoding="utf-8")
-    assert (output / "media/video.mp4").exists()
+    assert "## Transcript (local_whisper)" in (output / "content.md").read_text(encoding="utf-8")
+    assert (output / "raw/media/video.mp4").exists()
 
 
 def test_good_youtube_caption_is_the_only_short_transcript(monkeypatch, tmp_path):
@@ -177,12 +177,12 @@ def test_good_youtube_caption_is_the_only_short_transcript(monkeypatch, tmp_path
     )
     output = extractor.extract(parse_video_url("https://www.youtube.com/shorts/WZxbzEpdjlU"))
     assert not transcriber.calls
-    assert (output / "transcript.txt").read_text(encoding="utf-8") == (
+    assert (output / "raw/transcript.txt").read_text(encoding="utf-8") == (
         "A complete platform caption\n"
     )
-    readable = (output / "llm_input.txt").read_text(encoding="utf-8")
-    assert readable.count("TRANSCRIPT") == 1
-    assert "youtube_automatic" in readable
+    content = (output / "content.md").read_text(encoding="utf-8")
+    assert content.count("## Transcript") == 1
+    assert "youtube_automatic" in content
 
 
 def test_normal_video_never_downloads_media_or_runs_local_asr(tmp_path):
@@ -214,7 +214,7 @@ def test_comment_failure_is_partial_and_keeps_metadata(monkeypatch, tmp_path):
     extractor = YouTubeExtractor(runner, ExtractionOptions(output_dir=tmp_path))
     output = extractor.extract(parse_video_url("https://www.youtube.com/watch?v=WZxbzEpdjlU"))
     status = json.loads((output / "status.json").read_text(encoding="utf-8"))
-    assert status["outcome"] == "partial"
+    assert status["status"] == "partial"
     assert status["stages"]["comments"] == "failed"
     assert (output / "metadata.json").exists()
 
@@ -232,11 +232,11 @@ def test_local_asr_exception_is_partial_and_does_not_discard_artifacts(tmp_path)
     )
     output = extractor.extract(parse_video_url("https://www.youtube.com/shorts/WZxbzEpdjlU"))
     status = json.loads((output / "status.json").read_text(encoding="utf-8"))
-    transcript = json.loads((output / "transcript.json").read_text(encoding="utf-8"))
-    assert status["outcome"] == "partial"
+    transcript = json.loads((output / "raw/transcript.json").read_text(encoding="utf-8"))
+    assert status["status"] == "partial"
     assert status["stages"]["transcript"] == "failed"
     assert transcript["source"] == "local_whisper"
-    assert (output / "metadata_raw.json").exists()
+    assert (output / "raw/metadata_raw.json").exists()
 
 
 def test_skip_comments_avoids_comment_request(tmp_path):
@@ -269,6 +269,6 @@ def test_separate_audio_failure_retains_video_for_ocr_and_marks_partial(tmp_path
     )
     output = extractor.extract(parse_video_url("https://www.youtube.com/shorts/WZxbzEpdjlU"))
     status = json.loads((output / "status.json").read_text(encoding="utf-8"))
-    assert status["outcome"] == "partial"
+    assert status["status"] == "partial"
     assert status["stages"]["media"] == "partial"
-    assert (output / "media/video.mp4").exists()
+    assert (output / "raw/media/video.mp4").exists()

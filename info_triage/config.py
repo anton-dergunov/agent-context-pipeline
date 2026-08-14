@@ -10,7 +10,13 @@ import yaml
 
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
-TRANSFORM_STEP_NAMES = ("url-resolution", "text-cleaning", "link-discovery", "index-render")
+TRANSFORM_STEP_NAMES = (
+    "url-resolution",
+    "text-cleaning",
+    "link-discovery",
+    "content-extraction",
+    "index-render",
+)
 YT_DLP_CHANNELS = ("stable", "nightly", "master")
 
 
@@ -49,9 +55,18 @@ class LinkDiscoveryConfig:
 
 
 @dataclass(frozen=True)
+class ContentExtractionConfig:
+    name: str
+    extract_budget: int
+    linklist_extract_budget: int
+    wall_clock_seconds: float
+    keep_raw: bool
+
+
+@dataclass(frozen=True)
 class IndexRenderConfig:
     name: str
-    linklist_threshold: int
+    lead_words: int
 
 
 StepConfig = (
@@ -59,6 +74,7 @@ StepConfig = (
     | URLResolutionConfig
     | TextCleaningConfig
     | LinkDiscoveryConfig
+    | ContentExtractionConfig
     | IndexRenderConfig
 )
 
@@ -79,6 +95,18 @@ class YouTubeExtractorConfig:
 class InstagramExtractorConfig:
     max_attempts: int
     retry_backoff_seconds: float
+    # Instagram rate-limits anonymous access and hides comments entirely. These
+    # stay unset until a session is mounted; treat either as a credential.
+    session_file: Path | None = None
+    instagram_user: str | None = None
+    cookies_file: Path | None = None
+
+
+@dataclass(frozen=True)
+class MediumExtractorConfig:
+    # Without a member session Medium returns title plus a few paragraphs, which
+    # is enough to route on and not enough to judge. See PREVIEW_REASON.
+    cookie_file: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -89,8 +117,10 @@ class AppConfig:
     grouping_max_gap_seconds: float
     grouping_settle_seconds: float
     processing_steps: tuple[StepConfig, ...]
+    linklist_threshold: int
     youtube_extractor: YouTubeExtractorConfig
     instagram_extractor: InstagramExtractorConfig
+    medium_extractor: MediumExtractorConfig
 
 
 def _mapping(value: Any, context: str, allowed: set[str]) -> dict[str, Any]:
@@ -137,6 +167,18 @@ def _path(value: Any, context: str, base_dir: Path) -> Path:
         raise ConfigError(f"{context} must be a non-empty path string")
     path = Path(value).expanduser()
     return path.resolve() if path.is_absolute() else (base_dir / path).resolve()
+
+
+def _optional_path(value: Any, context: str, base_dir: Path) -> Path | None:
+    return None if value is None else _path(value, context, base_dir)
+
+
+def _optional_string(value: Any, context: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"{context} must be a non-empty string")
+    return value.strip()
 
 
 def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
@@ -231,13 +273,44 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
         _mapping(value, context, {"name"})
         return LinkDiscoveryConfig(name)
 
+    if name == "content-extraction":
+        step = _mapping(
+            value,
+            context,
+            {
+                "name",
+                "extract_budget",
+                "linklist_extract_budget",
+                "wall_clock_seconds",
+                "keep_raw",
+            },
+        )
+        return ContentExtractionConfig(
+            name,
+            _integer(
+                _required(step, "extract_budget", context),
+                f"{context}.extract_budget",
+                minimum=0,
+            ),
+            _integer(
+                _required(step, "linklist_extract_budget", context),
+                f"{context}.linklist_extract_budget",
+                minimum=0,
+            ),
+            _number(
+                _required(step, "wall_clock_seconds", context),
+                f"{context}.wall_clock_seconds",
+            ),
+            _boolean(_required(step, "keep_raw", context), f"{context}.keep_raw"),
+        )
+
     if name == "index-render":
-        step = _mapping(value, context, {"name", "linklist_threshold"})
+        step = _mapping(value, context, {"name", "lead_words"})
         return IndexRenderConfig(
             name,
             _integer(
-                _required(step, "linklist_threshold", context),
-                f"{context}.linklist_threshold",
+                _required(step, "lead_words", context),
+                f"{context}.lead_words",
                 minimum=1,
             ),
         )
@@ -245,8 +318,10 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
     raise ConfigError(f"{context}.name is unknown: {name}")
 
 
-def _parse_extractors(value: Any) -> tuple[YouTubeExtractorConfig, InstagramExtractorConfig]:
-    extractors = _mapping(value, "extractors", {"youtube", "instagram"})
+def _parse_extractors(
+    value: Any, base_dir: Path
+) -> tuple[YouTubeExtractorConfig, InstagramExtractorConfig, MediumExtractorConfig]:
+    extractors = _mapping(value, "extractors", {"youtube", "instagram", "medium"})
     youtube = _mapping(
         _required(extractors, "youtube", "extractors"),
         "extractors.youtube",
@@ -264,8 +339,15 @@ def _parse_extractors(value: Any) -> tuple[YouTubeExtractorConfig, InstagramExtr
     instagram = _mapping(
         _required(extractors, "instagram", "extractors"),
         "extractors.instagram",
-        {"max_attempts", "retry_backoff_seconds"},
+        {
+            "max_attempts",
+            "retry_backoff_seconds",
+            "session_file",
+            "instagram_user",
+            "cookies_file",
+        },
     )
+    medium = _mapping(extractors.get("medium") or {}, "extractors.medium", {"cookie_file"})
     channel = _required(youtube, "update_channel", "extractors.youtube")
     if channel not in YT_DLP_CHANNELS:
         raise ConfigError(
@@ -317,6 +399,20 @@ def _parse_extractors(value: Any) -> tuple[YouTubeExtractorConfig, InstagramExtr
                 _required(instagram, "retry_backoff_seconds", "extractors.instagram"),
                 "extractors.instagram.retry_backoff_seconds",
             ),
+            session_file=_optional_path(
+                instagram.get("session_file"), "extractors.instagram.session_file", base_dir
+            ),
+            instagram_user=_optional_string(
+                instagram.get("instagram_user"), "extractors.instagram.instagram_user"
+            ),
+            cookies_file=_optional_path(
+                instagram.get("cookies_file"), "extractors.instagram.cookies_file", base_dir
+            ),
+        ),
+        MediumExtractorConfig(
+            cookie_file=_optional_path(
+                medium.get("cookie_file"), "extractors.medium.cookie_file", base_dir
+            ),
         ),
     )
 
@@ -357,7 +453,7 @@ def load_config(path: Path) -> AppConfig:
     processing = _mapping(
         _required(root, "processing", "configuration"),
         "processing",
-        {"steps"},
+        {"steps", "linklist_threshold"},
     )
 
     port = _integer(_required(web, "port", "web"), "web.port", minimum=1)
@@ -389,11 +485,19 @@ def load_config(path: Path) -> AppConfig:
     if "link-discovery" in names and "url-resolution" in names:
         if names.index("url-resolution") < names.index("link-discovery"):
             raise ConfigError("link-discovery must appear before url-resolution")
+    if "content-extraction" in names and "url-resolution" in names:
+        if names.index("content-extraction") < names.index("url-resolution"):
+            raise ConfigError("url-resolution must appear before content-extraction")
     if "index-render" in names and names[-1] != "index-render":
         raise ConfigError("index-render must be the last processing step")
 
-    youtube_extractor, instagram_extractor = _parse_extractors(
-        _required(root, "extractors", "configuration")
+    linklist_threshold = _integer(
+        _required(processing, "linklist_threshold", "processing"),
+        "processing.linklist_threshold",
+        minimum=1,
+    )
+    youtube_extractor, instagram_extractor, medium_extractor = _parse_extractors(
+        _required(root, "extractors", "configuration"), base_dir
     )
 
     return AppConfig(
@@ -407,6 +511,8 @@ def load_config(path: Path) -> AppConfig:
         grouping_max_gap_seconds=max_gap,
         grouping_settle_seconds=settle,
         processing_steps=steps,
+        linklist_threshold=linklist_threshold,
         youtube_extractor=youtube_extractor,
         instagram_extractor=instagram_extractor,
+        medium_extractor=medium_extractor,
     )

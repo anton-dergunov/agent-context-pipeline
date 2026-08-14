@@ -4,6 +4,7 @@ import pytest
 
 from info_triage.config import (
     ConfigError,
+    ContentExtractionConfig,
     IndexRenderConfig,
     InstagramExtractorConfig,
     LinkDiscoveryConfig,
@@ -17,7 +18,7 @@ from info_triage.config import (
 REPOSITORY = Path(__file__).resolve().parents[1]
 
 
-def config_text(*, steps: str, data_dir: str = "state") -> str:
+def config_text(*, steps: str, data_dir: str = "state", linklist_threshold: int = 8) -> str:
     return f"""
 storage:
   data_dir: {data_dir}
@@ -41,6 +42,7 @@ extractors:
     max_attempts: 3
     retry_backoff_seconds: 5
 processing:
+  linklist_threshold: {linklist_threshold}
   steps:
 {steps}
 """
@@ -54,14 +56,22 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
         "text-cleaning",
         "link-discovery",
         "url-resolution",
+        "content-extraction",
         "index-render",
     ]
     resolution = config.processing_steps[3]
     assert isinstance(resolution, URLResolutionConfig)
     assert resolution.resolve_budget == 40
-    render = config.processing_steps[4]
+    extraction = config.processing_steps[4]
+    assert isinstance(extraction, ContentExtractionConfig)
+    assert extraction.extract_budget == 5
+    assert extraction.linklist_extract_budget == 2
+    assert extraction.wall_clock_seconds == 600
+    assert extraction.keep_raw is True
+    render = config.processing_steps[5]
     assert isinstance(render, IndexRenderConfig)
-    assert render.linklist_threshold == 8
+    assert render.lead_words == 120
+    assert config.linklist_threshold == 8
     voice = config.processing_steps[0]
     assert isinstance(voice, VoiceTranscriptionConfig)
     assert voice.backend == "faster-whisper"
@@ -155,16 +165,25 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
         ),
         (
             """    - name: index-render
-      linklist_threshold: 8
+      lead_words: 120
     - name: text-cleaning
 """,
             "index-render must be the last processing step",
         ),
         (
-            "    - name: index-render\n      linklist_threshold: 0\n",
-            "linklist_threshold must be at least 1",
+            "    - name: index-render\n      lead_words: 0\n",
+            "lead_words must be at least 1",
         ),
-        ("    - name: index-render\n", "linklist_threshold is required"),
+        ("    - name: index-render\n", "lead_words is required"),
+        (
+            "    - name: content-extraction\n      extract_budget: 5\n"
+            "      linklist_extract_budget: 2\n      wall_clock_seconds: 600\n"
+            "      keep_raw: true\n    - name: url-resolution\n"
+            "      timeout_seconds: 10.0\n      retries: 1\n"
+            "      max_html_bytes: 1024\n      max_pdf_bytes: 1024\n"
+            "      resolve_all: false\n      resolve_budget: 40\n",
+            "url-resolution must appear before content-extraction",
+        ),
     ],
 )
 def test_invalid_processing_configuration_is_rejected(tmp_path, steps, message):

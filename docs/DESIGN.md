@@ -40,7 +40,7 @@ Server
             │ bidirectional synchronization
             ▼
 Laptop inbox/
-   ├── generated inbox.md
+   ├── generated triage.md
    │     consolidated read-only view
    │
    └── self-contained item directories
@@ -147,20 +147,35 @@ staging/
 └── 2026-08-08_18492/
     ├── index.md
     ├── metadata.json
-    └── capture/
-        ├── source.md
-        ├── message.md
-        ├── telegram.json
-        └── attachments/
-            └── 01-photo.jpg
+    ├── links.json
+    ├── capture/
+    │   ├── source.md
+    │   ├── message.md
+    │   ├── telegram.json
+    │   └── attachments/
+    │       └── 01-photo.jpg
+    └── extracted/
+        └── 01-research-arxiv-2410.04840/
+            ├── content.md
+            ├── metadata.json
+            ├── status.json
+            └── raw/
+                └── paper-source.pdf
 ```
 
 `index.md` and `metadata.json` stay at the item root. `index.md` is the item's
 own account of itself and the only file the laptop side has to read;
 `metadata.json` is the item's identity, and synchronization reads every item's
 revision through a metadata-only transfer. Everything captured from Telegram is
-provenance and lives under `capture/`. Paths recorded inside `metadata.json` are
-relative to the item root.
+provenance and lives under `capture/`; everything retrieved from the links the
+item carries lives under `extracted/`, one directory per source. Paths recorded
+inside `metadata.json` are relative to the item root.
+
+The layout is deliberately shaped like a small source tree, because that is a
+shape a code-trained reader already knows how to navigate: read the contract
+first, open a body when a decision needs it, never open the build output.
+`capture/` and every `raw/` directory are that build output — provenance kept so
+the user can inspect what was retrieved, never input for the routing side.
 
 The directory name is based on the Telegram creation date and message ID:
 
@@ -237,14 +252,26 @@ captured_at: 2026-08-11T14:33:28Z
 origin: instagram
 via: "@ai_machinelearning_big_data (forwarded channel)"
 intent: "Interesting thought to ponder upon"
-kind: note
+kind: post
+title: "A reel worth watching"
+published: 2026-08-10
 canonical_url: https://www.instagram.com/reel/DbW0FoHI1OO/
-extraction: none
+extraction: ok
+sources: 1
 ---
 
 ## Captured
 
 > Interesting thought to ponder upon
+
+## Sources
+
+1. `extracted/01-instagram-DbW0FoHI1OO/` — A reel worth watching · 2026-08-10 —
+   complete · `content.md` 340 words
+
+## Lead
+
+> [the caption, on-screen text and spoken audio, cut at 120 words] …
 
 ## Links
 
@@ -264,10 +291,22 @@ resolved link table. Segments do not appear here at all — how many Telegram
 messages carried an item is a transport detail that belongs in
 `capture/message.md`.
 
-Fields that describe retrieved content — the title, authors, publication date,
-venue, and the sections listing extracted sources and their leads — arrive with
-content extraction and are absent until then. The file is Markdown rather than
-Org because extracted web text has to be embeddable without escaping.
+`## Sources` lists what was retrieved, and prints each body's **word count**.
+That count is the single most important affordance in the file: it turns opening
+a body into a costed choice rather than a blind one. `## Lead` quotes the
+top-priority source — a paper's complete abstract, otherwise the forwarded
+material itself, otherwise the opening ~120 words of `content.md`, cut at a
+paragraph boundary and marked with `…`.
+
+Nothing here is summarized, and no language model runs anywhere in this path. A
+truncated lead is visibly a fragment, so a reader who needs more knows to open
+the body; a summary would look complete and quietly stop them. It would also
+destroy exactly what source-quality judgement depends on — whether the author
+shows their working — and the idiosyncratic detail that makes one artifact
+different from a neighbouring one.
+
+The file is Markdown rather than Org because extracted web text has to be
+embeddable without escaping.
 
 ---
 
@@ -311,16 +350,32 @@ For example:
 ├── index.md
 ├── metadata.json
 ├── links.json
-└── capture/
-    ├── source.md
-    ├── message.md
-    ├── telegram.json
-    └── attachments/
-        ├── 01-photo.jpg
-        └── 02-video.mp4
+├── capture/
+│   ├── source.md
+│   ├── message.md
+│   ├── telegram.json
+│   └── attachments/
+│       ├── 01-photo.jpg
+│       └── 02-video.mp4
+└── extracted/
+    ├── 01-linkedin-7492274768650407936/
+    │   ├── content.md
+    │   ├── comments.md
+    │   ├── metadata.json
+    │   ├── status.json
+    │   └── raw/
+    └── 02-research-arxiv-2607.12345/
+        ├── content.md
+        ├── metadata.json
+        ├── status.json
+        └── raw/
 ```
 
-Different item types can produce different files.
+Every extraction directory has the same four names whichever of the six handlers
+produced it, so a reader learns one convention rather than six. `content.md` is
+always the body; `status.json` always reports `complete`, `partial`, `blocked` or
+`failed` with a stable reason. Different item types can still produce different
+files under `raw/`.
 
 There is no requirement for every item to have the same output structure beyond having a stable item directory and the original captured message.
 
@@ -448,10 +503,20 @@ staging returns to `received`.
 
 Processing steps are ordinary ordered Python functions registered from the
 strict, commented `config.yaml`. The shipped order transcribes Telegram voice
-attachments, cleans text, discovers the item's links, resolves them, and renders
-`index.md` last. Voice output is materialized in `capture/source.md` before the
-text transforms. Expected future steps include OCR, other transcription,
+attachments, cleans text, discovers the item's links, resolves them, extracts the
+content behind the highest-priority ones, and renders `index.md` last. Voice
+output is materialized in `capture/source.md` before the text transforms.
+Expected future steps include OCR of photo attachments, depth-1 nested
 extraction, and item-level classification.
+
+Content extraction is bounded on both axes: a link budget (five full
+extractions, dropping to two when the item is a link list) and a per-item
+wall-clock ceiling, after which the remaining links stay title-only. It is the
+only expensive stage, so its results are cached outside the item directory and
+keyed on the canonical URL — an item is rebuilt from `capture/telegram.json` on
+every Telegram edit, and adding a note to a message must not re-download the
+paper attached to it. No extraction failure ever blocks an item: the failure is
+recorded against its link and the item lands with everything else it has.
 
 The repository already contains reusable implementations for cautious text
 cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
@@ -666,7 +731,7 @@ After synchronization:
 - items removed from the laptop are removed from the server.
 - an item with a revision newer than the last laptop revision appears again,
   even if the older local revision was removed.
-- `inbox.md` is regenerated from the item directories as a consolidated,
+- `triage.md` is regenerated from the item directories as a consolidated,
   oldest-first processing view.
 
 There is no separate archive or acknowledgement protocol.
@@ -691,10 +756,10 @@ The user processes these items one by one.
 The synchronization command also generates:
 
 ```text
-~/info-triage-inbox/inbox.md
+~/info-triage-inbox/triage.md
 ```
 
-`inbox.md` is the items' `index.md` files concatenated, oldest first by UTC
+`triage.md` is the items' `index.md` files concatenated, oldest first by UTC
 `received_at`, under one `## <id>` heading each and with their own headings
 demoted one level. Because it is a concatenation there is no drift and no second
 source of truth: whatever an item claims about itself, it claims identically in
@@ -706,7 +771,7 @@ waiting and how old the oldest is — and tells the reader which files are
 provenance and how to file an item. Operational metadata such as Telegram
 identities, revisions, and attachment internals never appears.
 
-`inbox.md` is a derived snapshot rather than acknowledgement state. It is
+`triage.md` is a derived snapshot rather than acknowledgement state. It is
 replaced atomically after every successful sync, so edits to it are not
 preserved. The linked item directories remain the authoritative inbox.
 

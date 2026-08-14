@@ -1,10 +1,12 @@
-"""Prepare LinkedIn extraction output for downstream processing."""
+"""Render retrieved LinkedIn artifacts into the uniform extraction shape."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
+
+from info_triage.extractors.artifacts import COMMENTS_NAME, CONTENT_NAME, RAW_DIR
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -14,56 +16,45 @@ def _read_json(path: Path, default: Any) -> Any:
         return default
 
 
-def prepare_llm_input(post_dir: Path) -> None:
+def _comment_line(comment: dict[str, Any]) -> str:
+    author = comment.get("author_name") or "Unknown"
+    return f"**{author}** — {comment.get('text', '')}".rstrip()
+
+
+def prepare_content(post_dir: Path, post_text: str) -> None:
+    """Write content.md and comments.md from what the downloader retrieved."""
     metadata = _read_json(post_dir / "metadata.json", {})
-    comments = _read_json(post_dir / "comments.json", {"comments": [], "first_comment": None})
-    post_text = (
-        (post_dir / "post.txt").read_text(encoding="utf-8").strip()
-        if (post_dir / "post.txt").exists()
-        else ""
+    comments = _read_json(
+        post_dir / RAW_DIR / "comments.json", {"comments": [], "first_comment": None}
     )
 
-    payload = {
-        "schema_version": 1,
-        "purpose": "Anonymous public LinkedIn post input for downstream information processing",
-        "post": metadata,
-        "post_text": post_text,
-        "first_public_comment": comments.get("first_comment"),
-        "public_selected_comments": comments.get("comments", []),
-        "comment_selection": {
-            "selection": comments.get("selection"),
-            "reported_count": comments.get("reported_count", 0),
-            "returned_count": comments.get("returned_count", 0),
-            "is_complete": False,
-        },
-    }
-    (post_dir / "llm_input.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    author = metadata.get("author", {}).get("name") or ""
+    published = metadata.get("published_at") or metadata.get("relative_time") or ""
+    heading = metadata.get("headline") or (
+        f"LinkedIn post by {author}" if author else "LinkedIn post"
     )
 
-    sections = [
-        "LINKEDIN PUBLIC POST",
-        f"URL: {metadata.get('canonical_url', metadata.get('request_url', ''))}",
-        f"Author: {metadata.get('author', {}).get('name') or ''}",
-        f"Published: {metadata.get('published_at') or metadata.get('relative_time') or ''}",
-        "",
-        "POST",
-        post_text,
+    lines = [f"# {heading}", ""]
+    facts = [
+        ("Author", author),
+        ("Published", published),
+        ("URL", metadata.get("canonical_url") or metadata.get("request_url") or ""),
     ]
-    if comments.get("first_comment"):
-        first = comments["first_comment"]
-        sections.extend(
-            [
-                "",
-                "FIRST PUBLICLY RETURNED COMMENT",
-                f"{first.get('author_name') or 'Unknown'}: {first.get('text', '')}",
-            ]
-        )
+    lines.extend(f"- {label}: {value}" for label, value in facts if value)
+    lines.extend(["", post_text.strip()])
+    (post_dir / CONTENT_NAME).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+    # The author's own comment is where LinkedIn posts put the paper or the
+    # repository, so it leads. Session 6 is what actually reads it.
+    rendered: list[str] = []
+    first = comments.get("first_comment")
+    if first:
+        rendered.extend(["## First returned comment", "", _comment_line(first)])
     if comments.get("comments"):
-        rendered = [
-            f"{item.get('author_name') or 'Unknown'}: {item.get('text', '')}"
-            for item in comments["comments"]
-        ]
-        sections.extend(["", "PUBLICLY SELECTED COMMENTS", "\n\n".join(rendered)])
-    (post_dir / "llm_input.txt").write_text("\n".join(sections).rstrip() + "\n", encoding="utf-8")
+        if rendered:
+            rendered.append("")
+        rendered.append("## Public comments")
+        rendered.append("")
+        rendered.extend(_comment_line(item) + "\n" for item in comments["comments"])
+    if rendered:
+        (post_dir / COMMENTS_NAME).write_text("\n".join(rendered).rstrip() + "\n", encoding="utf-8")

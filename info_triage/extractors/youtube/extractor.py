@@ -9,11 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
+from info_triage.extractors.artifacts import METADATA_NAME, RAW_DIR, STATUS_NAME
 from info_triage.extractors.media.ocr import OCREngine, ocr_video
 from info_triage.extractors.media.transcription import Transcriber
 
 from .captions import CaptionResult, CaptionTrack, parse_json3, select_caption_track, unavailable
-from .prepare import prepare_llm_input
+from .prepare import prepare_content
 from .runner import ManagedYtDlp, YtDlpError
 from .urls import YouTubeReference, classify_video
 
@@ -40,14 +41,15 @@ class ExtractionOptions:
     extractor_args: tuple[str, ...] = ()
 
 
-def _write_json(path: Path, value: Any) -> None:
+def _write_text(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.part")
-    temporary.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    temporary.write_text(value, encoding="utf-8")
     temporary.replace(path)
+
+
+def _write_json(path: Path, value: Any) -> None:
+    _write_text(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
 def _iso_timestamp(value: Any) -> str | None:
@@ -295,7 +297,7 @@ class YouTubeExtractor:
         *,
         needs_audio: bool,
     ) -> tuple[list[Path], list[dict[str, Any]], list[str]]:
-        media_dir = video_dir / "media"
+        media_dir = video_dir / RAW_DIR / "media"
         media_dir.mkdir(parents=True, exist_ok=True)
         if self.options.skip_media_download:
             sources = sorted(
@@ -412,7 +414,7 @@ class YouTubeExtractor:
             if self._ocr_engine_factory is None:
                 raise RuntimeError("video OCR engine is unavailable")
             self._ocr_engine = self._ocr_engine_factory()
-        output = video_dir / "ocr/video.ocr.json"
+        output = video_dir / RAW_DIR / "ocr/video.ocr.json"
         output.parent.mkdir(parents=True, exist_ok=True)
         ocr_video(
             source,
@@ -425,13 +427,13 @@ class YouTubeExtractor:
         )
         text_path = output.with_suffix(".txt")
         text = text_path.read_text(encoding="utf-8").strip() if text_path.exists() else ""
-        (video_dir / "ocr_text.txt").write_text(text + ("\n" if text else ""), encoding="utf-8")
+        _write_text(video_dir / RAW_DIR / "ocr_text.txt", text + ("\n" if text else ""))
         status = {
             "outcome": "complete",
             "processed": [{"file": source.name, "engine": self._ocr_engine.name}],
             "errors": [],
         }
-        _write_json(video_dir / "ocr/status.json", status)
+        _write_json(video_dir / RAW_DIR / "ocr/status.json", status)
         return status
 
     def extract(self, reference: YouTubeReference) -> Path:
@@ -440,38 +442,38 @@ class YouTubeExtractor:
         video_dir.mkdir(parents=True, exist_ok=True)
         status: dict[str, Any] = {
             "video_id": reference.video_id,
-            "outcome": "started",
+            "status": "started",
             "stages": {},
             "errors": [],
         }
-        _write_json(video_dir / "status.json", status)
+        _write_json(video_dir / STATUS_NAME, status)
 
         try:
             raw = self._metadata(reference)
             status["stages"]["metadata"] = "complete"
         except Exception as error:
-            status["outcome"] = "failed"
+            status["status"] = "failed"
             status["stages"]["metadata"] = "failed"
             status["errors"].append(
                 {"stage": "metadata", "error": f"{type(error).__name__}: {error}"}
             )
             status["yt_dlp_events"] = self.runner.events[event_start:]
-            _write_json(video_dir / "status.json", status)
+            _write_json(video_dir / STATUS_NAME, status)
             raise
 
         kind, kind_basis = classify_video(reference, raw, self.options.kind)
         if raw.get("live_status") == "is_live":
             error = ValueError("live-in-progress YouTube streams are not supported")
-            status["outcome"] = "failed"
+            status["status"] = "failed"
             status["stages"]["validation"] = "failed"
             status["errors"].append({"stage": "validation", "error": f"ValueError: {error}"})
             status["yt_dlp_events"] = self.runner.events[event_start:]
-            _write_json(video_dir / "status.json", status)
+            _write_json(video_dir / STATUS_NAME, status)
             raise error
-        _write_json(video_dir / "metadata_raw.json", sanitize_raw_metadata(raw))
+        _write_json(video_dir / RAW_DIR / "metadata_raw.json", sanitize_raw_metadata(raw))
         description = raw.get("description") or ""
-        (video_dir / "description.txt").write_text(
-            description + ("\n" if description else ""), encoding="utf-8"
+        _write_text(
+            video_dir / RAW_DIR / "description.txt", description + ("\n" if description else "")
         )
 
         if self.options.skip_comments:
@@ -492,7 +494,7 @@ class YouTubeExtractor:
                 status["errors"].append(
                     {"stage": "comments", "error": f"{type(error).__name__}: {error}"}
                 )
-        _write_json(video_dir / "comments.json", comments)
+        _write_json(video_dir / RAW_DIR / "comments.json", comments)
         rendered_comments: list[str] = []
         for parent in comments.get("comments", []):
             rendered_comments.append(f"{parent.get('author', '')}: {parent.get('text', '')}")
@@ -500,9 +502,9 @@ class YouTubeExtractor:
                 f"  {reply.get('author', '')}: {reply.get('text', '')}"
                 for reply in parent.get("replies", [])
             )
-        (video_dir / "comments.txt").write_text(
+        _write_text(
+            video_dir / RAW_DIR / "comments.txt",
             "\n\n".join(rendered_comments) + ("\n" if rendered_comments else ""),
-            encoding="utf-8",
         )
 
         caption: CaptionResult = unavailable("transcript_skipped")
@@ -565,12 +567,13 @@ class YouTubeExtractor:
                     "text": "",
                     "reason": f"{type(error).__name__}: {error}",
                 }
-        _write_json(video_dir / "transcript.json", transcript)
+        _write_json(video_dir / RAW_DIR / "transcript.json", transcript)
         transcript_text = (
             transcript.get("text", "") if transcript.get("status") == "complete" else ""
         )
-        (video_dir / "transcript.txt").write_text(
-            transcript_text + ("\n" if transcript_text else ""), encoding="utf-8"
+        _write_text(
+            video_dir / RAW_DIR / "transcript.txt",
+            transcript_text + ("\n" if transcript_text else ""),
         )
         if self.options.skip_transcript:
             status["stages"]["transcript"] = "skipped"
@@ -593,7 +596,7 @@ class YouTubeExtractor:
                     {"stage": "ocr", "error": f"{type(error).__name__}: {error}"}
                 )
                 _write_json(
-                    video_dir / "ocr/status.json",
+                    video_dir / RAW_DIR / "ocr/status.json",
                     {"outcome": "failed", "processed": [], "errors": status["errors"][-1:]},
                 )
         else:
@@ -607,12 +610,15 @@ class YouTubeExtractor:
             self.runner.current_version(),
             media_manifest,
         )
-        _write_json(video_dir / "metadata.json", metadata)
-        prepare_llm_input(video_dir)
-        status["outcome"] = "partial" if status["errors"] else "complete"
+        _write_json(video_dir / METADATA_NAME, metadata)
+        prepare_content(video_dir)
+        status["status"] = "partial" if status["errors"] else "complete"
+        if status["errors"]:
+            # Name the stage that fell short, so the index can say which.
+            status["reason"] = f"{status['errors'][0]['stage']}-unavailable"
         status["yt_dlp_version"] = self.runner.current_version()
         status["yt_dlp_events"] = self.runner.events[event_start:]
-        _write_json(video_dir / "status.json", status)
+        _write_json(video_dir / STATUS_NAME, status)
         return video_dir
 
     def close(self) -> None:

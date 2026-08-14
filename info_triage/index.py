@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .extraction import CONTENT_NAME, ExtractionRecord
 from .models import LinkTableEntry
 from .rendering import SEGMENT_HEADING_RE, is_forwarded, payload_order, segment_kind
 from .utilities.markdown import escape_markdown_destination, escape_markdown_label
@@ -26,6 +27,9 @@ SHORT_NOTE_CHARS = 200
 
 NO_NOTE_TEXT = "[forwarded — no note of your own]"
 VOICE_PROVENANCE = "— transcribed from a Telegram voice message"
+
+# `kind` values that make the abstract, not the opening prose, the right lead.
+ABSTRACT_KINDS = frozenset({"paper"})
 
 # Handlers whose name is also the item's origin. Everything else is `web`.
 ORIGIN_HANDLERS = frozenset({"instagram", "linkedin", "medium", "youtube"})
@@ -125,8 +129,17 @@ def detect_intent(segments: Sequence[IndexSegment]) -> str | None:
     return candidates[0][1] if len(candidates) == 1 else None
 
 
+# Statuses of rows that stay in links.json for traceability but are not part of
+# the item: a repeat of an earlier row, or a link that was never the user's.
+UNLISTED_STATUSES = frozenset({"duplicate", "excluded"})
+
+
+def _listed(links: Sequence[LinkTableEntry]) -> list[LinkTableEntry]:
+    return [entry for entry in links if entry.status != "excluded"]
+
+
 def _distinct(links: Sequence[LinkTableEntry]) -> list[LinkTableEntry]:
-    return [entry for entry in links if entry.status != "duplicate"]
+    return [entry for entry in links if entry.status not in UNLISTED_STATUSES]
 
 
 def _primary_link(links: Sequence[LinkTableEntry]) -> LinkTableEntry | None:
@@ -211,17 +224,33 @@ def _captured_at(metadata: Mapping[str, Any]) -> str | None:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _kind(links: Sequence[LinkTableEntry], linklist_threshold: int) -> str | None:
+def _kind(
+    links: Sequence[LinkTableEntry],
+    primary: ExtractionRecord | None,
+    linklist_threshold: int,
+) -> str | None:
     distinct = _distinct(links)
     if not distinct:
         return "note"
     if len(distinct) >= linklist_threshold:
         return "linklist"
-    # Anything else is whatever the extraction turns out to have retrieved.
-    return None
+    # Otherwise the item is whatever its best extraction turned out to be.
+    return primary.kind if primary is not None else None
 
 
-def _extraction(links: Sequence[LinkTableEntry]) -> tuple[str, str | None]:
+def _extraction(
+    links: Sequence[LinkTableEntry],
+    extractions: Sequence[ExtractionRecord],
+) -> tuple[str, str | None]:
+    """Roll the per-source outcomes up into the one status /route acts on."""
+    if extractions:
+        retrieved = [record for record in extractions if record.retrieved]
+        if not retrieved:
+            return "failed", extractions[0].reason
+        incomplete = next((record for record in extractions if record.status != "complete"), None)
+        if incomplete is not None:
+            return "partial", incomplete.reason
+        return "ok", None
     for entry in _distinct(links):
         if entry.status in UNFINISHED_STATUSES:
             return "partial", entry.reason
@@ -233,6 +262,104 @@ def _yaml_scalar(value: str) -> str:
     collapsed = " ".join(value.split())
     escaped = collapsed.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+def _yaml_list(values: Sequence[str]) -> str:
+    return "[" + ", ".join(_yaml_scalar(value) for value in values) + "]"
+
+
+def _ranked_extractions(
+    extractions: Sequence[ExtractionRecord],
+    links: Sequence[LinkTableEntry],
+) -> list[ExtractionRecord]:
+    """Order the sources the way the link table ranked their targets."""
+    priorities = {entry.n: (entry.priority, entry.n) for entry in links}
+    return sorted(
+        extractions,
+        key=lambda record: priorities.get(record.link_n, (99, record.link_n)),
+    )
+
+
+def _thousands(count: int) -> str:
+    return f"{count:,}"
+
+
+def _sources_section(records: Sequence[ExtractionRecord]) -> str:
+    """List every extraction with its cost, which is what makes drill-down a choice."""
+    lines = []
+    for position, record in enumerate(records, 1):
+        descriptor = " · ".join(
+            part
+            for part in (
+                record.title,
+                ", ".join(record.authors[:3]) or None,
+                record.published,
+                record.venue,
+            )
+            if part
+        )
+        status = record.status
+        if record.reason and record.status != "complete":
+            status = f"{record.status} (`{record.reason}`)"
+        detail = f"`{CONTENT_NAME}` {_thousands(record.word_count)} words"
+        if record.via:
+            detail += f" · via {record.via}"
+        head = f"{position}. `{record.directory}/`"
+        if descriptor:
+            head += f" — {descriptor}"
+        lines.append(f"{head} — {status} · {detail}")
+    return "\n".join(lines)
+
+
+def _truncate_words(text: str, limit: int) -> str:
+    """Cut at a paragraph boundary if one is near, otherwise mark the cut."""
+    words = text.split()
+    if len(words) <= limit:
+        return text.strip()
+    paragraphs: list[str] = []
+    used = 0
+    for paragraph in text.split("\n\n"):
+        count = len(paragraph.split())
+        if paragraphs and used + count > limit:
+            break
+        paragraphs.append(paragraph)
+        used += count
+        if used >= limit:
+            break
+    if paragraphs and used <= limit:
+        return "\n\n".join(paragraphs).strip() + ("" if used == len(words) else " …")
+    return " ".join(words[:limit]) + " …"
+
+
+def _forwarded_text(segments: Sequence[IndexSegment] | None) -> str:
+    """Return the forwarded material itself, which is otherwise only in capture/."""
+    if not segments:
+        return ""
+    return "\n\n".join(
+        segment.text.strip() for segment in segments if segment.forwarded and segment.text.strip()
+    )
+
+
+def _lead(
+    record: ExtractionRecord | None,
+    segments: Sequence[IndexSegment] | None,
+    lead_words: int,
+) -> str:
+    """Quote the top source: a paper's abstract, or the opening of what was shared.
+
+    Truncation is deliberate and visible. A summary would look complete and stop
+    the reader from opening `content.md` when it actually matters.
+    """
+    if record is not None and record.kind in ABSTRACT_KINDS and record.abstract:
+        return record.abstract.strip()
+    forwarded = _forwarded_text(segments)
+    if forwarded:
+        # A forwarded post is the content; without this it lives only in
+        # capture/message.md and its links appear to come from nowhere.
+        return _truncate_words(forwarded, lead_words)
+    if record is not None and record.excerpt:
+        return _truncate_words(record.excerpt, lead_words)
+    return ""
 
 
 def _blockquote(text: str) -> str:
@@ -308,8 +435,10 @@ def render_index(
     payloads: Sequence[dict[str, Any]],
     body: str,
     links: Sequence[LinkTableEntry],
+    extractions: Sequence[ExtractionRecord] = (),
     *,
     linklist_threshold: int,
+    lead_words: int = 120,
 ) -> str:
     """Render one item's complete `index.md`."""
     segments = build_segments(payloads, body)
@@ -328,16 +457,32 @@ def render_index(
         fields.append(("via", _yaml_scalar(via)))
     # Always present: an absent note is information, an invented one is damage.
     fields.append(("intent", _yaml_scalar(note[1]) if note is not None else "null"))
-    kind = _kind(links, linklist_threshold)
+    ranked = _ranked_extractions(extractions, links)
+    lead_source = ranked[0] if ranked else None
+    kind = _kind(links, lead_source, linklist_threshold)
     if kind is not None:
         fields.append(("kind", kind))
+    if lead_source is not None:
+        if lead_source.title:
+            fields.append(("title", _yaml_scalar(lead_source.title)))
+        if lead_source.authors:
+            fields.append(("authors", _yaml_list(lead_source.authors)))
+        for key, value in (
+            ("published", lead_source.published),
+            ("venue", lead_source.venue),
+            ("doi", lead_source.doi),
+        ):
+            if value:
+                fields.append((key, _yaml_scalar(value)))
     primary = _primary_link(links)
     if primary is not None:
         fields.append(("canonical_url", primary.canonical))
-    extraction, reason = _extraction(links)
+    extraction, reason = _extraction(links, extractions)
     fields.append(("extraction", extraction))
     if reason is not None:
         fields.append(("reason", reason))
+    if extractions:
+        fields.append(("sources", str(len(extractions))))
     link_count = len(_distinct(links))
     if link_count > 5:
         fields.append(("link_count", str(link_count)))
@@ -351,6 +496,12 @@ def render_index(
         "",
         _captured_section(segments, body, note),
     ]
-    if links:
-        sections.extend(["", "## Links", "", _links_table(links)])
+    if ranked:
+        sections.extend(["", "## Sources", "", _sources_section(ranked)])
+    lead = _lead(lead_source, segments, lead_words)
+    if lead:
+        sections.extend(["", "## Lead", "", _blockquote(lead)])
+    listed = _listed(links)
+    if listed:
+        sections.extend(["", "## Links", "", _links_table(listed)])
     return "\n".join(sections) + "\n"
