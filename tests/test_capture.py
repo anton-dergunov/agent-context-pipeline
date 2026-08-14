@@ -1,6 +1,5 @@
 import asyncio
 import json
-import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -340,70 +339,6 @@ class CaptureStoreTests(unittest.TestCase):
             recovered = CaptureStore(data_dir)
             self.assertEqual(recovered.pending_chat_ids(), [10])
             self.assertEqual(recovered.pending_messages(10)[0]["payload"], payload)
-
-    def test_legacy_pending_album_is_migrated(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            data_dir = Path(temporary)
-            database_path = data_dir / "info-triage.sqlite3"
-            payload = telegram_payload(1, 100, text="album caption")
-            with sqlite3.connect(database_path) as connection:
-                connection.execute(
-                    """
-                    CREATE TABLE pending_media_group_members (
-                        chat_id INTEGER NOT NULL,
-                        media_group_id TEXT NOT NULL,
-                        message_id INTEGER NOT NULL,
-                        received_at TEXT NOT NULL,
-                        edited_at TEXT,
-                        content TEXT NOT NULL,
-                        raw_json TEXT NOT NULL,
-                        attachments_json TEXT NOT NULL,
-                        PRIMARY KEY (chat_id, media_group_id, message_id)
-                    )
-                    """
-                )
-                connection.execute(
-                    """
-                    CREATE TABLE pending_media_groups (
-                        chat_id INTEGER NOT NULL,
-                        media_group_id TEXT NOT NULL,
-                        updated_at TEXT NOT NULL,
-                        PRIMARY KEY (chat_id, media_group_id)
-                    )
-                    """
-                )
-                connection.execute(
-                    """
-                    INSERT INTO pending_media_group_members VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        10,
-                        "album",
-                        1,
-                        "2026-08-09T10:00:00+00:00",
-                        None,
-                        "album caption",
-                        json.dumps(payload),
-                        "[]",
-                    ),
-                )
-                connection.execute(
-                    "INSERT INTO pending_media_groups VALUES (?, ?, ?)",
-                    (10, "album", "2026-08-09T10:00:01+00:00"),
-                )
-
-            store = CaptureStore(data_dir)
-            migrated = store.pending_messages(10)
-            self.assertEqual(migrated[0]["media_group_id"], "album")
-            self.assertEqual(migrated[0]["payload"], payload)
-            with sqlite3.connect(database_path) as connection:
-                old_tables = connection.execute(
-                    """
-                    SELECT name FROM sqlite_master
-                    WHERE type = 'table' AND name LIKE 'pending_media_group%'
-                    """
-                ).fetchall()
-            self.assertEqual(old_tables, [])
 
     def test_failed_finalization_keeps_pending_messages(self):
         with tempfile.TemporaryDirectory() as temporary:

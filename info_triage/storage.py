@@ -162,27 +162,6 @@ class CaptureStore:
                 )
                 """
             )
-            legacy_table = connection.execute(
-                """
-                SELECT 1 FROM sqlite_master
-                WHERE type = 'table' AND name = 'pending_media_group_members'
-                """
-            ).fetchone()
-            if legacy_table:
-                connection.execute(
-                    """
-                    INSERT OR IGNORE INTO pending_capture_messages (
-                        chat_id, message_id, media_group_id, received_at, edited_at,
-                        content, raw_json, attachments_json
-                    )
-                    SELECT chat_id, message_id, media_group_id, received_at, edited_at,
-                           content, raw_json, attachments_json
-                    FROM pending_media_group_members
-                    """
-                )
-                connection.execute("DROP TABLE pending_media_group_members")
-                connection.execute("DROP TABLE IF EXISTS pending_media_groups")
-
     @staticmethod
     def item_name(created_at: str, message_id: int) -> str:
         created_date = datetime.fromisoformat(created_at).date().isoformat()
