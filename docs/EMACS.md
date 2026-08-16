@@ -26,12 +26,17 @@ sync.
 
 ## `triage.org` is not for agents
 
-It opens with a comment saying so:
+It opens by saying so:
 
 ```org
-# Reading this as an agent? Stop — read triage.md in this directory instead.
-# This is a navigation view for a person and holds strictly less than triage.md.
+#+AGENT_NOTE: Reading this as an agent? Stop — read triage.md in this directory instead.
+#+AGENT_NOTE: This is a navigation view for a person and holds strictly less than triage.md.
 ```
+
+Keyword lines rather than `#` comments, and not only for tidiness: Org gives an
+unknown keyword the same faded `org-meta-line` treatment as `#+TITLE:` and hides
+the `#+` itself, so the notice reads as metadata. As a plain comment it took
+ordinary body styling and ended up louder on screen than the title above it.
 
 An editor integration advertises whatever file is on screen, and this one is on
 screen for the whole of a triage session. Reading it costs tokens and can only
@@ -71,9 +76,11 @@ stays shareable with people who do not run this project.
 The older standalone `emacs/info-triage.el` in this repository predates that and
 is kept only for someone who wants the four commands without the rest.
 
+All of these are on the editor's Productivity → Triage menu as well.
+
 | Command | Does |
 |---|---|
-| `ps/info-triage-open` (`C-c p I`) | opens the queue in the current window |
+| `ps/info-triage-open` (`C-c p I`) | opens the queue |
 | `ps/info-triage-sync` | runs `sync.sh` in the background, then refreshes the queue |
 | `ps/info-triage-regenerate` | `sync.sh --regenerate` — renumbers both views, no network |
 | `ps/info-triage-drop` (`d`) | moves the item at point's directory to the Trash, then renumbers |
@@ -86,11 +93,16 @@ frees single keys: `RET` follows, `n`/`p` move between items, `d` drops, `s`
 syncs, `g` renumbers, `e` opens the folder externally, `b`/`f` go back and
 forward.
 
-Following a link stays in the same window, and `‹ ›` on the mode line walks the
-trail back out again. What a click does depends on the file: Markdown and JSON
-render in Emacs, HTML renders as a page rather than as source, images open
-inline, PDFs and video go to the desktop, audio is declined because the
-transcript beside it is the readable copy.
+Where a followed link opens depends on what else is on screen: beside the queue
+when the queue is the only thing open, and in the queue's own window when it is
+not — so reviewing alone gives two panes, and reviewing next to a Claude Code
+session does not try for three. `‹ ›` on the mode line walks the trail back out
+again, and never adds a window.
+
+What a click does depends on the file: Markdown and JSON render in Emacs, HTML
+renders as a page rather than as source, images open inline, PDFs and video go
+to the desktop, audio is declined because the transcript beside it is the
+readable copy.
 
 `d` deletes to the Trash rather than unlinking, because the decision is made at
 a glance and a glance is sometimes wrong. The next `sync.sh` propagates the

@@ -315,7 +315,7 @@ def test_an_unpairable_body_keeps_everything_in_captured():
     assert field(rendered, "intent") == "null"
 
 
-def test_the_links_table_prefers_the_resolved_title_then_the_authors_label():
+def test_the_links_list_prefers_the_resolved_title_then_the_authors_label():
     links = [
         link(1, status="resolved", title="Throughput vs Latency — AWS", label="Latency"),
         link(2, status="unresolved", reason="title-not-found", label="CAP Theorem"),
@@ -323,22 +323,36 @@ def test_the_links_table_prefers_the_resolved_title_then_the_authors_label():
         link(4, status="duplicate", duplicate_of=1),
     ]
     rendered = index([payload(1, 100, text="…")], body(("text", "x")), links)
-    assert "| 1 | [Throughput vs Latency — AWS](https://example.com/1) | document |" in rendered
+    assert "1. [Throughput vs Latency — AWS](https://example.com/1) — document · resolved" in rendered
     assert (
-        "| 2 | [CAP Theorem](https://example.com/2) | document | unresolved (title-not-found) |"
+        "2. [CAP Theorem](https://example.com/2) — document · unresolved (title-not-found)"
         in rendered
     )
-    assert "| 3 | [https://example.com/3](https://example.com/3) |" in rendered
+    assert "3. [https://example.com/3](https://example.com/3) — document ·" in rendered
     assert (
-        "| 4 | [https://example.com/4](https://example.com/4) | document | duplicate of 1 |"
-        in rendered
+        "4. [https://example.com/4](https://example.com/4) — document · duplicate of 1" in rendered
     )
 
 
-def test_table_cells_cannot_break_the_table_or_reopen_markdown():
+def test_links_are_a_list_because_a_table_cannot_be_made_narrow():
+    """A table is as wide as its widest row, and these rows carry page titles.
+
+    In a half-width editor window the columns cannot fit; a reader that hides
+    link markup makes it worse by pinning each separator to its source column.
+    A list has no columns to lose.
+    """
+    links = [link(1, status="resolved", title="A title")]
+    rendered = index([payload(1, 100, text="…")], body(("text", "x")), links)
+
+    assert "## Links" in rendered
+    assert not any(line.startswith("|") for line in rendered.splitlines())
+
+
+def test_a_link_label_cannot_reopen_markdown():
+    """A pipe needs no escaping outside a table, but the rest still does."""
     links = [link(1, status="resolved", title="A | B *starred* [x]")]
     rendered = index([payload(1, 100, text="…")], body(("text", "x")), links)
-    assert "[A \\| B \\*starred\\* \\[x\\]](https://example.com/1)" in rendered
+    assert "[A | B \\*starred\\* \\[x\\]](https://example.com/1)" in rendered
 
 
 def test_a_body_that_cannot_be_paired_still_keeps_segment_headings_out():
@@ -652,7 +666,7 @@ def test_harvested_links_do_not_turn_a_small_item_into_a_link_list():
     assert field(rendered, "kind") != "linklist"
     assert field(rendered, "link_count") is None
     # Every row is still listed, harvested or not.
-    assert rendered.count("| document |") == 7
+    assert rendered.count("— document · ") == 7
     # The same eight rows, all of them the user's, are a link list.
     captured = [link(n) for n in range(1, 9)]
     assert field(index([payload(1, 100, text="…")], body(("text", "…")), captured), "kind") == (

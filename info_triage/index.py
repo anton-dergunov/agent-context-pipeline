@@ -595,10 +595,6 @@ def _blockquote(text: str) -> str:
     return "\n".join(f"> {line}" if line.strip() else ">" for line in text.strip().splitlines())
 
 
-def _table_cell(value: str) -> str:
-    return value.replace("|", "\\|")
-
-
 def _link_status(entry: LinkTableEntry) -> str:
     if entry.status == "duplicate" and entry.duplicate_of is not None:
         return f"duplicate of {entry.duplicate_of}"
@@ -607,19 +603,27 @@ def _link_status(entry: LinkTableEntry) -> str:
     return entry.status
 
 
-def _links_table(links: Sequence[LinkTableEntry]) -> str:
-    rows = ["| # | link | handler | status |", "|---|------|---------|--------|"]
+def _links_list(links: Sequence[LinkTableEntry]) -> str:
+    """List every distinct link with its handler and what became of it.
+
+    A list rather than a table, and not only for tokens. A table has to be as
+    wide as its widest row, and these rows carry page titles: in a half-width
+    editor window the columns cannot fit, and a Markdown reader that hides link
+    markup pins each separator to its *source* column, which is wider still —
+    so the columns end up neither aligned nor on one line. A list re-flows at
+    whatever width it is given and has no columns to lose.
+
+    `## Sources` next to it is a list for the same reason.
+    """
+    lines = []
     for entry in links:
         label = entry.title or entry.label or entry.canonical
         link = (
             f"[{escape_markdown_label(' '.join(label.split()))}]"
             f"({escape_markdown_destination(entry.canonical)})"
         )
-        rows.append(
-            f"| {entry.n} | {_table_cell(link)} | {_table_cell(entry.handler)} "
-            f"| {_table_cell(_link_status(entry))} |"
-        )
-    return "\n".join(rows)
+        lines.append(f"{entry.n}. {link} — {entry.handler} · {_link_status(entry)}")
+    return "\n".join(lines)
 
 
 def _problems_section(problems: Sequence[ProcessingProblem]) -> str:
@@ -765,7 +769,7 @@ def render_index(
         sections.extend(["", "## Lead", "", _blockquote(lead)])
     listed = _listed(links)
     if listed:
-        sections.extend(["", "## Links", "", _links_table(listed)])
+        sections.extend(["", "## Links", "", _links_list(listed)])
     if problems:
         sections.extend(["", "## Problems", "", _problems_section(problems)])
     return "\n".join(sections) + "\n"

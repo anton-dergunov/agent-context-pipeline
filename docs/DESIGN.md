@@ -278,9 +278,7 @@ sources: 1
 
 ## Links
 
-| # | link | handler | status |
-|---|------|---------|--------|
-| 1 | [A reel worth watching](https://www.instagram.com/reel/DbW0FoHI1OO/) | instagram | resolved |
+1. [A reel worth watching](https://www.instagram.com/reel/DbW0FoHI1OO/) — instagram · resolved
 ```
 
 The frontmatter is the machine-readable part and is authoritative. A field is
@@ -290,7 +288,11 @@ quoted verbatim, never rewritten and never guessed: it is detected from three
 positional heuristics over the segments and left empty whenever they disagree.
 
 `## Captured` holds the user's own words and nothing else. `## Links` is the
-resolved link table. Segments do not appear here at all — how many Telegram
+resolved link table, rendered as a list rather than a Markdown table: a table is
+as wide as its widest row, these rows carry page titles, and in a half-width
+editor window the columns cannot fit — a reader that hides link markup makes it
+worse still by pinning each separator to its source column. A list re-flows at
+whatever width it is given, and costs the routing agent fewer tokens besides. Segments do not appear here at all — how many Telegram
 messages carried an item is a transport detail that belongs in
 `capture/message.md`.
 
