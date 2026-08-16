@@ -1002,10 +1002,10 @@ snapshot for deletion tracking. Existing one-column manifests are migrated
 automatically.
 
 After a successful sync, the command atomically regenerates
-`~/info-triage-inbox/triage.md`. It is an oldest-first Markdown view containing
-the capture time, user-facing metadata, a link to each item directory, and the
-message body. It is overwritten on every sync and should not be edited as a way
-to acknowledge items.
+`~/info-triage-inbox/triage.md`. It is an oldest-first Markdown view, grouped
+under a heading per day, containing the capture time, user-facing metadata, a
+link to each item directory, and the message body. It is overwritten on every
+sync and should not be edited as a way to acknowledge items.
 
 Moving or deleting a delivered item directory from the laptop inbox marks its
 current revision processed. The next sync deletes the matching NAS directory.

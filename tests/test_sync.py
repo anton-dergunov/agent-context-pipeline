@@ -149,18 +149,63 @@ class SyncUnitTests(unittest.TestCase):
             result = render_inbox(inbox)
 
             self.assertLess(
-                result.index("## 1 — 2026-08-09_1"), result.index("## 2 — 2026-08-10_2")
+                result.index("### 1 — 2026-08-09_1"), result.index("### 2 — 2026-08-10_2")
             )
             # Frontmatter is only unambiguous at the top of a file, so it is fenced here.
             self.assertIn(
-                "## 2 — 2026-08-10_2\n\n"
+                "## 2026-08-10\n\n"
+                "### 2 — 2026-08-10_2\n\n"
                 "[📁 2026-08-10_2/](2026-08-10_2/) · [index.md](2026-08-10_2/index.md)\n\n"
                 '```yaml\nid: 2026-08-10_2\nintent: "later one"\n```\n\n'
-                "### Captured\n\n> later\n\n### Links",
+                "#### Captured\n\n> later\n\n#### Links",
                 result,
             )
             self.assertNotIn("\n## Captured", result)
+            self.assertNotIn("\n### Captured", result)
             self.assertNotIn("chat_id", result)
+
+    def test_digest_groups_items_under_a_heading_per_day(self):
+        """Both views group by day, so the two describe the same shape — and the
+        numbering stays global across the groups, since that is the whole
+        interface between them."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            for name, received_at in (
+                ("2026-08-09_1", "2026-08-09T10:00:00+00:00"),
+                ("2026-08-09_2", "2026-08-09T18:00:00+00:00"),
+                ("2026-08-10_3", "2026-08-10T09:00:00+00:00"),
+            ):
+                write_item(inbox, name, received_at=received_at)
+
+            headings = re.findall(r"^#{2,3} .*$", render_inbox(inbox), flags=re.MULTILINE)
+
+            self.assertEqual(
+                headings,
+                [
+                    "## 2026-08-09",
+                    "### 1 — 2026-08-09_1",
+                    "### 2 — 2026-08-09_2",
+                    "## 2026-08-10",
+                    "### 3 — 2026-08-10_3",
+                ],
+            )
+
+    def test_a_deep_index_heading_stays_a_heading(self):
+        """Demoting by two would take a fifth-level heading past Markdown's sixth,
+        and literal `#`s in the body would read as text rather than structure."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index="---\nid: 2026-08-09_1\n---\n\n##### Deep\n\ntext\n",
+            )
+
+            result = render_inbox(inbox)
+
+            self.assertIn("\n###### Deep\n", result)
+            self.assertNotIn("#######", result)
 
     def test_numbering_is_positional_and_the_id_stays_beside_it(self):
         """The number is what the reader selects by; the id outlives the numbering."""
@@ -173,11 +218,11 @@ class SyncUnitTests(unittest.TestCase):
                     received_at=f"2026-08-{day:02d}T10:00:00+00:00",
                 )
 
-            headings = re.findall(r"^## .*$", render_inbox(inbox), flags=re.MULTILINE)
+            headings = re.findall(r"^### .*$", render_inbox(inbox), flags=re.MULTILINE)
 
             self.assertEqual(
                 headings,
-                ["## 1 — 2026-08-09_1", "## 2 — 2026-08-10_2", "## 3 — 2026-08-11_3"],
+                ["### 1 — 2026-08-09_1", "### 2 — 2026-08-10_2", "### 3 — 2026-08-11_3"],
             )
 
     def test_relative_links_are_rebased_onto_the_item_directory(self):
@@ -240,12 +285,16 @@ class SyncUnitTests(unittest.TestCase):
             generate_inbox(inbox)
             result = (inbox / "triage.org").read_text()
 
-            self.assertIn("* 1 · 2026-08-09 · paper · Strong Model Collapse\n", result)
+            # The day is a heading of its own; the item hangs under it, its label
+            # is the link to its index, and its kind is a tag.
+            self.assertIn("\n* 2026-08-09\n\n", result)
+            self.assertIn(
+                "** 1 · [[file:2026-08-09_1/index.md][Strong Model Collapse]]  :paper:\n", result
+            )
             # Emacs reads the item's directory back out of this link to know what
             # a drop deletes: it is the only place the id still appears.
             self.assertIn(
-                "  [[file:2026-08-09_1/index.md][index]] · "
-                "[[file:2026-08-09_1/][directory]] · "
+                "   [[file:2026-08-09_1/][directory]] · "
                 "[[https://arxiv.org/abs/2410.04840][source]]\n",
                 result,
             )
@@ -294,8 +343,14 @@ class SyncUnitTests(unittest.TestCase):
             result = render_org(_sorted_items(inbox))
 
             self.assertIn(
-                "* 1 · 2026-08-09 · post · Why the trees wear coloured tags  :partial:\n", result
+                "** 1 · [[file:2026-08-09_1/index.md]"
+                "[Why the trees wear coloured tags]]  :post:\n",
+                result,
             )
+            # The extraction status is carried by the item's own frontmatter and
+            # by triage.md. In a queue read at a glance it was a second tag per
+            # line saying nothing about what the item is.
+            self.assertNotIn(":partial:", result)
 
     def test_an_item_captured_before_headlines_falls_back_to_its_lead(self):
         """Transitional: items already in the inbox have no `headline:` field.
@@ -321,7 +376,11 @@ class SyncUnitTests(unittest.TestCase):
 
             # Not the first stream: on-screen text opens with the poster's own
             # watermark, and OCR of burned-in subtitles names nothing.
-            self.assertIn("* 1 · 2026-08-09 · post · Hidden right next to Chongqing.\n", result)
+            self.assertIn(
+                "** 1 · [[file:2026-08-09_1/index.md]"
+                "[Hidden right next to Chongqing.]]  :post:\n",
+                result,
+            )
 
     def test_an_item_with_only_a_captured_link_is_labelled_from_it(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -338,7 +397,10 @@ class SyncUnitTests(unittest.TestCase):
 
             result = render_org(_sorted_items(inbox))
 
-            self.assertIn("* 1 · 2026-08-09 · An account name • Instagram  :none:\n", result)
+            # No kind, so no tag at all — a heading that ends at its title.
+            self.assertIn(
+                "** 1 · [[file:2026-08-09_1/index.md][An account name • Instagram]]\n", result
+            )
 
     def test_an_intent_is_kept_when_it_is_not_already_the_label(self):
         """The user's own words are the one thing the heading cannot carry."""
@@ -367,7 +429,7 @@ class SyncUnitTests(unittest.TestCase):
 
             result = render_org(_sorted_items(inbox))
 
-            self.assertIn("  /read before the Friday review/\n", result)
+            self.assertIn("   /read before the Friday review/\n", result)
             # The second item's intent is already its label; saying it twice is noise.
             self.assertEqual(result.count("translate this"), 1)
 
@@ -387,8 +449,33 @@ class SyncUnitTests(unittest.TestCase):
 
             result = render_org(_sorted_items(inbox))
 
-            self.assertIn("* 1 · 2026-08-09 · [ [not a link]] and a ragged title\n", result)
+            # The title is now a link description, so a `]` in it would close the
+            # description early and leave the rest of the heading as loose text.
+            self.assertIn(
+                "** 1 · [[file:2026-08-09_1/index.md]"
+                "[( (not a link)) and a ragged title]]\n",
+                result,
+            )
             self.assertEqual(result.count("\n* "), 1)
+
+    def test_an_unusual_kind_still_makes_a_tag_org_can_read(self):
+        """`kind` comes from an extractor, not from a fixed list, and Org tags
+        admit only [[:alnum:]_@#%] — anything else is not a tag at all."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\nkind: long-form read\n"
+                    'title: "A title"\nextraction: ok\n---\n\n## Captured\n\n> x\n'
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn(":long_form_read:\n", result)
 
     def test_a_bracketed_url_is_dropped_rather_than_closing_its_link_early(self):
         """A bracket in the target would swallow the rest of the line, and the
@@ -583,6 +670,6 @@ class RegenerateTests(unittest.TestCase):
                 self.assertEqual(main(["--regenerate"]), 0)
 
             runner.assert_not_called()
-            self.assertIn("* 1 · 2026-08-10 ·", (inbox / "triage.org").read_text())
-            self.assertIn("## 1 — 2026-08-10_2", (inbox / "triage.md").read_text())
+            self.assertIn("** 1 · [[file:2026-08-10_2/", (inbox / "triage.org").read_text())
+            self.assertIn("### 1 — 2026-08-10_2", (inbox / "triage.md").read_text())
             self.assertNotIn("2026-08-09_1", (inbox / "triage.md").read_text())

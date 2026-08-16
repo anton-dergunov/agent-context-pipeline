@@ -3,13 +3,14 @@
 `sync.sh` writes two views of the same items, both generated and both
 overwritten on every sync:
 
-- **`triage.md`** — the whole contract, one `## N — <id>` section per item. This
-  is what `/route` reads.
-- **`triage.org`** — navigation: one heading per item carrying the number, the
-  date, the kind and a one-line label, the user's own note when there is one,
-  and links to the index, the directory and the source. No extracted text
-  reaches it beyond that label, which is the whole reason the items themselves
-  stay Markdown (`Message-contract-design.md` §4.4): Org gives `*`, `_` and `[[`
+- **`triage.md`** — the whole contract, one `### N — <id>` section per item
+  under a `## <date>` heading per day. This is what `/route` reads.
+- **`triage.org`** — navigation: a heading per day, and under it one heading per
+  item carrying the number and a one-line label that is itself the link to the
+  item's index, with the kind as a trailing tag, the user's own note when there
+  is one, and links to the directory and the source. No extracted text reaches
+  it beyond that label, which is the whole reason the items themselves stay
+  Markdown (`Message-contract-design.md` §4.4): Org gives `*`, `_` and `[[`
   structural meaning, and an escaper bug would corrupt items rather than merely
   look wrong.
 
@@ -19,6 +20,10 @@ between the halves: the user picks numbers out of the Org view and quotes them
 into a routing request that reads the Markdown one. Anything that changes what
 is in the inbox must rebuild both — `sync.sh --regenerate` does exactly that and
 nothing else.
+
+Both group by day, and the numbering runs straight through the days rather than
+restarting under each one. Grouping is the same view for a person and for an
+agent; a per-day numbering would be three items called 1.
 
 Neither file carries state. **Deleting an item's directory is the signal that it
 was processed**; a mark written into a generated file would be lost on the next
@@ -119,7 +124,10 @@ it, which is why `/route` is told to quote both.
 Emacs reads the directory name back out of the `[[file:<id>/][directory]]` link,
 since that is the only place it appears now that the property drawer is gone.
 That link's shape is a contract between the two repositories; `render_org` in
-`info_triage/sync.py` says so, and so does `ps/info-triage--item-directory`.
+`info_triage/sync.py` says so, and so does `ps/info-triage--item-directory`. The
+outline levels are part of the same contract: Emacs finds items by `^\*\* <N> `
+and bounds one item's links by the next heading of any level, which for the last
+item of a day is the day after it.
 
 ## In VS Code
 
