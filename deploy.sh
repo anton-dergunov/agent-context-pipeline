@@ -36,20 +36,22 @@ echo "==> Building and restarting container"
 ssh "$REMOTE" \
     'sudo -n /usr/local/sbin/deploy-container info-triage'
 
-echo "==> Waiting for service"
-
-sleep 15
-
 echo "==> Health check"
 
-curl --fail --silent --show-error \
+health_check_status=0
+health_check_output=$(curl --fail --silent --show-error \
     --connect-timeout 2 \
     --max-time 5 \
     --retry 60 \
     --retry-all-errors \
     --retry-delay 1 \
     --retry-max-time 60 \
-    "$URL"
+    "$URL" 2>&1) || health_check_status=$?
 
-echo
+if [[ "$health_check_status" -ne 0 ]]; then
+    printf '%s\n' "$health_check_output" >&2
+    exit "$health_check_status"
+fi
+
+printf '%s\n' "$health_check_output"
 echo "==> Deployment complete"
