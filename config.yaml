@@ -110,3 +110,8 @@ processing:
       # Words of `content.md` quoted as the item's lead. Papers quote the
       # complete abstract instead.
       lead_words: 120
+      # ... and for short-form media, where the payload is in the on-screen text
+      # and the spoken audio rather than in prose. Every stream is quoted and
+      # labelled within this budget: measured over 14 real Shorts and Reels,
+      # 800 words quotes 12 of them whole (median 183, p90 681).
+      media_lead_words: 800

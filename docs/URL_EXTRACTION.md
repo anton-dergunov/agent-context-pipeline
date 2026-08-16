@@ -78,7 +78,11 @@ Publication-page and PDF routes map to one provider/paper identity.
 
 For arXiv, `/abs`, `/html`, and `/pdf` inputs—including an accidental `.pdf`
 suffix on `/abs`—first fetch the abstract page. Experimental paper HTML is
-preferred and the PDF is the automatic fallback. OpenReview metadata uses API
+preferred for conversion and the PDF is the automatic fallback; when the HTML
+body succeeds, the PDF is fetched anyway and kept, because it is the readable
+artifact for a person even though it is the worse conversion source. That extra
+fetch is best-effort: if it fails, the attempt is recorded and the extraction
+stays `complete`. OpenReview metadata uses API
 v2 followed by the legacy v1 API. Other open providers normalize to their
 publication page and linked PDF. ResearchGate uses anonymous ordinary HTTP and
 one anonymous Chrome-compatible retry only; it does not import cookies or try
@@ -86,8 +90,10 @@ to bypass access controls.
 
 Research output is written under
 `url_output/research/<provider>-<paper-id>/`. `content.md` starts with normalized
-metadata and an abstract, followed by the extracted full paper; the source HTML
-and PDF are kept under `raw/`. Affiliations are not separately parsed. If
+metadata and an abstract, followed by the extracted full paper. Under `raw/`,
+the PDF is always `paper.pdf` and the HTML always `paper.html`, whichever of the
+two the body was converted from — so finding the readable copy never depends on
+which path the extraction took. Affiliations are not separately parsed. If
 metadata succeeds but the body does not, `content.md` is retained and
 `status.json` reports `partial` with `paper-body-unavailable`.
 

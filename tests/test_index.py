@@ -358,8 +358,11 @@ def test_sources_print_the_word_count_that_makes_drill_down_a_choice():
     )
 
     assert "## Sources" in rendered
-    assert "1. `extracted/01-document-x/` — A Paper · A. Author · 2024-10-07" in rendered
-    assert "complete · `content.md` 1,234 words" in rendered
+    assert (
+        "1. [extracted/01-document-x/content.md](extracted/01-document-x/content.md)"
+        " — A Paper · A. Author · 2024-10-07" in rendered
+    )
+    assert "complete · 1,234 words" in rendered
     assert field(rendered, "sources") == "1"
 
 
@@ -386,6 +389,140 @@ def test_a_non_paper_lead_is_the_opening_of_its_body():
     )
 
     assert "## Lead\n\n> The article opens like this." in rendered
+    assert field(rendered, "lead") == "excerpt"
+
+
+def test_short_form_media_leads_with_what_only_the_pipeline_recovered():
+    """A reel's caption is marketing; the payload is in the audio and on screen.
+
+    Real regression: item 2026-08-14_151 spent its whole Lead on a book plug
+    while the spoken audio — what its own `intent` referred to — never appeared.
+    """
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://www.instagram.com/reel/A/")),
+        [link(1, handler="instagram", priority=2)],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                short_form=True,
+                sections=[
+                    ("Caption", "Buy my book on Mercado Libre."),
+                    ("On-screen text", "ALTER EGO"),
+                    ("Spoken audio", "Everyone has two versions of themselves."),
+                ],
+            )
+        ],
+    )
+
+    lead = rendered.split("## Lead\n\n")[1].split("\n\n## ")[0]
+    assert lead.index("On-screen text") < lead.index("Spoken audio") < lead.index("Caption")
+    assert "> **Spoken audio**" in lead
+    assert "Everyone has two versions of themselves." in lead
+    # Nothing was cut, so opening content.md is optional rather than a guess.
+    assert field(rendered, "lead") == "full"
+
+
+def test_the_budget_is_shared_fairly_rather_than_first_come():
+    """A Short's burned-in subtitles make its OCR nearly as long as its transcript.
+
+    Spending the budget in stream order left item 2026-08-14_150's description —
+    the only stream carrying the nearby places — with the scraps.
+    """
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://www.youtube.com/shorts/A/")),
+        [link(1, handler="youtube", priority=2)],
+        extractions=[
+            extraction(
+                handler="youtube",
+                kind="video",
+                short_form=True,
+                sections=[
+                    ("Description", "unique " * 200 + "Jiuhuang Mountain"),
+                    ("Transcript (youtube_automatic)", "spoken " * 500),
+                    ("On-screen text", "onscreen " * 490),
+                ],
+            )
+        ],
+    )
+
+    lead = rendered.split("## Lead\n\n")[1].split("\n\n## ")[0]
+    # The short stream is quoted whole; the two long ones divide what is left.
+    assert "Jiuhuang Mountain" in lead
+    assert "**On-screen text**" in lead
+    assert "**Transcript (youtube_automatic)**" in lead
+
+
+def test_a_long_stream_cannot_starve_the_others_out_of_the_lead():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://www.instagram.com/reel/A/")),
+        [link(1, handler="instagram", priority=2)],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                short_form=True,
+                sections=[("On-screen text", "screen " * 2000), ("Caption", "caption " * 40)],
+            )
+        ],
+    )
+
+    lead = rendered.split("## Lead\n\n")[1].split("\n\n## ")[0]
+    assert "**Caption**" in lead
+    assert "caption" in lead
+    assert field(rendered, "lead") == "excerpt"
+
+
+def test_a_forwarded_note_leads_a_short_form_lead_without_replacing_it():
+    rendered = index(
+        [payload(1, 100, text="Worth watching", forward_origin={"type": "user"})],
+        body(("text", "Worth watching https://www.instagram.com/reel/A/")),
+        [link(1, handler="instagram", priority=2)],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                short_form=True,
+                sections=[("Spoken audio", "The video says this.")],
+            )
+        ],
+    )
+
+    lead = rendered.split("## Lead\n\n")[1].split("\n\n## ")[0]
+    assert lead.index("Worth watching") < lead.index("The video says this.")
+
+
+def test_a_papers_abstract_still_wins_over_its_sections():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://arxiv.org/abs/1")),
+        [link(1, handler="research", priority=1)],
+        extractions=[
+            extraction(
+                handler="research",
+                kind="paper",
+                abstract="We establish model collapse.",
+                sections=[("Abstract", "ignore"), ("Full paper", "ignore")],
+            )
+        ],
+    )
+
+    assert "## Lead\n\n> We establish model collapse." in rendered
+    assert field(rendered, "lead") == "abstract"
+
+
+def test_sources_link_a_kept_pdf_so_the_readable_copy_is_findable():
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://arxiv.org/abs/1")),
+        [link(1, handler="research", priority=1)],
+        extractions=[extraction(handler="research", kind="paper", pdf="raw/paper.pdf")],
+    )
+
+    assert "· [pdf](extracted/01-document-x/raw/paper.pdf)" in rendered
 
 
 def test_frontmatter_carries_what_extraction_learned():

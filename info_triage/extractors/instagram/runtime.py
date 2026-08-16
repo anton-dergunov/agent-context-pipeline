@@ -9,6 +9,7 @@ from info_triage.extractors.media.runtime import (
     configure_threads,
     describe,
     platform_defaults,
+    resolve_engine_name,
     resolve_threads,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "configure_threads",
     "describe",
     "platform_defaults",
+    "resolve_engine_name",
     "resolve_threads",
 ]

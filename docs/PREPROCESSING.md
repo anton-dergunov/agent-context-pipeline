@@ -297,19 +297,46 @@ guessed.
 marked as dictated so a garbled phrase reads as a recognition artifact rather
 than as meaning.
 
-`## Sources` lists every extraction with its directory, what is known about it,
-its status, and **its word count**. The word count is the point: it is what lets
-a reader decide between a 200-word abstract and an 11,900-word body instead of
-guessing.
+`## Sources` links every extraction's `content.md` and prints **its word count**.
+The word count is the point: it is what lets a reader decide between a 200-word
+abstract and an 11,900-word body instead of guessing. The path is written
+relative to the item root, so it resolves from the item's own `index.md`, and
+`sync.py` rebases it onto `<id>/` when the indexes are concatenated. Where a
+paper's PDF was kept, that is linked too — the only thing under `raw/` the index
+ever points at, and it points at it for the reader, not for a lens.
 
-`## Lead` quotes the top-priority source: a paper's complete abstract, otherwise
-the forwarded material itself when the item is a forwarded Telegram post, and
-otherwise the first `lead_words` (120) of `content.md`, cut at a paragraph
-boundary and marked with `…`. Quoting a forwarded post matters because it is the
-only place that material appears outside `capture/` — without it a link the post
-introduced looks as though it came from nowhere. The truncation is deliberate
-and visible; a summary would look complete and stop the reader from opening
-`content.md` when it actually matters.
+`## Lead` quotes the top-priority source, in one of three ways, and says which in
+the `lead` frontmatter field:
+
+| `lead:` | When | What |
+|---|---|---|
+| `abstract` | the source is a paper | its complete abstract, never truncated |
+| `full` | short-form media, everything fits | every stream, labelled, quoted whole |
+| `excerpt` | anything else | a prefix, cut at a paragraph boundary and marked `…` |
+
+**Short-form media** — every Instagram post, and YouTube videos whose metadata
+says `short` — is quoted stream by stream within `media_lead_words` (800),
+because its payload is not in prose. Streams are ordered by what only the
+pipeline could recover: forwarded commentary, then on-screen text, then spoken
+audio or the transcript, and the caption or description last. Each is labelled
+in bold, and the budget is shared fairly rather than first-come: every stream
+gets an equal share, then whatever the short ones did not need goes to the long
+ones in priority order. A Short's burned-in subtitles make its on-screen text
+nearly as long as its transcript, so spending the budget in order would leave
+the description — often the only stream carrying anything the other two do not —
+with nothing.
+
+That ordering is measured, not stylistic. A reel's caption is usually
+marketing while the audio carries the argument; a Short's description is usually
+a hook while the transcript carries the content. A flat prefix of `content.md`
+reaches neither, because the file is written caption-first.
+
+Everything else keeps the first `lead_words` (120) of `content.md`. Forwarded
+material is quoted because it is the only place that text appears outside
+`capture/` — without it a link the post introduced looks as though it came from
+nowhere. Truncation is deliberate and visible; a summary would look complete and
+stop the reader from opening `content.md` when it actually matters, and `lead:`
+is what says whether the quote stands on its own.
 
 `## Links` is the resolved table, one row per distinct target, showing the
 resolved title where there is one and the author's own anchor text otherwise.

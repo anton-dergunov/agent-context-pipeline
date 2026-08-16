@@ -36,9 +36,14 @@ def _html(url, body=METADATA):
     return FetchResult(url, url, "text/html", "html", body, 200)
 
 
+def _pdf(url, body=b"%PDF-1.7 bytes"):
+    return FetchResult(url, url, "application/pdf", "pdf", body, 200)
+
+
 def test_arxiv_html_body_is_preferred_and_metadata_is_prepended(tmp_path):
     metadata_url = "https://arxiv.org/abs/2010.00747"
     body_url = "https://arxiv.org/html/2010.00747"
+    pdf_url = "https://arxiv.org/pdf/2010.00747"
     client = Client(
         {
             metadata_url: _html(metadata_url),
@@ -46,6 +51,7 @@ def test_arxiv_html_body_is_preferred_and_metadata_is_prepended(tmp_path):
                 body_url,
                 b"<html><body><article><h1>A Useful Paper</h1><p>Full paper body.</p></article></body></html>",
             ),
+            pdf_url: _pdf(pdf_url),
         }
     )
     path, complete = ResearchExtractor(ResearchOptions(output_dir=tmp_path), client=client).extract(
@@ -57,7 +63,58 @@ def test_arxiv_html_body_is_preferred_and_metadata_is_prepended(tmp_path):
     assert "## Abstract" in paper
     assert "## Full paper" in paper
     assert "Full paper body" in paper
-    assert client.calls == [metadata_url, body_url]
+    # HTML is still the conversion source; the PDF is fetched after it, for a
+    # human to read, and only because the body did not already provide one.
+    assert client.calls == [metadata_url, body_url, pdf_url]
+    assert (path / "raw" / "paper.html").exists()
+    assert (path / "raw" / "paper.pdf").read_bytes() == b"%PDF-1.7 bytes"
+    assert json.loads((path / "metadata.json").read_text())["pdf_archived"] is True
+
+
+def test_an_unreachable_archival_pdf_does_not_downgrade_the_extraction(tmp_path):
+    metadata_url = "https://arxiv.org/abs/2010.00747"
+    body_url = "https://arxiv.org/html/2010.00747"
+    pdf_url = "https://arxiv.org/pdf/2010.00747"
+    client = Client(
+        {
+            metadata_url: _html(metadata_url),
+            body_url: _html(body_url, b"<html><body><article><p>Body.</p></article></body></html>"),
+            pdf_url: ExtractionError("gone", reason="http-error"),
+        }
+    )
+    path, complete = ResearchExtractor(ResearchOptions(output_dir=tmp_path), client=client).extract(
+        metadata_url
+    )
+
+    assert complete
+    status = json.loads((path / "status.json").read_text())
+    assert status["status"] == "complete"
+    assert not (path / "raw" / "paper.pdf").exists()
+    assert {"stage": "pdf-archive", "url": pdf_url, "result": "failed", "reason": "http-error"} in (
+        status["attempts"]
+    )
+    assert "pdf_archived" not in json.loads((path / "metadata.json").read_text())
+
+
+def test_a_pdf_body_is_kept_under_the_same_name_as_an_archived_one(monkeypatch, tmp_path):
+    """One rule for the reader: the PDF is `raw/paper.pdf` whichever path ran."""
+    metadata_url = "https://aclanthology.org/2020.acl-main.1/"
+    pdf_url = "https://aclanthology.org/2020.acl-main.1.pdf"
+    monkeypatch.setattr(
+        "info_triage.extractors.research.extractor.pdf_to_markdown",
+        lambda *_args, **_kwargs: ("The paper text.\n", 3),
+    )
+    client = Client({metadata_url: _html(metadata_url), pdf_url: _pdf(pdf_url)})
+
+    path, complete = ResearchExtractor(ResearchOptions(output_dir=tmp_path), client=client).extract(
+        metadata_url
+    )
+
+    assert complete
+    assert (path / "raw" / "paper.pdf").read_bytes() == b"%PDF-1.7 bytes"
+    assert not (path / "raw" / "paper.html").exists()
+    # No second fetch: the body already is the PDF.
+    assert client.calls == [metadata_url, pdf_url]
 
 
 def test_arxiv_versioned_pdf_candidate_overrides_unversioned_metadata_link(tmp_path):

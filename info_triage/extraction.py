@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +29,8 @@ from .extractors.artifacts import (
     COMMENTS_NAME,
     CONTENT_NAME,
     METADATA_NAME,
+    PAPER_PDF_NAME,
+    RAW_DIR,
     STATUS_NAME,
     HarvestedLink,
 )
@@ -73,6 +77,16 @@ class ExtractionRecord:
     # The opening prose of content.md, kept generously so the index can cut it
     # to whatever lead length is configured without re-reading the body.
     excerpt: str | None = None
+    # content.md split into its `## ` sections, uncut. Short-form media carries
+    # its payload in the recovered streams — on-screen text, spoken audio —
+    # which a flat prefix of the file never reaches, so the index needs them
+    # separable and labelled rather than run together.
+    sections: list[tuple[str, str]] = field(default_factory=list)
+    # Media whose content is on the screen and in the audio rather than in
+    # prose: every Instagram post, and YouTube Shorts.
+    short_form: bool = False
+    # Path inside the extraction of a PDF kept for the reader, if one was saved.
+    pdf: str | None = None
     via: str | None = None
 
     @property
@@ -122,6 +136,10 @@ def _read_json(path: Path, default: Any = None) -> Any:
 
 EXCERPT_WORDS = 400
 
+_SECTION_HEADING = re.compile(r"^## +(.+?)\s*$")
+#: A fact line under the title: "- Channel: …" or the papers' "- **Authors:** …".
+_FACT_LINE = re.compile(r"^- \*{0,2}[^:*\n]{1,40}:")
+
 
 def _word_count(path: Path) -> int:
     try:
@@ -130,24 +148,50 @@ def _word_count(path: Path) -> int:
         return 0
 
 
-def _excerpt(path: Path) -> str | None:
-    """Return the opening prose of a body, past its title and fact list."""
+def _sections(path: Path) -> list[tuple[str, str]]:
+    """Split a body into its ``## `` sections, past the title and fact list.
+
+    Every extractor writes the same shape: an H1 title, a block of
+    ``- Label: value`` facts the frontmatter already carries, then one ``## ``
+    section per retrieved stream. Slicing on that structure is what keeps body
+    bullets: the rule this replaces dropped every block beginning ``- `` and so
+    deleted whole bulleted lists — on item 2026-08-14_150 the five nearby
+    locations that were the point of the capture.
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
-        return None
+        return []
+    sections: list[tuple[str, list[str]]] = [("", [])]
+    for line in text.splitlines():
+        heading = _SECTION_HEADING.match(line)
+        if heading:
+            sections.append((heading.group(1), []))
+        else:
+            sections[-1][1].append(line)
+    # The preamble keeps only prose: the title and the facts are already indexed.
+    preamble = [
+        line for line in sections[0][1] if not line.startswith("# ") and not _FACT_LINE.match(line)
+    ]
+    sections[0] = ("", preamble)
+    return [
+        (heading, "\n".join(body).strip()) for heading, body in sections if "".join(body).strip()
+    ]
+
+
+def _excerpt(sections: Sequence[tuple[str, str]]) -> str | None:
+    """Flatten the sections into opening prose, kept generously for the index."""
     paragraphs: list[str] = []
     used = 0
-    for block in text.split("\n\n"):
-        stripped = block.strip()
-        # The rendered heading and the "- Author: …" facts are already in the
-        # frontmatter; repeating them as the lead wastes the whole budget.
-        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
-            continue
-        paragraphs.append(stripped)
-        used += len(stripped.split())
-        if used >= EXCERPT_WORDS:
-            break
+    for _, body in sections:
+        for block in body.split("\n\n"):
+            stripped = block.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            paragraphs.append(stripped)
+            used += len(stripped.split())
+            if used >= EXCERPT_WORDS:
+                return "\n\n".join(paragraphs)
     return "\n\n".join(paragraphs) or None
 
 
@@ -223,7 +267,15 @@ def describe(
     record.doi = metadata.get("doi") or None
     record.abstract = metadata.get("abstract") or None
     record.word_count = _word_count(directory / CONTENT_NAME)
-    record.excerpt = _excerpt(directory / CONTENT_NAME)
+    record.sections = _sections(directory / CONTENT_NAME)
+    record.excerpt = _excerpt(record.sections)
+    record.short_form = handler == "instagram" or (
+        handler == "youtube" and str(metadata.get("kind") or "") == "short"
+    )
+    # The one file under raw/ the index points at: a person reading a paper
+    # wants the typeset PDF, and otherwise would have to know it is there.
+    pdf = Path(RAW_DIR) / PAPER_PDF_NAME
+    record.pdf = str(pdf) if (directory / pdf).is_file() else None
     return record
 
 
@@ -381,7 +433,9 @@ class ContentExtractor:
                 max_replies=config.max_replies,
                 max_replies_per_thread=config.max_replies_per_thread,
             ),
-            ocr_engine_factory=lambda: make_engine("best", None, self.settings.ocr_model_cache_dir),
+            ocr_engine_factory=lambda: make_engine(
+                "best", None, self.settings.ocr_model_cache_dir, media="video"
+            ),
             transcriber_factory=lambda: make_transcriber(
                 backend, model, self.settings.transcription_model_cache_dir, 1
             ),
@@ -401,6 +455,7 @@ class ContentExtractor:
         from .extractors.instagram.downloader import DownloadOptions, download_post, make_loader
         from .extractors.instagram.urls import shortcode_from_url
         from .extractors.media.ocr import make_engine
+        from .extractors.media.runtime import resolve_engine_name
         from .extractors.media.transcription import (
             make_transcriber,
             resolve_backend_and_model,
@@ -420,8 +475,22 @@ class ContentExtractor:
         # If an engine is unavailable the caption is still worth keeping, so
         # each pass degrades the status instead of discarding the extraction.
         def read_screen_text() -> None:
-            engine = make_engine("best", None, self.settings.ocr_model_cache_dir)
-            ocr_post(post_dir, image_engine=engine, video_engine=engine, settings=OCRSettings())
+            # A carousel and a reel can want different engines on the same
+            # machine, so resolve each and share one only when they agree.
+            image_name = resolve_engine_name("best", "image")
+            video_name = resolve_engine_name("best", "video")
+            image_engine = make_engine(image_name, None, self.settings.ocr_model_cache_dir)
+            video_engine = (
+                image_engine
+                if video_name == image_name
+                else make_engine(video_name, None, self.settings.ocr_model_cache_dir)
+            )
+            ocr_post(
+                post_dir,
+                image_engine=image_engine,
+                video_engine=video_engine,
+                settings=OCRSettings(),
+            )
 
         def read_speech() -> None:
             backend, model = resolve_backend_and_model(None, None)

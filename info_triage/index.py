@@ -311,14 +311,24 @@ def _sources_section(records: Sequence[ExtractionRecord]) -> str:
         status = record.status
         if record.reason and record.status != "complete":
             status = f"{record.status} (`{record.reason}`)"
-        detail = f"`{CONTENT_NAME}` {_thousands(record.word_count)} words"
-        if record.via:
-            detail += f" · via {record.via}"
-        head = f"{position}. `{record.directory}/`"
+        # A link, not code: the path is item-root-relative, which resolves both
+        # from the item's own index.md and from triage.md once sync.py rebases it.
+        body_path = f"{record.directory}/{CONTENT_NAME}"
+        head = f"{position}. {_relative_link(body_path)}"
         if descriptor:
             head += f" — {descriptor}"
+        detail = f"{_thousands(record.word_count)} words"
+        if record.pdf:
+            # The readable copy, for the user rather than for a lens.
+            detail += f" · {_relative_link(f'{record.directory}/{record.pdf}', label='pdf')}"
+        if record.via:
+            detail += f" · via {record.via}"
         lines.append(f"{head} — {status} · {detail}")
     return "\n".join(lines)
+
+
+def _relative_link(path: str, *, label: str | None = None) -> str:
+    return f"[{escape_markdown_label(label or path)}]({escape_markdown_destination(path)})"
 
 
 def _truncate_words(text: str, limit: int) -> str:
@@ -350,26 +360,104 @@ def _forwarded_text(segments: Sequence[IndexSegment] | None) -> str:
     )
 
 
+#: Short-form streams, most recoverable-only first. On-screen text and speech
+#: are what nothing else in the item carries and what the OCR and transcription
+#: passes were paid for; the caption is also one click away on the page itself.
+_STREAM_ORDER: tuple[str, ...] = (
+    "forwarded",
+    "on-screen text",
+    "spoken audio",
+    "transcript",
+    "caption",
+    "description",
+    "accessibility description",
+)
+
+
+def _stream_rank(heading: str) -> int:
+    name = heading.strip().lower()
+    for position, known in enumerate(_STREAM_ORDER):
+        # "Transcript (youtube_automatic)" — the source is part of the heading.
+        if name == known or name.startswith(f"{known} ("):
+            return position
+    return len(_STREAM_ORDER)
+
+
+def _media_lead(sections: Sequence[tuple[str, str]], budget: int) -> tuple[str, bool]:
+    """Quote every stream of a short-form item, labelled, within one budget.
+
+    A flat prefix of `content.md` never reaches these: the file is written
+    caption-first, and on item 2026-08-14_151 that made the whole Lead book
+    marketing while the spoken audio — the actual argument, and what the item's
+    own intent referred to — never appeared at all.
+
+    The budget is shared fairly rather than first-come. A Short's burned-in
+    subtitles make its on-screen text nearly as long as its transcript, and
+    spending the budget in order would leave the description — often the only
+    stream carrying anything the other two do not, such as the list of nearby
+    places on item 2026-08-14_150 — with whatever was left, which is nothing.
+    So every stream gets an equal share first, then whatever the short ones did
+    not need is handed to the long ones in priority order.
+
+    Returns the text and whether every stream was quoted whole.
+    """
+    ordered = sorted(
+        ((position, heading, body) for position, (heading, body) in enumerate(sections) if body),
+        key=lambda entry: (_stream_rank(entry[1]), entry[0]),
+    )
+    if not ordered:
+        return "", True
+    wanted = [len(body.split()) for _, _, body in ordered]
+    share = max(budget // len(ordered), 1)
+    allowance = [min(count, share) for count in wanted]
+    spare = budget - sum(allowance)
+    for index, count in enumerate(wanted):
+        if spare <= 0:
+            break
+        extra = min(count - allowance[index], spare)
+        allowance[index] += extra
+        spare -= extra
+
+    parts: list[str] = []
+    complete = True
+    for index, (_, heading, body) in enumerate(ordered):
+        quoted = _truncate_words(body, allowance[index])
+        if len(quoted.split()) < wanted[index]:
+            complete = False
+        parts.append(f"**{heading}**\n\n{quoted}" if heading else quoted)
+    return "\n\n".join(parts), complete
+
+
 def _lead(
     record: ExtractionRecord | None,
     segments: Sequence[IndexSegment] | None,
     lead_words: int,
-) -> str:
-    """Quote the top source: a paper's abstract, or the opening of what was shared.
+    media_lead_words: int,
+) -> tuple[str, str]:
+    """Quote the top source, and say which of the three kinds of quote it is.
 
     Truncation is deliberate and visible. A summary would look complete and stop
-    the reader from opening `content.md` when it actually matters.
+    the reader from opening `content.md` when it actually matters — so the kind
+    is reported instead, because a trailing `…` says that something was cut but
+    not whether what remains stands on its own.
     """
     if record is not None and record.kind in ABSTRACT_KINDS and record.abstract:
-        return record.abstract.strip()
+        return record.abstract.strip(), "abstract"
     forwarded = _forwarded_text(segments)
-    if forwarded:
+    if record is not None and record.short_form and record.sections:
         # A forwarded post is the content; without this it lives only in
-        # capture/message.md and its links appear to come from nowhere.
-        return _truncate_words(forwarded, lead_words)
+        # capture/message.md and its links appear to come from nowhere. It leads
+        # here rather than replacing the extraction, which is what it used to do.
+        sections = list(record.sections)
+        if forwarded:
+            sections.insert(0, ("Forwarded", forwarded))
+        text, complete = _media_lead(sections, media_lead_words)
+        return text, ("full" if complete else "excerpt")
+    if forwarded:
+        return _truncate_words(forwarded, lead_words), "excerpt"
     if record is not None and record.excerpt:
-        return _truncate_words(record.excerpt, lead_words)
-    return ""
+        return _truncate_words(record.excerpt, lead_words), "excerpt"
+    return "", ""
 
 
 def _blockquote(text: str) -> str:
@@ -469,6 +557,7 @@ def render_index(
     *,
     linklist_threshold: int,
     lead_words: int = 120,
+    media_lead_words: int = 800,
 ) -> str:
     """Render one item's complete `index.md`."""
     segments = build_segments(payloads, body)
@@ -489,6 +578,7 @@ def render_index(
     fields.append(("intent", _yaml_scalar(note[1]) if note is not None else "null"))
     ranked = _ranked_extractions(extractions, links)
     lead_source = ranked[0] if ranked else None
+    lead, lead_kind = _lead(lead_source, segments, lead_words, media_lead_words)
     kind = _kind(links, lead_source, linklist_threshold)
     if kind is not None:
         fields.append(("kind", kind))
@@ -513,6 +603,10 @@ def render_index(
         fields.append(("reason", reason))
     if extractions:
         fields.append(("sources", str(len(extractions))))
+    if lead_kind:
+        # A trailing `…` says something was cut; this says whether what remains
+        # stands on its own, which is what decides if opening the body is optional.
+        fields.append(("lead", lead_kind))
     link_count = len(_captured(links))
     if link_count > 5:
         fields.append(("link_count", str(link_count)))
@@ -532,7 +626,6 @@ def render_index(
     ]
     if ranked:
         sections.extend(["", "## Sources", "", _sources_section(ranked)])
-    lead = _lead(lead_source, segments, lead_words)
     if lead:
         sections.extend(["", "## Lead", "", _blockquote(lead)])
     listed = _listed(links)

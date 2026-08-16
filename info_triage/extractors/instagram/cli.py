@@ -19,7 +19,7 @@ from info_triage.extractors.media.ocr import (
 )
 from info_triage.extractors.media.runtime import (
     apply_runtime_threads,
-    platform_defaults,
+    resolve_engine_name,
     resolve_threads,
 )
 from info_triage.extractors.media.transcription import (
@@ -375,7 +375,6 @@ def main(argv: list[str] | None = None) -> int:
         needs_videos = not args.skip_video_ocr and any(
             path.suffix.lower() in VIDEO_SUFFIXES for path in media_files
         )
-        default_image, default_video = platform_defaults()
         scripts = None if args.rec_script == "auto" else (args.rec_script,)
 
         def build(choice: str) -> OCREngine:
@@ -388,12 +387,10 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         try:
-            image_choice = args.image_ocr_engine or (
-                default_image if args.ocr_engine == "best" else args.ocr_engine
-            )
-            video_choice = args.video_ocr_engine or (
-                default_video if args.ocr_engine == "best" else args.ocr_engine
-            )
+            # Resolved here rather than left to make_engine because the two
+            # choices are compared below to decide whether one engine serves both.
+            image_choice = args.image_ocr_engine or resolve_engine_name(args.ocr_engine, "image")
+            video_choice = args.video_ocr_engine or resolve_engine_name(args.ocr_engine, "video")
             if needs_images and needs_videos and image_choice == video_choice:
                 shared_engine = build(image_choice)
                 image_engine = shared_engine

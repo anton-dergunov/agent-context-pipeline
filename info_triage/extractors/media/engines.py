@@ -20,7 +20,7 @@ from typing import Any
 from PIL import Image
 
 from .models import OCRLine
-from .runtime import resolve_threads
+from .runtime import resolve_engine_name, resolve_threads
 
 # Recognition models are grouped by script and no single model covers both
 # Chinese and Cyrillic. The Cyrillic model's charset was measured to cover
@@ -391,40 +391,54 @@ class TesseractOCR(OCREngine):
         return lines
 
 
+#: Fallback order for ``auto``, and the tail of the order for ``best``.
+AUTO_ORDER: tuple[str, ...] = ("rapidocr", "surya", "vision", "tesseract")
+
+
+def _candidates(name: str, media: str) -> tuple[str, ...]:
+    """Engines to try, in order, for a requested name.
+
+    An explicit name is a demand and gets one candidate, so its own failure is
+    what the caller sees. ``best`` is a preference: it leads with the platform's
+    measured pick and then falls through the rest, because that pick is not
+    guaranteed to be installed — Apple Vision needs pyobjc, which this project
+    does not install on Python 3.14.
+    """
+    if name == "auto":
+        return AUTO_ORDER
+    if name == "best":
+        preferred = resolve_engine_name(name, media)
+        return (preferred, *(item for item in AUTO_ORDER if item != preferred))
+    return (name,)
+
+
 def make_engine(
     name: str = "auto",
     tesseract_languages: str | None = None,
     model_cache_dir: Path | None = None,
     scripts: tuple[str, ...] | None = None,
     threads: int | None = None,
+    media: str = "video",
 ) -> OCREngine:
+    builders: dict[str, tuple[str, Any]] = {
+        "rapidocr": (
+            "RapidOCR",
+            lambda: RapidOCREngine(scripts=scripts, threads=threads, model_dir=model_cache_dir),
+        ),
+        "surya": ("Surya", lambda: SuryaOCR(model_cache_dir)),
+        "vision": ("Vision", VisionOCR),
+        "tesseract": ("Tesseract", lambda: TesseractOCR(tesseract_languages)),
+    }
+    candidates = _candidates(name, media)
     errors: list[str] = []
-    if name in {"auto", "rapidocr"}:
+    for candidate in candidates:
+        if candidate not in builders:
+            raise RuntimeError(f"unknown OCR engine: {candidate}")
+        label, build = builders[candidate]
         try:
-            return RapidOCREngine(scripts=scripts, threads=threads, model_dir=model_cache_dir)
+            return build()
         except Exception as exc:
-            errors.append(f"RapidOCR: {exc}")
-            if name == "rapidocr":
-                raise
-    if name in {"auto", "surya"}:
-        try:
-            return SuryaOCR(model_cache_dir)
-        except Exception as exc:
-            errors.append(f"Surya: {exc}")
-            if name == "surya":
-                raise
-    if name in {"auto", "vision"}:
-        try:
-            return VisionOCR()
-        except Exception as exc:
-            errors.append(f"Vision: {exc}")
-            if name == "vision":
-                raise
-    if name in {"auto", "tesseract"}:
-        try:
-            return TesseractOCR(tesseract_languages)
-        except Exception as exc:
-            errors.append(f"Tesseract: {exc}")
-            if name == "tesseract":
+            errors.append(f"{label}: {exc}")
+            if len(candidates) == 1:
                 raise
     raise RuntimeError("no OCR engine is available (" + "; ".join(errors) + ")")

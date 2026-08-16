@@ -109,6 +109,20 @@ def platform_defaults() -> tuple[str, str]:
     return "rapidocr", "rapidocr"
 
 
+def resolve_engine_name(name: str, media: str = "video") -> str:
+    """Resolve the ``best`` sentinel to this platform's measured pick.
+
+    ``best`` names a policy, not an engine. It has to be resolved in exactly one
+    place: when it was resolved by the argument parsers alone, the pipeline's own
+    call to ``make_engine("best", ...)`` matched no branch and raised
+    ``no OCR engine is available ()``, so OCR never ran outside the CLIs.
+    """
+    if name != "best":
+        return name
+    image_default, video_default = platform_defaults()
+    return image_default if media == "image" else video_default
+
+
 def describe() -> dict[str, object]:
     """Machine description recorded alongside benchmark results."""
     return {

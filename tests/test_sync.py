@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -10,11 +11,13 @@ from info_triage.sync import (
     RemoteItem,
     SyncConfig,
     SyncError,
+    _sorted_items,
     atomic_write_text,
     deletion_decision,
     generate_inbox,
     read_manifest,
     render_inbox,
+    render_org,
     synchronize,
     valid_item_name,
 )
@@ -143,15 +146,61 @@ class SyncUnitTests(unittest.TestCase):
 
             result = render_inbox(inbox)
 
-            self.assertLess(result.index("## 2026-08-09_1"), result.index("## 2026-08-10_2"))
+            self.assertLess(
+                result.index("## 1 — 2026-08-09_1"), result.index("## 2 — 2026-08-10_2")
+            )
             # Frontmatter is only unambiguous at the top of a file, so it is fenced here.
             self.assertIn(
-                '## 2026-08-10_2\n\n```yaml\nid: 2026-08-10_2\nintent: "later one"\n```\n\n'
+                "## 2 — 2026-08-10_2\n\n"
+                "[📁 2026-08-10_2/](2026-08-10_2/) · [index.md](2026-08-10_2/index.md)\n\n"
+                '```yaml\nid: 2026-08-10_2\nintent: "later one"\n```\n\n'
                 "### Captured\n\n> later\n\n### Links",
                 result,
             )
             self.assertNotIn("\n## Captured", result)
             self.assertNotIn("chat_id", result)
+
+    def test_numbering_is_positional_and_the_id_stays_beside_it(self):
+        """The number is what the reader selects by; the id outlives the numbering."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            for day, message_id in ((11, 3), (9, 1), (10, 2)):
+                write_item(
+                    inbox,
+                    f"2026-08-{day:02d}_{message_id}",
+                    received_at=f"2026-08-{day:02d}T10:00:00+00:00",
+                )
+
+            headings = re.findall(r"^## .*$", render_inbox(inbox), flags=re.MULTILINE)
+
+            self.assertEqual(
+                headings,
+                ["## 1 — 2026-08-09_1", "## 2 — 2026-08-10_2", "## 3 — 2026-08-11_3"],
+            )
+
+    def test_relative_links_are_rebased_onto_the_item_directory(self):
+        """index.md writes them relative to itself; one level up they resolve to nothing."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\n---\n\n## Sources\n\n"
+                    "1. [extracted/01-research-x/content.md](extracted/01-research-x/content.md)"
+                    " — complete · 12 words\n\n"
+                    "## Links\n\n| 1 | [A page](https://example.com/a) |\n"
+                ),
+            )
+
+            result = render_inbox(inbox)
+
+            self.assertIn("(2026-08-09_1/extracted/01-research-x/content.md)", result)
+            # The label keeps the item-relative path; only the destination moves.
+            self.assertIn("[extracted/01-research-x/content.md](2026-08-09_1/", result)
+            # An absolute destination is already correct from anywhere.
+            self.assertIn("[A page](https://example.com/a)", result)
 
     def test_header_counts_the_waiting_items_and_the_oldest(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -170,6 +219,59 @@ class SyncUnitTests(unittest.TestCase):
             self.assertTrue(result.startswith("# Inbox — 0 items\n"))
             self.assertIn("overwritten on every sync", result)
             self.assertNotIn("\n## ", result)
+
+    def test_org_view_is_navigation_and_carries_no_extracted_text(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\nkind: paper\n"
+                    'title: "Strong Model Collapse"\n'
+                    "canonical_url: https://arxiv.org/abs/2410.04840\n"
+                    "extraction: ok\n---\n\n## Lead\n\n> a long quoted body\n"
+                ),
+            )
+
+            generate_inbox(inbox)
+            result = (inbox / "triage.org").read_text()
+
+            self.assertIn("* 1  2026-08-09  paper  Strong Model Collapse\n", result)
+            self.assertIn("  :DIR:      2026-08-09_1\n", result)
+            self.assertIn("  :URL:      https://arxiv.org/abs/2410.04840\n", result)
+            self.assertIn("  :STATUS:   ok\n", result)
+            self.assertIn(
+                "  [[file:2026-08-09_1/index.md][index]] · [[file:2026-08-09_1/][directory]]",
+                result,
+            )
+            # org-id owns :ID:; one per item would dangle in .org-id-locations.
+            self.assertNotIn(":ID:", result)
+            # An empty intent is omitted, never rendered as the literal "null".
+            self.assertIn("  :INTENT:\n", result)
+            # Navigation only: no body text reaches Org, which is what keeps the
+            # items themselves in Markdown and out of an escaping problem.
+            self.assertNotIn("a long quoted body", result)
+
+    def test_org_headings_neutralize_markup_in_extracted_titles(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\n"
+                    'title: "[[not a link]] and a  ragged   title"\n'
+                    "extraction: ok\n---\n\n## Captured\n\n> x\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn("* 1  2026-08-09  [ [not a link]] and a ragged title\n", result)
+            self.assertEqual(result.count("\n* "), 1)
 
     def test_generation_failure_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -276,8 +378,9 @@ class SynchronizeTests(unittest.TestCase):
                 "2026-08-08_1\t1\n2026-08-09_2\t2\n2026-08-10_3\t1\n",
             )
             aggregate = (local / "triage.md").read_text()
-            self.assertEqual(aggregate.count("## 2026-08-09"), 1)
+            self.assertEqual(aggregate.count("— 2026-08-09"), 1)
             self.assertIn("edited", aggregate)
+            self.assertIn(":DIR:      2026-08-09_2", (local / "triage.org").read_text())
             self.assertTrue(
                 any(command[0] == "ssh" and "rm -rf" in command[2] for command in commands.commands)
             )

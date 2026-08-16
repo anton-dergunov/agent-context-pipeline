@@ -166,15 +166,20 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
         (
             """    - name: index-render
       lead_words: 120
+      media_lead_words: 800
     - name: text-cleaning
 """,
             "index-render must be the last processing step",
         ),
         (
-            "    - name: index-render\n      lead_words: 0\n",
+            "    - name: index-render\n      lead_words: 0\n      media_lead_words: 800\n",
             "lead_words must be at least 1",
         ),
         ("    - name: index-render\n", "lead_words is required"),
+        (
+            "    - name: index-render\n      lead_words: 120\n",
+            "media_lead_words is required",
+        ),
         (
             "    - name: content-extraction\n      extract_budget: 5\n"
             "      linklist_extract_budget: 2\n      wall_clock_seconds: 600\n"

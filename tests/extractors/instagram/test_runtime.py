@@ -77,3 +77,24 @@ def test_platform_defaults_never_pick_vision_off_macos(monkeypatch):
 
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
     assert runtime.platform_defaults() == ("surya", "vision")
+
+
+def test_best_resolves_to_an_engine_name_for_every_caller(monkeypatch):
+    """`best` reached make_engine unresolved and matched no branch, so the
+    pipeline raised "no OCR engine is available ()" and OCR never ran at all."""
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    assert runtime.resolve_engine_name("best", "image") == "surya"
+    assert runtime.resolve_engine_name("best", "video") == "vision"
+    # Anything already naming an engine is passed through untouched.
+    assert runtime.resolve_engine_name("auto", "video") == "auto"
+    assert runtime.resolve_engine_name("tesseract", "image") == "tesseract"
+
+
+def test_best_falls_through_when_the_platform_pick_is_not_installed(monkeypatch):
+    """It is a preference, not a demand: pyobjc is absent on Python 3.14."""
+    from info_triage.extractors.media import engines
+
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    assert engines._candidates("best", "video") == ("vision", "rapidocr", "surya", "tesseract")
+    # An explicit name still gets one shot, so its own error is what surfaces.
+    assert engines._candidates("vision", "video") == ("vision",)

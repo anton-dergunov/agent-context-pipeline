@@ -16,7 +16,6 @@ from info_triage.config import (
 from info_triage.extractors.media.ocr import OCREngine, make_engine
 from info_triage.extractors.media.runtime import (
     apply_runtime_threads,
-    platform_defaults,
     resolve_threads,
 )
 from info_triage.extractors.media.transcription import (
@@ -196,10 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     transcription_threads = resolve_transcription_threads(args.transcription_threads)
     apply_runtime_threads(threads)
     scripts = None if args.rec_script == "auto" else (args.rec_script,)
-    _, default_video_engine = platform_defaults()
-    selected_video_engine = args.video_ocr_engine or (
-        default_video_engine if args.ocr_engine == "best" else args.ocr_engine
-    )
+    selected_video_engine = args.video_ocr_engine or args.ocr_engine
 
     def ocr_engine_factory() -> OCREngine:
         return make_engine(
@@ -208,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             args.model_cache_dir,
             scripts=scripts,
             threads=threads,
+            media="video",
         )
 
     try:

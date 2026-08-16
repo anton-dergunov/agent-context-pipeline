@@ -668,7 +668,7 @@ def test_index_render_commits_the_item_contract(tmp_path):
                 resolve_budget=40,
                 resolver=FakeResolver({}),
             ),
-            IndexRenderStep(linklist_threshold=8, lead_words=120),
+            IndexRenderStep(linklist_threshold=8, lead_words=120, media_lead_words=800),
         ]
     )
     worker = ProcessingWorker(store, pipeline)
@@ -699,7 +699,9 @@ def test_index_render_reports_unreadable_input_without_withholding_the_index(tmp
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    outcome = IndexRenderStep(linklist_threshold=8, lead_words=120).run(job, result, workspace)
+    outcome = IndexRenderStep(linklist_threshold=8, lead_words=120, media_lead_words=800).run(
+        job, result, workspace
+    )
 
     assert outcome.status == "partial"
     assert outcome.issues[0].reason == "invalid-input"

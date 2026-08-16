@@ -203,6 +203,69 @@ def test_describe_reads_the_fields_the_index_renders(tmp_path):
     assert record.excerpt.startswith("The opening paragraph.")
 
 
+def test_a_bulleted_list_in_the_body_survives_into_the_excerpt(tmp_path):
+    """Regression: the rule that skipped the fact block deleted every body list.
+
+    On item 2026-08-14_150 that silently discarded the five nearby locations
+    the capture was made for.
+    """
+    directory = write_extraction(tmp_path / "video")
+    (directory / "content.md").write_text(
+        "# A Short\n\n- Channel: Someone\n- URL: https://example.com\n\n"
+        "## Description\n\nOther places to see nearby.\n\n"
+        "- **Jiuhuang Mountain** — a dramatic mountain area.\n\n"
+        "- **Foye Cave** — a large karst cave system.\n",
+        encoding="utf-8",
+    )
+
+    record = describe(
+        directory,
+        link_n=1,
+        handler="youtube",
+        identity="x",
+        relative_directory="extracted/01-youtube-x",
+        canonical_url="https://www.youtube.com/shorts/x",
+    )
+
+    assert "Jiuhuang Mountain" in record.excerpt
+    assert "Foye Cave" in record.excerpt
+    # The fact block is frontmatter already and stays out.
+    assert "Channel: Someone" not in record.excerpt
+    assert record.sections == [
+        (
+            "Description",
+            "Other places to see nearby.\n\n"
+            "- **Jiuhuang Mountain** — a dramatic mountain area.\n\n"
+            "- **Foye Cave** — a large karst cave system.",
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "handler,metadata,expected",
+    [
+        ("youtube", {"kind": "short"}, True),
+        ("youtube", {"kind": "video"}, False),
+        ("instagram", {}, True),
+        ("research", {}, False),
+        ("linkedin", {}, False),
+    ],
+)
+def test_short_form_is_the_media_whose_payload_is_not_in_prose(
+    tmp_path, handler, metadata, expected
+):
+    directory = write_extraction(tmp_path / handler / str(expected), **metadata)
+    record = describe(
+        directory,
+        link_n=1,
+        handler=handler,
+        identity="x",
+        relative_directory=f"extracted/01-{handler}-x",
+        canonical_url="https://example.com/x",
+    )
+    assert record.short_form is expected
+
+
 def test_a_dict_author_is_unwrapped_and_a_missing_one_is_not_the_string_none(tmp_path):
     directory = write_extraction(tmp_path / "post", author={"name": "Maxime Labonne", "url": "…"})
     assert describe(

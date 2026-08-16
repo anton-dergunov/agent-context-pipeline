@@ -76,9 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         print("no videos found; pass paths explicitly", file=sys.stderr)
         return 2
 
-    engine_name = args.engine
-    if engine_name == "best":
-        engine_name = runtime.platform_defaults()[1]
+    engine_name = runtime.resolve_engine_name(args.engine, "video")
     scripts = None if args.rec_script == "auto" else (args.rec_script,)
 
     load_start = time.time()

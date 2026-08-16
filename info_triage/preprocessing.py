@@ -661,9 +661,10 @@ class IndexRenderStep:
 
     name = "index-render"
 
-    def __init__(self, *, linklist_threshold: int, lead_words: int) -> None:
+    def __init__(self, *, linklist_threshold: int, lead_words: int, media_lead_words: int) -> None:
         self.linklist_threshold = linklist_threshold
         self.lead_words = lead_words
+        self.media_lead_words = media_lead_words
 
     @staticmethod
     def applies(job: ProcessingJob) -> bool:
@@ -709,6 +710,7 @@ class IndexRenderStep:
                 result.problems,
                 linklist_threshold=self.linklist_threshold,
                 lead_words=self.lead_words,
+                media_lead_words=self.media_lead_words,
             ),
             encoding="utf-8",
         )
@@ -767,6 +769,7 @@ def processing_steps_from_config(app_config: AppConfig) -> list[Any]:
                 IndexRenderStep(
                     linklist_threshold=app_config.linklist_threshold,
                     lead_words=config.lead_words,
+                    media_lead_words=config.media_lead_words,
                 )
             )
         else:

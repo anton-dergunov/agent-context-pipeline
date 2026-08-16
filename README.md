@@ -23,7 +23,7 @@ Telegram message
     -> category: Other
     -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
     -> ./sync.sh
-    -> ~/info-triage-inbox/ item directories + generated triage.md
+    -> ~/info-triage-inbox/ item directories + generated triage.md/.org
 ```
 
 The directory date is the UTC creation date supplied by Telegram.
@@ -170,11 +170,16 @@ under `~/.local/state/info-triage/`. Removing a delivered item directory from
 NAS copy. If a constituent Telegram message is edited later, its higher revision
 is downloaded again.
 
-After each successful sync, `~/info-triage-inbox/triage.md` is regenerated as a
-single oldest-first view of the current items. Each section has the UTC capture
-time, user-facing metadata, a link to the self-contained item directory, and the
-processed Markdown message. The file is derived and overwritten on every sync;
-moving or deleting an item directory remains the only way to mark it processed.
+After each successful sync, two views are regenerated as a single oldest-first
+list of the current items. `triage.md` is the one to read: each `## N — <id>`
+section carries the UTC capture time, user-facing metadata, a quoted lead, and
+working links into the self-contained item directory. `N` is what you select by
+("route items 1, 5 and 10") and is renumbered on every sync; `<id>` names the
+directory and does not change. `triage.org` is the same list as Emacs
+navigation, five lines per item and no content — see [docs/EMACS.md](docs/EMACS.md).
+
+Both files are derived and overwritten on every sync; moving or deleting an item
+directory remains the only way to mark it processed.
 
 ## Example Inputs
 

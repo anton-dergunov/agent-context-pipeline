@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 from info_triage.extractors.artifacts import (
     CONTENT_NAME,
     METADATA_NAME,
+    PAPER_HTML_NAME,
+    PAPER_PDF_NAME,
     RAW_DIR,
     STATUS_NAME,
 )
@@ -187,6 +189,51 @@ class ResearchExtractor:
             reason="metadata-unavailable",
         )
 
+    def _archive_pdf(
+        self,
+        reference: ResearchReference,
+        metadata: dict[str, Any],
+        directory: Path,
+        status: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Keep the PDF beside a body converted from HTML.
+
+        HTML is the better conversion source and stays the one the body comes
+        from, but a person reading the paper wants the typeset PDF. This runs
+        outside the candidate loop and swallows its own failure: an unreachable
+        PDF costs the convenience copy, never the extraction.
+        """
+        url = next(
+            (item.url for item in reference.body_candidates if item.kind == "pdf"),
+            metadata.get("pdf_url"),
+        )
+        if not url:
+            return {}
+        try:
+            result = self.client.fetch(str(url))
+            if result.kind != "pdf":
+                raise ExtractionError(
+                    f"archival PDF returned {result.kind}", reason="unsupported-content"
+                )
+            write_bytes(directory / RAW_DIR / PAPER_PDF_NAME, result.body)
+        except Exception as exc:
+            # Broader than the candidate loop deliberately: this copy exists for
+            # convenience, so nothing it can do — a refused fetch, a full disk —
+            # is allowed to reach the caller and downgrade a complete extraction.
+            status["attempts"].append(
+                {
+                    "stage": "pdf-archive",
+                    "url": str(url),
+                    "result": "failed",
+                    "reason": getattr(exc, "reason", type(exc).__name__),
+                }
+            )
+            return {}
+        status["attempts"].append(
+            {"stage": "pdf-archive", "url": str(url), "method": result.method, "result": "complete"}
+        )
+        return {"pdf_archived": True, "archived_pdf_url": result.final_url}
+
     def _body(
         self,
         reference: ResearchReference,
@@ -227,12 +274,14 @@ class ResearchExtractor:
                         "pdfplumber-adaptive-spacing-with-pypdf-quality-fallback"
                     )
                     if self.options.keep_raw:
-                        write_bytes(directory / RAW_DIR / "paper-source.pdf", result.body)
+                        write_bytes(directory / RAW_DIR / PAPER_PDF_NAME, result.body)
+                        details["pdf_archived"] = True
                 elif result.kind == "html":
                     markdown = html_to_markdown(_decode_html(result), source_url=result.final_url)
                     details = {}
                     if self.options.keep_raw:
-                        write_bytes(directory / RAW_DIR / "paper-source.html", result.body)
+                        write_bytes(directory / RAW_DIR / PAPER_HTML_NAME, result.body)
+                        details.update(self._archive_pdf(reference, metadata, directory, status))
                 else:
                     raise ExtractionError(
                         f"paper body returned {result.kind}", reason="unsupported-content"

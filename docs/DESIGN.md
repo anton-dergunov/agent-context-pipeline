@@ -42,6 +42,8 @@ Server
 Laptop inbox/
    ├── generated triage.md
    │     consolidated read-only view
+   ├── generated triage.org
+   │     Emacs navigation over the same items
    │
    └── self-contained item directories
             │
@@ -160,7 +162,8 @@ staging/
             ├── metadata.json
             ├── status.json
             └── raw/
-                └── paper-source.pdf
+                ├── paper.html
+                └── paper.pdf
 ```
 
 `index.md` and `metadata.json` stay at the item root. `index.md` is the item's
@@ -753,27 +756,44 @@ For example:
 
 The user processes these items one by one.
 
-The synchronization command also generates:
+The synchronization command also generates two views of the same items:
 
 ```text
-~/info-triage-inbox/triage.md
+~/info-triage-inbox/triage.md     the contract, for reading and for /route
+~/info-triage-inbox/triage.org    navigation, for Emacs
 ```
 
 `triage.md` is the items' `index.md` files concatenated, oldest first by UTC
-`received_at`, under one `## <id>` heading each and with their own headings
+`received_at`, under one `## N — <id>` heading each and with their own headings
 demoted one level. Because it is a concatenation there is no drift and no second
 source of truth: whatever an item claims about itself, it claims identically in
 both places. Each item's frontmatter is fenced as a YAML block, since frontmatter
 is only unambiguous at the top of a file.
+
+`N` is assigned by the sync and runs from 1. It exists so the user can select
+items by number — "route items 1, 5 and 10" — and it is regenerated on every
+sync, so the directory name stays in the heading beside it: that is the
+identifier a decision can be recorded against. Under each heading a short
+navigation line links the item's directory and its index, and every relative
+link inside the section is rebased onto `<id>/` so it resolves from this file.
+Rebasing a destination is a change of vantage point, not a rendering path of its
+own; the section body is otherwise still copied through untouched.
 
 A short generated header gives the two operational numbers — how many items are
 waiting and how old the oldest is — and tells the reader which files are
 provenance and how to file an item. Operational metadata such as Telegram
 identities, revisions, and attachment internals never appears.
 
-`triage.md` is a derived snapshot rather than acknowledgement state. It is
-replaced atomically after every successful sync, so edits to it are not
-preserved. The linked item directories remain the authoritative inbox.
+`triage.org` carries five lines per item — a foldable heading, a `:PROPERTIES:`
+drawer, and links to the index and the directory — and no content whatsoever.
+That is what keeps §4.4's conclusion intact: arbitrary extracted text is not safe
+to embed in Org, and here none of it is. See `docs/EMACS.md` for the review
+workflow it serves.
+
+Both files are derived snapshots rather than acknowledgement state. They are
+replaced atomically after every successful sync, so edits to them are not
+preserved, and neither can be marked: the linked item directories remain the
+authoritative inbox, and removing one is how an item is filed.
 
 Once an item has been dealt with, it is moved elsewhere in the user's own system or removed from the Info Triage inbox.
 

@@ -67,6 +67,7 @@ class ContentExtractionConfig:
 class IndexRenderConfig:
     name: str
     lead_words: int
+    media_lead_words: int
 
 
 StepConfig = (
@@ -305,12 +306,17 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
         )
 
     if name == "index-render":
-        step = _mapping(value, context, {"name", "lead_words"})
+        step = _mapping(value, context, {"name", "lead_words", "media_lead_words"})
         return IndexRenderConfig(
             name,
             _integer(
                 _required(step, "lead_words", context),
                 f"{context}.lead_words",
+                minimum=1,
+            ),
+            _integer(
+                _required(step, "media_lead_words", context),
+                f"{context}.media_lead_words",
                 minimum=1,
             ),
         )

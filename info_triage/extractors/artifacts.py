@@ -17,6 +17,14 @@ METADATA_NAME = "metadata.json"
 STATUS_NAME = "status.json"
 RAW_DIR = "raw"
 
+# The two names inside `raw/` that are fixed rather than per-extractor, because
+# the index points a human at the first of them. A paper's PDF is always
+# `raw/paper.pdf` whether it was the conversion source or a copy kept beside an
+# HTML body, so finding the readable file never depends on which path the
+# extraction happened to take.
+PAPER_PDF_NAME = "paper.pdf"
+PAPER_HTML_NAME = "paper.html"
+
 # complete — the body was retrieved.
 # partial  — some of it was, and `reason` says what is missing.
 # blocked  — the source refused: paywall, login wall, 403, bot check.
