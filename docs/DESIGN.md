@@ -748,7 +748,7 @@ The laptop receives ordinary self-contained directories.
 For example:
 
 ```text
-~/InfoTriage/inbox/
+~/info-triage-inbox/
 ├── 2026-08-08_18492/
 ├── 2026-08-08_18493/
 └── 2026-08-08_18494/
@@ -784,11 +784,14 @@ waiting and how old the oldest is — and tells the reader which files are
 provenance and how to file an item. Operational metadata such as Telegram
 identities, revisions, and attachment internals never appears.
 
-`triage.org` carries five lines per item — a foldable heading, a `:PROPERTIES:`
-drawer, and links to the index and the directory — and no content whatsoever.
-That is what keeps §4.4's conclusion intact: arbitrary extracted text is not safe
-to embed in Org, and here none of it is. See `docs/EMACS.md` for the review
-workflow it serves.
+`triage.org` carries two or three lines per item — a foldable heading holding the
+number, the date, the kind and a one-line label, the user's own note when he left
+one, and links to the index, the directory and the source. No content beyond that
+label reaches it, which is what keeps §4.4's conclusion intact: arbitrary
+extracted text is not safe to embed in Org, and here almost none of it is. Its
+numbering is the same numbering as `triage.md`'s, which is what lets the user
+choose items in one view and name them to `/route`, which reads the other. See
+`docs/EMACS.md` for the review workflow it serves.
 
 Both files are derived snapshots rather than acknowledgement state. They are
 replaced atomically after every successful sync, so edits to them are not

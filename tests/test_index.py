@@ -704,3 +704,112 @@ def test_an_item_without_problems_says_nothing_about_them():
 
     assert field(rendered, "problems") is None
     assert "## Problems" not in rendered
+
+
+def test_a_titled_item_carries_no_headline():
+    """`headline` is a stand-in, so `title or headline` never labels an item twice."""
+    rendered = index(
+        [payload(1, 100, text="…")],
+        body(("text", "https://arxiv.org/abs/1")),
+        [link(1, handler="research", priority=1)],
+        extractions=[extraction(kind="paper", title="Strong Model Collapse")],
+    )
+
+    assert field(rendered, "title") == '"Strong Model Collapse"'
+    assert field(rendered, "headline") is None
+
+
+def test_an_untitled_post_is_named_by_its_caption():
+    """An Instagram post has no title, and a bare date and kind name nothing.
+
+    The caption leads the stream order because it is the one a person wrote on
+    purpose — unlike the OCR of burned-in subtitles sitting right next to it.
+    """
+    rendered = index(
+        [payload(1, 100, text="https://instagram.com/reel/x")],
+        body(("text", "https://instagram.com/reel/x")),
+        [link(1, handler="instagram")],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                title=None,
+                short_form=True,
+                sections=[
+                    ("On-screen text", "when they together in this place\nthis is elephant"),
+                    (
+                        "Caption",
+                        "Ever noticed the colored tags on the ancient trees in the "
+                        "Forbidden City? Here is what they actually mean.\n\n"
+                        "While walking through the Imperial Garden…",
+                    ),
+                ],
+            )
+        ],
+    )
+
+    assert field(rendered, "headline") == (
+        '"Ever noticed the colored tags on the ancient trees in the Forbidden City?"'
+    )
+
+
+def test_a_headline_skips_a_caption_that_opens_with_its_hashtags():
+    rendered = index(
+        [payload(1, 100, text="https://instagram.com/reel/x")],
+        body(("text", "https://instagram.com/reel/x")),
+        [link(1, handler="instagram")],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                title=None,
+                short_form=True,
+                sections=[("Caption", "#travel #china @someone\nHidden next to Chongqing.")],
+            )
+        ],
+    )
+
+    assert field(rendered, "headline") == '"Hidden next to Chongqing."'
+
+
+def test_a_long_headline_is_cut_on_a_word_boundary():
+    caption = "Nine ways to " + "word " * 40
+    rendered = index(
+        [payload(1, 100, text="https://instagram.com/reel/x")],
+        body(("text", "https://instagram.com/reel/x")),
+        [link(1, handler="instagram")],
+        extractions=[
+            extraction(
+                handler="instagram", kind="post", title=None, sections=[("Caption", caption)]
+            )
+        ],
+    )
+
+    headline = field(rendered, "headline").strip('"')
+    assert len(headline) <= 100
+    assert headline.endswith("…")
+    assert not headline.endswith(" …")
+
+
+def test_an_item_with_nothing_extracted_is_named_by_its_address():
+    """The degenerate case: a story URL that canonicalized down to a profile.
+
+    Nothing was extracted and the resolver's title is a display name, so the
+    address is the only thing left that says which item this is.
+    """
+    rendered = index(
+        [payload(1, 100, text="https://www.instagram.com/marlidiuret/")],
+        body(("text", "https://www.instagram.com/marlidiuret/")),
+        [link(1, canonical="https://www.instagram.com/marlidiuret/", status="unresolved")],
+    )
+
+    assert field(rendered, "headline") == '"instagram.com/marlidiuret"'
+
+
+def test_an_untitled_item_falls_back_to_the_users_own_note():
+    rendered = index(
+        [payload(1, 100, text="translate this and add to my reflection plan")],
+        body(("text", "translate this and add to my reflection plan")),
+    )
+
+    assert field(rendered, "headline") == '"translate this and add to my reflection plan"'

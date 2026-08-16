@@ -460,6 +460,137 @@ def _lead(
     return "", ""
 
 
+#: How long a headline may be. Long enough for a caption's opening sentence to
+#: land whole, short enough that a queue of two dozen items stays scannable.
+HEADLINE_CHARS = 100
+
+#: Streams a headline may be taken from, best first. The caption leads because it
+#: is the only one a person wrote on purpose: on-screen text is OCR of burned-in
+#: subtitles and reads as fragments, and spoken audio starts mid-sentence.
+#: `_STREAM_ORDER` ranks the same streams the other way round, and deliberately —
+#: the Lead exists to recover what nothing else carries, a headline to be read.
+_HEADLINE_STREAMS: tuple[str, ...] = (
+    "caption",
+    "forwarded",
+    "description",
+    "on-screen text",
+    "spoken audio",
+    "transcript",
+    "accessibility description",
+)
+
+_SENTENCE_ENDINGS = (". ", "? ", "! ", "… ")
+
+
+def _first_sentence(text: str, limit: int = HEADLINE_CHARS) -> str:
+    """Return TEXT's opening sentence as one line, cut to LIMIT on a word boundary."""
+    collapsed = " ".join(text.split())
+    if not collapsed:
+        return ""
+    # Sentence-final punctuation at the very end has no trailing space to find.
+    for ending in _SENTENCE_ENDINGS:
+        position = collapsed.find(ending)
+        if 0 < position <= limit:
+            collapsed = collapsed[: position + 1]
+            break
+    if len(collapsed) <= limit:
+        return collapsed
+    cut = collapsed[: limit - 1]
+    spaced = cut.rsplit(" ", 1)[0] if " " in cut else cut
+    return spaced.rstrip(" ,;:—-") + "…"
+
+
+def _names_nothing(line: str) -> bool:
+    """Is every word here an address rather than a word?
+
+    A caption that opens with its hashtag block, or a message that is nothing
+    but the link it shared, names no subject — and the address fallback at the
+    end of the chain renders a bare URL far better than this would.
+    """
+    return all(
+        word.startswith(("#", "@", "http://", "https://", "www.")) for word in line.split()
+    )
+
+
+def _headline_line(text: str) -> str:
+    """Return the first line of TEXT that says something about it."""
+    for line in text.splitlines():
+        collapsed = " ".join(line.split())
+        if collapsed and not _names_nothing(collapsed):
+            return collapsed
+    return ""
+
+
+def _stream_headline(record: ExtractionRecord | None) -> str:
+    """Take a headline from the best-reading stream this extraction recovered."""
+    if record is None:
+        return ""
+    ranked = sorted(
+        ((position, heading, body) for position, (heading, body) in enumerate(record.sections)),
+        key=lambda entry: (_headline_rank(entry[1]), entry[0]),
+    )
+    for _, _, body in ranked:
+        line = _headline_line(body)
+        if line:
+            return line
+    return ""
+
+
+def _headline_rank(heading: str) -> int:
+    name = heading.strip().lower()
+    for position, known in enumerate(_HEADLINE_STREAMS):
+        # "Transcript (youtube_automatic)" — the source is part of the heading.
+        if name == known or name.startswith(f"{known} ("):
+            return position
+    return len(_HEADLINE_STREAMS)
+
+
+def _url_headline(entry: LinkTableEntry | None) -> str:
+    """Name an item by its address, for when it carries no readable text at all."""
+    if entry is None:
+        return ""
+    address = entry.canonical.split("://", 1)[-1].rstrip("/")
+    if address.startswith("www."):
+        address = address[4:]
+    return address
+
+
+def _headline(
+    record: ExtractionRecord | None,
+    links: Sequence[LinkTableEntry],
+    note: tuple[IndexSegment, str] | None,
+    body: str,
+) -> str:
+    """Return one readable line naming an item that has no title.
+
+    Most items do not have one: an Instagram post has no `<title>` worth the
+    name, which left the reader a bare date and kind with no way to tell one
+    item from the next. This is the only field derived for legibility rather
+    than copied across, so it is computed here — at capture time, where the
+    caption, the on-screen text and the transcript are all still in reach. By
+    the time the laptop renders the queue it has only `index.md`.
+
+    The chain runs from what the item says about itself to what its address
+    does, so the result degrades rather than disappearing.
+    """
+    primary = _primary_link(links)
+    for candidate in (
+        _stream_headline(record),
+        # Before the excerpt, and for the same reason `_lead' prefers it: the
+        # opening prose of a paper is a header block, the abstract is the paper.
+        _headline_line(record.abstract or "") if record is not None else "",
+        _headline_line(record.excerpt or "") if record is not None else "",
+        note[1] if note is not None else "",
+        _headline_line(_without_segment_headings(body)),
+        (primary.title or primary.label or "") if primary is not None else "",
+        _url_headline(primary),
+    ):
+        sentence = _first_sentence(candidate)
+        if sentence:
+            return sentence
+    return "(untitled)"
+
+
 def _blockquote(text: str) -> str:
     return "\n".join(f"> {line}" if line.strip() else ">" for line in text.strip().splitlines())
 
@@ -582,9 +713,13 @@ def render_index(
     kind = _kind(links, lead_source, linklist_threshold)
     if kind is not None:
         fields.append(("kind", kind))
+    if lead_source is not None and lead_source.title:
+        fields.append(("title", _yaml_scalar(lead_source.title)))
+    else:
+        # Only ever a stand-in for a missing title, so a consumer reads
+        # `title or headline` and no item is ever labelled twice. See `_headline'.
+        fields.append(("headline", _yaml_scalar(_headline(lead_source, links, note, body))))
     if lead_source is not None:
-        if lead_source.title:
-            fields.append(("title", _yaml_scalar(lead_source.title)))
         if lead_source.authors:
             fields.append(("authors", _yaml_list(lead_source.authors)))
         for key, value in (

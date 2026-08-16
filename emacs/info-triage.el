@@ -1,10 +1,13 @@
 ;;; info-triage.el --- Review the info-triage inbox from Emacs  -*- lexical-binding: t; -*-
 
-;; Three commands, deliberately.  Emacs owns `triage.org' — the queue you scan
-;; and select from — and VS Code owns the artifacts, because it already renders
-;; PDF, video and Markdown preview with no configuration.  Turning Emacs into a
-;; file browser for the item directories would be a lot of work to arrive
-;; somewhere worse.
+;; Four commands and nothing else: Emacs owns `triage.org' — the queue you scan
+;; and select from — and an external editor owns the artifacts.
+;;
+;; This is the standalone version, for an Emacs configuration that wants the
+;; commands without anything else.  A fuller integration — the queue as a
+;; read-only buffer with single-key commands, per-file-type opening, back and
+;; forward — lives in the `productivity-system' configuration instead, because
+;; it depends on that configuration's window management.  See `docs/EMACS.md'.
 ;;
 ;; Load it from your init with:
 ;;
@@ -63,9 +66,22 @@
         (revert-buffer :ignore-auto :noconfirm)))))
 
 (defun info-triage--item-directory ()
-  "Directory of the item at point, or the inbox itself outside any item."
+  "Directory of the item at point, or the inbox itself outside any item.
+
+Read out of the heading's `directory' link, which is the only place the item's
+id appears: `triage.org' no longer carries a property drawer, and this used to
+read a `:DIR:' property that is not written any more."
   (let ((dir (and (derived-mode-p 'org-mode)
-                  (org-entry-get (point) "DIR"))))
+                  (save-excursion
+                    (when (ignore-errors (org-back-to-heading t) t)
+                      (let ((end (save-excursion
+                                   (forward-line 1)
+                                   (if (re-search-forward "^\\* " nil t)
+                                       (match-beginning 0)
+                                     (point-max)))))
+                        (when (re-search-forward
+                               "\\[\\[file:\\([^]/]+\\)/\\]\\[directory\\]\\]" end t)
+                          (match-string-no-properties 1))))))))
     (expand-file-name (or dir "") info-triage-inbox-directory)))
 
 ;;;###autoload

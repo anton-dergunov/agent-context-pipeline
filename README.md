@@ -175,8 +175,9 @@ list of the current items. `triage.md` is the one to read: each `## N — <id>`
 section carries the UTC capture time, user-facing metadata, a quoted lead, and
 working links into the self-contained item directory. `N` is what you select by
 ("route items 1, 5 and 10") and is renumbered on every sync; `<id>` names the
-directory and does not change. `triage.org` is the same list as Emacs
-navigation, five lines per item and no content — see [docs/EMACS.md](docs/EMACS.md).
+directory and does not change. `triage.org` is the same list, numbered the same
+way, as Emacs navigation — two or three lines per item and no content beyond a
+one-line label — see [docs/EMACS.md](docs/EMACS.md).
 
 Both files are derived and overwritten on every sync; moving or deleting an item
 directory remains the only way to mark it processed.

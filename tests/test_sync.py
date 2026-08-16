@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from info_triage.sync import (
     atomic_write_text,
     deletion_decision,
     generate_inbox,
+    main,
     read_manifest,
     render_inbox,
     render_org,
@@ -238,21 +240,136 @@ class SyncUnitTests(unittest.TestCase):
             generate_inbox(inbox)
             result = (inbox / "triage.org").read_text()
 
-            self.assertIn("* 1  2026-08-09  paper  Strong Model Collapse\n", result)
-            self.assertIn("  :DIR:      2026-08-09_1\n", result)
-            self.assertIn("  :URL:      https://arxiv.org/abs/2410.04840\n", result)
-            self.assertIn("  :STATUS:   ok\n", result)
+            self.assertIn("* 1 · 2026-08-09 · paper · Strong Model Collapse\n", result)
+            # Emacs reads the item's directory back out of this link to know what
+            # a drop deletes: it is the only place the id still appears.
             self.assertIn(
-                "  [[file:2026-08-09_1/index.md][index]] · [[file:2026-08-09_1/][directory]]",
+                "  [[file:2026-08-09_1/index.md][index]] · "
+                "[[file:2026-08-09_1/][directory]] · "
+                "[[https://arxiv.org/abs/2410.04840][source]]\n",
                 result,
             )
             # org-id owns :ID:; one per item would dangle in .org-id-locations.
             self.assertNotIn(":ID:", result)
+            # No drawer at all: everything one held is in the heading or one link
+            # away, and eight lines of restatement per item is what stopped two
+            # dozen items fitting on a screen.
+            self.assertNotIn(":PROPERTIES:", result)
             # An empty intent is omitted, never rendered as the literal "null".
-            self.assertIn("  :INTENT:\n", result)
+            self.assertNotIn("null", result)
+            # A healthy extraction is worth no ink; only a short one is tagged.
+            self.assertNotIn(":ok:", result)
             # Navigation only: no body text reaches Org, which is what keeps the
-            # items themselves in Markdown and out of an escaping problem.
+            # items themselves in Markdown and out of an escaping problem. The
+            # Lead is read for a label, but only when there is no title.
             self.assertNotIn("a long quoted body", result)
+
+    def test_org_view_warns_an_agent_off_itself(self):
+        """An editor integration advertises whatever is on screen, and this is.
+
+        The file holds strictly less than `triage.md`, so reading it spends
+        tokens to arrive somewhere worse.
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn("read triage.md in this directory instead", result)
+
+    def test_an_untitled_item_is_labelled_from_its_headline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\nkind: post\n"
+                    'headline: "Why the trees wear coloured tags"\n'
+                    "extraction: partial\nreason: ocr-unavailable\n---\n\n## Captured\n\n> x\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn(
+                "* 1 · 2026-08-09 · post · Why the trees wear coloured tags  :partial:\n", result
+            )
+
+    def test_an_item_captured_before_headlines_falls_back_to_its_lead(self):
+        """Transitional: items already in the inbox have no `headline:` field.
+
+        Only the index is in reach here, so this is a weaker chain than
+        `index.py`'s on purpose — and the inbox drains daily.
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\nkind: post\nextraction: ok\n---\n\n"
+                    "## Captured\n\n> [An account name • Instagram](https://example.com/x)\n\n"
+                    "## Lead\n\n> **On-screen text**\n>\n> Asia Odyssey Travel\n>\n"
+                    "> **Caption**\n>\n> Hidden right next to Chongqing.\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            # Not the first stream: on-screen text opens with the poster's own
+            # watermark, and OCR of burned-in subtitles names nothing.
+            self.assertIn("* 1 · 2026-08-09 · post · Hidden right next to Chongqing.\n", result)
+
+    def test_an_item_with_only_a_captured_link_is_labelled_from_it(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\nextraction: none\n---\n\n"
+                    "## Captured\n\n> [An account name • Instagram](https://example.com/x)\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn("* 1 · 2026-08-09 · An account name • Instagram  :none:\n", result)
+
+    def test_an_intent_is_kept_when_it_is_not_already_the_label(self):
+        """The user's own words are the one thing the heading cannot carry."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nkind: paper\n"
+                    'intent: "read before the Friday review"\n'
+                    'title: "Strong Model Collapse"\nextraction: ok\n---\n\n## Captured\n\n> x\n'
+                ),
+            )
+            write_item(
+                inbox,
+                "2026-08-09_2",
+                received_at="2026-08-09T11:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_2\n"
+                    'intent: "translate this"\nheadline: "translate this"\n'
+                    "extraction: ok\n---\n\n## Captured\n\n> x\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn("  /read before the Friday review/\n", result)
+            # The second item's intent is already its label; saying it twice is noise.
+            self.assertEqual(result.count("translate this"), 1)
 
     def test_org_headings_neutralize_markup_in_extracted_titles(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -270,8 +387,29 @@ class SyncUnitTests(unittest.TestCase):
 
             result = render_org(_sorted_items(inbox))
 
-            self.assertIn("* 1  2026-08-09  [ [not a link]] and a ragged title\n", result)
+            self.assertIn("* 1 · 2026-08-09 · [ [not a link]] and a ragged title\n", result)
             self.assertEqual(result.count("\n* "), 1)
+
+    def test_a_bracketed_url_is_dropped_rather_than_closing_its_link_early(self):
+        """A bracket in the target would swallow the rest of the line, and the
+        line after it — which in a generated file is the next item's heading."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(
+                inbox,
+                "2026-08-09_1",
+                received_at="2026-08-09T10:00:00+00:00",
+                index=(
+                    "---\nid: 2026-08-09_1\nintent: null\n"
+                    'headline: "A page"\ncanonical_url: https://example.com/a]b\n'
+                    "extraction: ok\n---\n\n## Captured\n\n> x\n"
+                ),
+            )
+
+            result = render_org(_sorted_items(inbox))
+
+            self.assertIn("[[file:2026-08-09_1/][directory]]\n", result)
+            self.assertNotIn("source", result)
 
     def test_generation_failure_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -380,7 +518,7 @@ class SynchronizeTests(unittest.TestCase):
             aggregate = (local / "triage.md").read_text()
             self.assertEqual(aggregate.count("— 2026-08-09"), 1)
             self.assertIn("edited", aggregate)
-            self.assertIn(":DIR:      2026-08-09_2", (local / "triage.org").read_text())
+            self.assertIn("[[file:2026-08-09_2/][directory]]", (local / "triage.org").read_text())
             self.assertTrue(
                 any(command[0] == "ssh" and "rm -rf" in command[2] for command in commands.commands)
             )
@@ -420,3 +558,31 @@ class SynchronizeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RegenerateTests(unittest.TestCase):
+    def test_regenerate_rewrites_both_views_without_touching_the_nas(self):
+        """Emacs runs this after a drop, and both views must renumber together.
+
+        The numbers a routing request quotes come from `triage.org` and are
+        consumed from `triage.md`; if only one of them renumbers, they name
+        different items.
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary) / "inbox"
+            inbox.mkdir()
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+            write_item(inbox, "2026-08-10_2", received_at="2026-08-10T10:00:00+00:00")
+            generate_inbox(inbox)
+            shutil.rmtree(inbox / "2026-08-09_1")
+
+            with unittest.mock.patch(
+                "info_triage.sync.default_config",
+                return_value=SyncConfig("server", "/remote/inbox", inbox, Path(temporary) / "state"),
+            ), unittest.mock.patch("info_triage.sync.run_command") as runner:
+                self.assertEqual(main(["--regenerate"]), 0)
+
+            runner.assert_not_called()
+            self.assertIn("* 1 · 2026-08-10 ·", (inbox / "triage.org").read_text())
+            self.assertIn("## 1 — 2026-08-10_2", (inbox / "triage.md").read_text())
+            self.assertNotIn("2026-08-09_1", (inbox / "triage.md").read_text())
