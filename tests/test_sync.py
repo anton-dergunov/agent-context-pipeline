@@ -12,12 +12,14 @@ from info_triage.sync import (
     RemoteItem,
     SyncConfig,
     SyncError,
+    _remove_stale_local_items,
     _sorted_items,
     atomic_write_text,
     deletion_decision,
     generate_inbox,
     main,
     read_manifest,
+    read_remote_items,
     render_inbox,
     render_org,
     synchronize,
@@ -37,14 +39,18 @@ def write_item(
     *,
     received_at: str,
     revision: int = 1,
+    route: str = "info",
     message: str = "## Segment 1 — text\n\nmessage",
     index: str | None = None,
 ) -> Path:
-    item = inbox / name
+    """Write one item into its route's subdirectory of an inbox."""
+    item = inbox / route / name
     item.mkdir(parents=True)
     (item / "metadata.json").write_text(
         json.dumps(
             {
+                "route": route,
+                "local_id": int(name.rsplit("_", 1)[1]),
                 "message_id": int(name.rsplit("_", 1)[1]),
                 "revision": revision,
                 "received_at": received_at,
@@ -73,22 +79,26 @@ class FakeSyncCommands:
         if self.fail_on == command[0]:
             raise subprocess.CalledProcessError(23, command)
         if command[0] == "rsync" and "--include" in command:
+            # The metadata-only pass: route directories, then one file each.
             destination = Path(command[-1])
-            for remote_item in self.remote_inbox.iterdir():
-                target = destination / remote_item.name
-                target.mkdir()
-                shutil.copy2(remote_item / "metadata.json", target / "metadata.json")
+            for route in sorted(self.remote_inbox.iterdir()):
+                for remote_item in sorted(route.iterdir()):
+                    target = destination / route.name / remote_item.name
+                    target.mkdir(parents=True)
+                    shutil.copy2(remote_item / "metadata.json", target / "metadata.json")
         elif command[0] == "rsync":
             destination = Path(command[-1])
-            for remote_item in self.remote_inbox.iterdir():
-                shutil.copytree(
-                    remote_item,
-                    destination / remote_item.name,
-                    dirs_exist_ok=True,
-                )
+            for route in sorted(self.remote_inbox.iterdir()):
+                for remote_item in sorted(route.iterdir()):
+                    shutil.copytree(
+                        remote_item,
+                        destination / route.name / remote_item.name,
+                        dirs_exist_ok=True,
+                    )
         elif command[0] == "ssh" and command[2].startswith("rm -rf"):
-            name = command[2].rsplit("/", 1)[1].rstrip("'")
-            shutil.rmtree(self.remote_inbox / name)
+            # The path is route/name now, so both trailing segments are the key.
+            route, name = command[2].rstrip("'").rsplit("/", 2)[-2:]
+            shutil.rmtree(self.remote_inbox / route / name)
 
 
 class SyncUnitTests(unittest.TestCase):
@@ -112,25 +122,25 @@ class SyncUnitTests(unittest.TestCase):
     def test_manifest_keeps_highest_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             manifest = Path(temporary) / "delivered-items"
-            manifest.write_text("2026-08-09_7 2\n2026-08-09_7 1\n")
-            self.assertEqual(read_manifest(manifest), {"2026-08-09_7": 2})
+            manifest.write_text("info/2026-08-09_7 2\ninfo/2026-08-09_7 1\n")
+            self.assertEqual(read_manifest(manifest), {"info/2026-08-09_7": 2})
 
     def test_manifest_rejects_invalid_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             manifest = Path(temporary) / "delivered-items"
-            manifest.write_text("2026-08-09_7 nope\n")
+            manifest.write_text("info/2026-08-09_7 nope\n")
             with self.assertRaisesRegex(SyncError, "Invalid delivered revision"):
                 read_manifest(manifest)
 
     def test_revision_decides_between_delete_and_restore(self):
         with tempfile.TemporaryDirectory() as temporary:
             local_inbox = Path(temporary)
-            item = RemoteItem("2026-08-09_7", 2, 7)
-            self.assertEqual(deletion_decision(item, {item.name: 2}, local_inbox), "delete")
-            self.assertEqual(deletion_decision(item, {item.name: 1}, local_inbox), "restore")
+            item = RemoteItem("info", "2026-08-09_7", 2, 7)
+            self.assertEqual(deletion_decision(item, {item.key: 2}, local_inbox), "delete")
+            self.assertEqual(deletion_decision(item, {item.key: 1}, local_inbox), "restore")
             self.assertIsNone(deletion_decision(item, {}, local_inbox))
-            (local_inbox / item.name).mkdir()
-            self.assertIsNone(deletion_decision(item, {item.name: 2}, local_inbox))
+            (local_inbox / item.key).mkdir(parents=True)
+            self.assertIsNone(deletion_decision(item, {item.key: 2}, local_inbox))
 
     def test_rendered_inbox_concatenates_index_files_oldest_first(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -146,7 +156,7 @@ class SyncUnitTests(unittest.TestCase):
             )
             write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
 
-            result = render_inbox(inbox)
+            result = render_inbox(inbox / "info")
 
             self.assertLess(
                 result.index("### 1 — 2026-08-09_1"), result.index("### 2 — 2026-08-10_2")
@@ -177,7 +187,7 @@ class SyncUnitTests(unittest.TestCase):
             ):
                 write_item(inbox, name, received_at=received_at)
 
-            headings = re.findall(r"^#{2,3} .*$", render_inbox(inbox), flags=re.MULTILINE)
+            headings = re.findall(r"^#{2,3} .*$", render_inbox(inbox / "info"), flags=re.MULTILINE)
 
             self.assertEqual(
                 headings,
@@ -202,7 +212,7 @@ class SyncUnitTests(unittest.TestCase):
                 index="---\nid: 2026-08-09_1\n---\n\n##### Deep\n\ntext\n",
             )
 
-            result = render_inbox(inbox)
+            result = render_inbox(inbox / "info")
 
             self.assertIn("\n###### Deep\n", result)
             self.assertNotIn("#######", result)
@@ -218,7 +228,7 @@ class SyncUnitTests(unittest.TestCase):
                     received_at=f"2026-08-{day:02d}T10:00:00+00:00",
                 )
 
-            headings = re.findall(r"^### .*$", render_inbox(inbox), flags=re.MULTILINE)
+            headings = re.findall(r"^### .*$", render_inbox(inbox / "info"), flags=re.MULTILINE)
 
             self.assertEqual(
                 headings,
@@ -241,7 +251,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_inbox(inbox)
+            result = render_inbox(inbox / "info")
 
             self.assertIn("(2026-08-09_1/extracted/01-research-x/content.md)", result)
             # The label keeps the item-relative path; only the destination moves.
@@ -256,13 +266,13 @@ class SyncUnitTests(unittest.TestCase):
             write_item(inbox, "2026-08-09_1", received_at=oldest.isoformat())
             write_item(inbox, "2026-08-10_2", received_at=datetime.now(UTC).isoformat())
 
-            result = render_inbox(inbox)
+            result = render_inbox(inbox / "info")
 
             self.assertTrue(result.startswith("# Inbox — 2 items, oldest 3 days\n"))
 
     def test_empty_inbox_contains_only_generated_header(self):
         with tempfile.TemporaryDirectory() as temporary:
-            result = render_inbox(Path(temporary))
+            result = render_inbox(Path(temporary) / "info")
             self.assertTrue(result.startswith("# Inbox — 0 items\n"))
             self.assertIn("overwritten on every sync", result)
             self.assertNotIn("\n## ", result)
@@ -283,7 +293,7 @@ class SyncUnitTests(unittest.TestCase):
             )
 
             generate_inbox(inbox)
-            result = (inbox / "triage.org").read_text()
+            result = (inbox / "info" / "triage.org").read_text()
 
             # The day is a heading of its own; the item hangs under it, its label
             # is the link to its index, and its kind is a tag.
@@ -322,7 +332,7 @@ class SyncUnitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn("read triage.md in this directory instead", result)
 
@@ -340,7 +350,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn(
                 "** 1 · [[file:2026-08-09_1/index.md]"
@@ -372,7 +382,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             # Not the first stream: on-screen text opens with the poster's own
             # watermark, and OCR of burned-in subtitles names nothing.
@@ -395,7 +405,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             # No kind, so no tag at all — a heading that ends at its title.
             self.assertIn(
@@ -427,7 +437,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn("   /read before the Friday review/\n", result)
             # The second item's intent is already its label; saying it twice is noise.
@@ -447,7 +457,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             # The title is now a link description, so a `]` in it would close the
             # description early and leave the rest of the heading as loose text.
@@ -473,7 +483,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn(":long_form_read:\n", result)
 
@@ -493,7 +503,7 @@ class SyncUnitTests(unittest.TestCase):
                 ),
             )
 
-            result = render_org(_sorted_items(inbox))
+            result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn("[[file:2026-08-09_1/][directory]]\n", result)
             self.assertNotIn("source", result)
@@ -501,8 +511,9 @@ class SyncUnitTests(unittest.TestCase):
     def test_generation_failure_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "triage.md").write_text("previous", encoding="utf-8")
-            item = inbox / "2026-08-09_1"
+            (inbox / "info").mkdir(parents=True)
+            (inbox / "info" / "triage.md").write_text("previous", encoding="utf-8")
+            item = inbox / "info" / "2026-08-09_1"
             item.mkdir()
             (item / "metadata.json").write_text(
                 json.dumps({"received_at": "not-a-time"}), encoding="utf-8"
@@ -514,13 +525,14 @@ class SyncUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(SyncError, "Invalid received_at"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "triage.md").read_text(), "previous")
+            self.assertEqual((inbox / "info" / "triage.md").read_text(), "previous")
 
     def test_missing_message_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "triage.md").write_text("previous", encoding="utf-8")
-            item = inbox / "2026-08-09_1"
+            (inbox / "info").mkdir(parents=True)
+            (inbox / "info" / "triage.md").write_text("previous", encoding="utf-8")
+            item = inbox / "info" / "2026-08-09_1"
             item.mkdir()
             (item / "metadata.json").write_text(
                 json.dumps({"received_at": "2026-08-09T10:00:00+00:00"}),
@@ -530,13 +542,13 @@ class SyncUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "triage.md").read_text(), "previous")
+            self.assertEqual((inbox / "info" / "triage.md").read_text(), "previous")
 
     def test_message_outside_capture_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            item = inbox / "2026-08-09_1"
-            item.mkdir()
+            item = inbox / "info" / "2026-08-09_1"
+            item.mkdir(parents=True)
             (item / "metadata.json").write_text(
                 json.dumps({"received_at": "2026-08-09T10:00:00+00:00"}),
                 encoding="utf-8",
@@ -544,19 +556,20 @@ class SyncUnitTests(unittest.TestCase):
             (item / "message.md").write_text("message", encoding="utf-8")
 
             with self.assertRaisesRegex(SyncError, "Missing capture/message.md"):
-                render_inbox(inbox)
+                render_inbox(inbox / "info")
 
     def test_missing_index_preserves_previous_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
-            (inbox / "triage.md").write_text("previous", encoding="utf-8")
+            (inbox / "info").mkdir(parents=True, exist_ok=True)
+            (inbox / "info" / "triage.md").write_text("previous", encoding="utf-8")
             item = write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             (item / "index.md").unlink()
 
             with self.assertRaisesRegex(SyncError, "Missing index.md"):
                 generate_inbox(inbox)
 
-            self.assertEqual((inbox / "triage.md").read_text(), "previous")
+            self.assertEqual((inbox / "info" / "triage.md").read_text(), "previous")
 
 
 class SynchronizeTests(unittest.TestCase):
@@ -587,25 +600,27 @@ class SynchronizeTests(unittest.TestCase):
                 received_at="2026-08-10T09:00:00+00:00",
             )
             (state / "delivered-items").write_text(
-                "2026-08-08_1\t1\n2026-08-09_2\t1\n", encoding="utf-8"
+                "info/2026-08-08_1\t1\ninfo/2026-08-09_2\t1\n", encoding="utf-8"
             )
             commands = FakeSyncCommands(remote)
             config = SyncConfig("server", "/remote/inbox", local, state)
 
             synchronize(config, commands)
 
-            self.assertFalse((remote / "2026-08-08_1").exists())
-            self.assertFalse((local / "2026-08-08_1").exists())
-            self.assertTrue((local / "2026-08-09_2").is_dir())
-            self.assertTrue((local / "2026-08-10_3").is_dir())
+            self.assertFalse((remote / "info" / "2026-08-08_1").exists())
+            self.assertFalse((local / "info" / "2026-08-08_1").exists())
+            self.assertTrue((local / "info" / "2026-08-09_2").is_dir())
+            self.assertTrue((local / "info" / "2026-08-10_3").is_dir())
             self.assertEqual(
                 (state / "delivered-items").read_text(),
-                "2026-08-08_1\t1\n2026-08-09_2\t2\n2026-08-10_3\t1\n",
+                "info/2026-08-08_1\t1\ninfo/2026-08-09_2\t2\ninfo/2026-08-10_3\t1\n",
             )
-            aggregate = (local / "triage.md").read_text()
+            aggregate = (local / "info" / "triage.md").read_text()
             self.assertEqual(aggregate.count("— 2026-08-09"), 1)
             self.assertIn("edited", aggregate)
-            self.assertIn("[[file:2026-08-09_2/][directory]]", (local / "triage.org").read_text())
+            self.assertIn(
+                "[[file:2026-08-09_2/][directory]]", (local / "info" / "triage.org").read_text()
+            )
             self.assertTrue(
                 any(command[0] == "ssh" and "rm -rf" in command[2] for command in commands.commands)
             )
@@ -615,7 +630,7 @@ class SynchronizeTests(unittest.TestCase):
             root = Path(temporary)
             state = root / "state"
             state.mkdir()
-            (state / "delivered-items").write_text("2026-08-08_1\t1\n")
+            (state / "delivered-items").write_text("info/2026-08-08_1\t1\n")
             commands = FakeSyncCommands(root / "unused")
 
             with self.assertRaisesRegex(SyncError, "Local inbox is missing"):
@@ -661,7 +676,7 @@ class RegenerateTests(unittest.TestCase):
             write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             write_item(inbox, "2026-08-10_2", received_at="2026-08-10T10:00:00+00:00")
             generate_inbox(inbox)
-            shutil.rmtree(inbox / "2026-08-09_1")
+            shutil.rmtree(inbox / "info" / "2026-08-09_1")
 
             with unittest.mock.patch(
                 "info_triage.sync.default_config",
@@ -670,6 +685,141 @@ class RegenerateTests(unittest.TestCase):
                 self.assertEqual(main(["--regenerate"]), 0)
 
             runner.assert_not_called()
-            self.assertIn("** 1 · [[file:2026-08-10_2/", (inbox / "triage.org").read_text())
-            self.assertIn("### 1 — 2026-08-10_2", (inbox / "triage.md").read_text())
-            self.assertNotIn("2026-08-09_1", (inbox / "triage.md").read_text())
+            self.assertIn(
+                "** 1 · [[file:2026-08-10_2/", (inbox / "info" / "triage.org").read_text()
+            )
+            self.assertIn("### 1 — 2026-08-10_2", (inbox / "info" / "triage.md").read_text())
+            self.assertNotIn("2026-08-09_1", (inbox / "info" / "triage.md").read_text())
+
+
+class RouteTests(unittest.TestCase):
+    """Each route is its own queue: its own two views, its own numbering."""
+
+    def test_every_route_gets_its_own_views_numbered_from_one(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+            write_item(inbox, "2026-08-10_2", received_at="2026-08-10T10:00:00+00:00")
+            write_item(
+                inbox, "2026-08-09_1", received_at="2026-08-09T11:00:00+00:00", route="job"
+            )
+
+            generate_inbox(inbox)
+
+            info_org = (inbox / "info" / "triage.org").read_text()
+            job_org = (inbox / "job" / "triage.org").read_text()
+            self.assertIn("** 1 · ", info_org)
+            self.assertIn("** 2 · ", info_org)
+            # Its own numbering, not a continuation of info's.
+            self.assertIn("** 1 · ", job_org)
+            self.assertNotIn("** 2 · ", job_org)
+            # The directory link is still one segment: the views sit beside the
+            # items they list, which is what keeps the Emacs side unchanged.
+            self.assertIn("[[file:2026-08-09_1/][directory]]", job_org)
+
+    def test_a_route_with_nothing_in_it_still_gets_both_views(self):
+        """Absent files cannot be told apart from a sync that never ran."""
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            generate_inbox(inbox)
+
+            for route in ("info", "job", "clip", "lang"):
+                self.assertIn("0 items", (inbox / route / "triage.md").read_text())
+                self.assertIn("#+STARTUP:", (inbox / route / "triage.org").read_text())
+
+    def test_manifest_keys_carry_the_route(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest = Path(temporary) / "delivered-items"
+            manifest.write_text("job/2026-08-09_7\t2\n")
+            self.assertEqual(read_manifest(manifest), {"job/2026-08-09_7": 2})
+
+            manifest.write_text("2026-08-09_7\t2\n")
+            with self.assertRaisesRegex(SyncError, "Invalid delivered-items entry"):
+                read_manifest(manifest)
+
+    def test_a_re_routed_item_loses_its_copy_in_the_route_it_left(self):
+        """The NAS renamed it, so deletion_decision never sees the old name."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state = root / "remote", root / "inbox", root / "state"
+            remote.mkdir()
+            local.mkdir()
+            state.mkdir()
+            # Delivered under info last time; the NAS now holds it under job.
+            write_item(local, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+            write_item(
+                remote, "2026-08-09_4", received_at="2026-08-09T10:00:00+00:00",
+                revision=2, route="job",
+            )
+            (state / "delivered-items").write_text("info/2026-08-09_1\t1\n", encoding="utf-8")
+
+            synchronize(SyncConfig("server", "/remote/inbox", local, state), FakeSyncCommands(remote))
+
+            self.assertFalse((local / "info" / "2026-08-09_1").exists())
+            self.assertTrue((local / "job" / "2026-08-09_4").is_dir())
+            self.assertEqual(
+                (state / "delivered-items").read_text(), "job/2026-08-09_4\t2\n"
+            )
+            self.assertNotIn("2026-08-09_1", (local / "info" / "triage.md").read_text())
+
+    def test_an_item_the_laptop_deleted_is_not_removed_a_second_time(self):
+        """Absent locally means processed, which the deletion pass must not touch."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            local, state = root / "inbox", root / "state"
+            local.mkdir()
+            state.mkdir()
+            delivered = {"info/2026-08-09_1": 1}
+
+            _remove_stale_local_items(
+                SyncConfig("server", "/remote/inbox", local, state),
+                [RemoteItem("job", "2026-08-09_2", 1, 2)],
+                delivered,
+            )
+
+            self.assertEqual(delivered, {"info/2026-08-09_1": 1})
+
+    def test_an_empty_remote_listing_never_wipes_the_inbox(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            local, state = root / "inbox", root / "state"
+            local.mkdir()
+            state.mkdir()
+            write_item(local, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+
+            with self.assertRaisesRegex(SyncError, "listed no items"):
+                _remove_stale_local_items(
+                    SyncConfig("server", "/remote/inbox", local, state),
+                    [],
+                    {"info/2026-08-09_1": 1},
+                )
+
+            self.assertTrue((local / "info" / "2026-08-09_1").is_dir())
+
+    def test_the_metadata_pass_descends_two_levels(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state = root / "remote", root / "inbox", root / "state"
+            remote.mkdir()
+            local.mkdir()
+            state.mkdir()
+            write_item(remote, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
+            commands = FakeSyncCommands(remote)
+
+            synchronize(SyncConfig("server", "/remote/inbox", local, state), commands)
+
+            metadata_pass = next(
+                command for command in commands.commands
+                if command[0] == "rsync" and "--include" in command
+            )
+            self.assertEqual(
+                [value for value in metadata_pass if value.startswith("/*")],
+                ["/*/", "/*/*/", "/*/*/metadata.json"],
+            )
+
+    def test_an_unknown_route_directory_on_the_nas_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            metadata = Path(temporary)
+            (metadata / "invented").mkdir()
+            with self.assertRaisesRegex(SyncError, "Unexpected NAS inbox route directory"):
+                read_remote_items(metadata)

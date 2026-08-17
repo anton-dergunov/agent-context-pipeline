@@ -13,8 +13,12 @@ fi
 
 echo "==> Preparing deployment directory"
 
+# Written out rather than brace-expanded: the Synology remote shell is busybox.
 ssh "$REMOTE" \
-    "mkdir -p '$REMOTE_DIR/data/staging' '$REMOTE_DIR/data/inbox'"
+    "mkdir -p '$REMOTE_DIR/data/staging/info' '$REMOTE_DIR/data/inbox/info' \
+              '$REMOTE_DIR/data/staging/job' '$REMOTE_DIR/data/inbox/job' \
+              '$REMOTE_DIR/data/staging/clip' '$REMOTE_DIR/data/inbox/clip' \
+              '$REMOTE_DIR/data/staging/lang' '$REMOTE_DIR/data/inbox/lang'"
 
 echo "==> Copying files to NAS"
 

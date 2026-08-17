@@ -57,8 +57,15 @@ class DownloadedAttachment:
 
 @dataclass(frozen=True)
 class CapturedItem:
+    # Which bot owns the source message. Part of the item's identity and fixed for
+    # its lifetime, because a re-routed item's edits keep arriving on the original
+    # bot. `route` is where the item is filed, and a hashtag can move it.
+    origin_route: str
     chat_id: int
     message_id: int
+    route: str
+    # The `<n>` in the item directory name, allocated per route.
+    local_id: int
     revision: int
     status: str
     category: str | None
@@ -68,8 +75,11 @@ class CapturedItem:
 
 @dataclass(frozen=True)
 class ProcessingJob:
+    origin_route: str
     chat_id: int
     message_id: int
+    route: str
+    local_id: int
     revision: int
     category: str | None
     path: Path

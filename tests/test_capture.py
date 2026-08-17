@@ -92,10 +92,14 @@ class ImmediateCoordinator:
         self.store.promote_if_current(item)
 
 
-def fake_application(store, bot=None):
+def fake_application(store, bot=None, route="info"):
     return SimpleNamespace(
         bot=bot or FakeBot(),
-        bot_data={"store": store, "coordinator": ImmediateCoordinator(store)},
+        bot_data={
+            "store": store,
+            "coordinator": ImmediateCoordinator(store),
+            "route": route,
+        },
     )
 
 
@@ -166,13 +170,14 @@ class CaptureStoreTests(unittest.TestCase):
             promote(
                 store,
                 store.capture(
+                    "info",
                     10,
                     1,
                     "plain",
                     received_at="2026-08-09T10:00:00+00:00",
                 ),
             )
-            item = Path(temporary) / "inbox" / "2026-08-09_1"
+            item = Path(temporary) / "inbox" / "info" / "2026-08-09_1"
             metadata = json.loads((item / "metadata.json").read_text())
             self.assertEqual(metadata["category"], "Other")
             self.assertEqual(metadata["revision"], 1)
@@ -190,15 +195,16 @@ class CaptureStoreTests(unittest.TestCase):
             promote(
                 store,
                 store.capture(
+                    "info",
                     10,
                     1,
                     "spoken",
                     received_at="2026-08-09T10:00:00+00:00",
-                    telegram_payload={"message_id": 1, "voice": {"file_id": "voice"}},
+                    capture_payload={"message_id": 1, "voice": {"file_id": "voice"}},
                     attachments=[DownloadedAttachment(voice, b"ogg")],
                 ),
             )
-            item = Path(temporary) / "inbox" / "2026-08-09_1"
+            item = Path(temporary) / "inbox" / "info" / "2026-08-09_1"
 
             self.assertEqual(
                 sorted(entry.name for entry in item.iterdir()),
@@ -206,7 +212,7 @@ class CaptureStoreTests(unittest.TestCase):
             )
             self.assertEqual(
                 sorted(entry.name for entry in (item / "capture").iterdir()),
-                ["attachments", "message.md", "source.md", "telegram.json"],
+                ["attachments", "message.md", "payload.json", "source.md"],
             )
             metadata = json.loads((item / "metadata.json").read_text())
             self.assertEqual(
@@ -242,6 +248,7 @@ class CaptureStoreTests(unittest.TestCase):
                 (note, "2026-08-09T10:00:01+00:00"),
             ):
                 store.stage_pending_message(
+                    "info",
                     10,
                     payload["message_id"],
                     None,
@@ -252,17 +259,18 @@ class CaptureStoreTests(unittest.TestCase):
                     attachment_specs_from_payload(payload),
                 )
             app = fake_application(store, FakeBot({"photo-1": b"first-photo"}))
-            asyncio.run(_finalize_batch(app, 10, None, store.pending_messages(10)))
+            asyncio.run(_finalize_batch(app, 10, None, store.pending_messages("info", 10)))
 
-            item_path = Path(temporary) / "inbox" / "2026-08-09_1"
+            item_path = Path(temporary) / "inbox" / "info" / "2026-08-09_1"
             metadata = json.loads((item_path / "metadata.json").read_text())
             attachment_path = item_path / metadata["attachments"][0]["path"]
             self.assertEqual(attachment_path.read_bytes(), b"first-photo")
             self.assertEqual(metadata["source_message_ids"], [1, 2])
-            self.assertEqual(store.item_for_source_message(10, 2)["message_id"], 1)
+            self.assertEqual(store.item_for_source_message("info", 10, 2)["message_id"], 1)
 
             edited_note = telegram_payload(2, 101, text="Updated note")
             store.stage_pending_message(
+                "info",
                 10,
                 2,
                 None,
@@ -272,7 +280,7 @@ class CaptureStoreTests(unittest.TestCase):
                 edited_note,
                 [],
             )
-            target, rows = _pending_batches(store, 10)[0]
+            target, rows = _pending_batches(store, "info", 10)[0]
             self.assertEqual(target, 1)
             asyncio.run(_finalize_batch(app, 10, target, rows))
             metadata = json.loads((item_path / "metadata.json").read_text())
@@ -301,6 +309,7 @@ class CaptureStoreTests(unittest.TestCase):
                 ],
             )
             store.stage_pending_message(
+                "info",
                 10,
                 1,
                 None,
@@ -311,7 +320,7 @@ class CaptureStoreTests(unittest.TestCase):
                 attachment_specs_from_payload(edited_forward),
             )
             app.bot.files["photo-2"] = b"second-photo"
-            target, rows = _pending_batches(store, 10)[0]
+            target, rows = _pending_batches(store, "info", 10)[0]
             asyncio.run(_finalize_batch(app, 10, target, rows))
             metadata = json.loads((item_path / "metadata.json").read_text())
             self.assertEqual(metadata["revision"], 3)
@@ -326,6 +335,7 @@ class CaptureStoreTests(unittest.TestCase):
             data_dir = Path(temporary)
             payload = telegram_payload(1, 100, text="pending")
             CaptureStore(data_dir).stage_pending_message(
+                "info",
                 10,
                 1,
                 None,
@@ -336,8 +346,8 @@ class CaptureStoreTests(unittest.TestCase):
                 [],
             )
             recovered = CaptureStore(data_dir)
-            self.assertEqual(recovered.pending_chat_ids(), [10])
-            self.assertEqual(recovered.pending_messages(10)[0]["payload"], payload)
+            self.assertEqual(recovered.pending_chat_ids("info"), [10])
+            self.assertEqual(recovered.pending_messages("info", 10)[0]["payload"], payload)
 
     def test_failed_finalization_keeps_pending_messages(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -355,6 +365,7 @@ class CaptureStoreTests(unittest.TestCase):
                 ],
             )
             store.stage_pending_message(
+                "info",
                 10,
                 1,
                 None,
@@ -366,8 +377,8 @@ class CaptureStoreTests(unittest.TestCase):
             )
             app = fake_application(store, FakeBot({"broken": RuntimeError("offline")}))
             with self.assertRaisesRegex(RuntimeError, "offline"):
-                asyncio.run(_finalize_batch(app, 10, None, store.pending_messages(10)))
-            self.assertEqual([row["message_id"] for row in store.pending_messages(10)], [1])
+                asyncio.run(_finalize_batch(app, 10, None, store.pending_messages("info", 10)))
+            self.assertEqual([row["message_id"] for row in store.pending_messages("info", 10)], [1])
 
     def test_existing_category_update_still_preserves_attachments(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -378,25 +389,26 @@ class CaptureStoreTests(unittest.TestCase):
             promote(
                 store,
                 store.capture(
+                    "info",
                     10,
                     1,
                     "voice note",
                     received_at="2026-08-09T10:00:00+00:00",
-                    telegram_payload={
+                    capture_payload={
                         "message_id": 1,
                         "voice": {"file_id": "voice"},
                     },
                     attachments=[DownloadedAttachment(voice, b"ogg")],
                 ),
             )
-            item = Path(temporary) / "inbox" / "2026-08-09_1"
+            item = Path(temporary) / "inbox" / "info" / "2026-08-09_1"
             self.assertEqual(
                 (item / "capture" / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
             self.assertEqual(
-                json.loads((item / "capture" / "telegram.json").read_text())["message_id"], 1
+                json.loads((item / "capture" / "payload.json").read_text())["message_id"], 1
             )
-            promote(store, store.categorize(10, 1, "Life"))
+            promote(store, store.categorize("info", 10, 1, "Life"))
             self.assertEqual(
                 (item / "capture" / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
@@ -460,6 +472,7 @@ class CaptureGroupingTests(unittest.TestCase):
             application = build_application(
                 "123:token",
                 20,
+                "info",
                 store,
                 ImmediateCoordinator(store),
                 grouping_max_gap_seconds=1.5,

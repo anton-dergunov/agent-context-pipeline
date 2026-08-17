@@ -13,6 +13,7 @@ from .config import (
     ContentExtractionConfig,
     IndexRenderConfig,
     LinkDiscoveryConfig,
+    RouteConfig,
     TextCleaningConfig,
     URLResolutionConfig,
     VoiceTranscriptionConfig,
@@ -51,7 +52,7 @@ from .models import (
     ProcessingStepOutcome,
 )
 from .rendering import SEGMENT_HEADING_RE, render_capture_payloads
-from .storage import CAPTURE_DIR
+from .storage import CAPTURE_DIR, PAYLOAD_NAME
 from .utilities.text_cleaning import clean_text
 from .utilities.url_resolution import LinkResolution, URLResolver, enrich_links
 
@@ -61,8 +62,8 @@ INDEX_NAME = "index.md"
 
 
 def read_capture_payloads(job: ProcessingJob) -> list[dict[str, Any]]:
-    """Return the retained Telegram payloads of an item, in stored order."""
-    payload_path = job.path / CAPTURE_DIR / "telegram.json"
+    """Return the retained capture payloads of an item, in stored order."""
+    payload_path = job.path / CAPTURE_DIR / PAYLOAD_NAME
     value = json.loads(payload_path.read_text(encoding="utf-8"))
     if isinstance(value, dict):
         payloads = value.get("messages", [value])
@@ -71,7 +72,7 @@ def read_capture_payloads(job: ProcessingJob) -> list[dict[str, Any]]:
     if not isinstance(payloads, list) or not all(
         isinstance(payload, dict) for payload in payloads
     ):
-        raise ValueError("telegram.json does not contain Telegram message payloads")
+        raise ValueError(f"{PAYLOAD_NAME} does not contain message payloads")
     return payloads
 
 
@@ -218,7 +219,7 @@ class VoiceTranscriptionStep:
             return ProcessingStepOutcome.failed(
                 ProcessingIssue(
                     "invalid-input",
-                    "Voice attachment sources are missing from telegram.json: "
+                    f"Voice attachment sources are missing from {PAYLOAD_NAME}: "
                     + ", ".join(str(value) for value in sorted(absent)),
                     target=", ".join(str(value) for value in sorted(absent)),
                 )
@@ -718,10 +719,14 @@ class IndexRenderStep:
         return ProcessingStepOutcome.partial(*issues) if issues else None
 
 
-def processing_steps_from_config(app_config: AppConfig) -> list[Any]:
-    """Construct ordered processing steps from validated configuration."""
+def processing_steps_for_route(app_config: AppConfig, route: RouteConfig) -> list[Any]:
+    """Construct one route's ordered processing steps from validated configuration.
+
+    Each route builds its own step instances, because the same step may be
+    configured differently on two routes.
+    """
     steps = []
-    for config in app_config.processing_steps:
+    for config in route.steps:
         if isinstance(config, VoiceTranscriptionConfig):
             steps.append(
                 VoiceTranscriptionStep(

@@ -46,8 +46,14 @@ print(f"preloaded {total / 1e6:.1f} MB of models")
 from faster_whisper import WhisperModel  # noqa: E402
 
 daemon_config = load_config(Path(os.environ.get("INFO_TRIAGE_CONFIG", "/app/config.yaml")))
+# Any route that transcribes needs the model in the image, and they all share one.
 voice_config = next(
-    (step for step in daemon_config.processing_steps if isinstance(step, VoiceTranscriptionConfig)),
+    (
+        step
+        for route in daemon_config.routes
+        for step in route.steps
+        if isinstance(step, VoiceTranscriptionConfig)
+    ),
     None,
 )
 if voice_config is None:

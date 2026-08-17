@@ -6,8 +6,11 @@ storage:
   data_dir: data
 
 web:
-  # Internal HTTP port used by the dashboard and GET /health.
+  # Internal HTTP port used by the dashboard, GET /health and POST /capture.
   port: 8000
+  # Environment variable holding the bearer token POST /capture requires. The
+  # token itself lives in .env; only its name belongs here.
+  capture_token_env: INFO_TRIAGE_CAPTURE_TOKEN
 
 telegram:
   grouping:
@@ -52,66 +55,104 @@ extractors:
 processing:
   # At or above this many distinct links the item is a link list: it is read as a
   # titled table rather than as content, so extraction drops to a token budget.
-  # Both content-extraction and index-render read this, and must agree.
+  # Both content-extraction and index-render read this, and must agree. One value
+  # for every route: it describes how a link list is read, not what a route is for.
   linklist_threshold: 8
 
-  # Steps execute in this exact order. Remove a step to disable it.
-  steps:
-    - name: voice-transcription
-      # The portable NAS backend. Changing the container model requires a rebuild.
-      backend: faster-whisper
-      # Multilingual Whisper model size preloaded into the Docker image.
-      model: small
-      # Local model storage; runtime network downloads are disabled in Docker.
-      model_cache_dir: .whisper_models
-      # CPU inference threads used by the voice processor.
-      threads: 1
+# A route is a capture-time pipeline switch. Which bot you shared to decides which
+# steps run and which inbox subdirectory the item lands in. All four must be
+# declared, each with its own bot token, and steps execute in exactly this order.
+routes:
+  # The default route: things to think about, routed later into the plan repo.
+  # This is the only route that cleans, resolves, retrieves or transcribes.
+  - name: info
+    token_env: TELEGRAM_BOT_TOKEN_INFO
+    steps:
+      - name: voice-transcription
+        # The portable NAS backend. Changing the container model requires a rebuild.
+        backend: faster-whisper
+        # Multilingual Whisper model size preloaded into the Docker image.
+        model: small
+        # Local model storage; runtime network downloads are disabled in Docker.
+        model_cache_dir: .whisper_models
+        # CPU inference threads used by the voice processor.
+        threads: 1
 
-    # Cleaning runs before the URL work: zero-width characters and homoglyphs can
-    # glue themselves to a URL and defeat link discovery.
-    - name: text-cleaning
+      # Cleaning runs before the URL work: zero-width characters and homoglyphs can
+      # glue themselves to a URL and defeat link discovery.
+      - name: text-cleaning
 
-    # Discovery collects hidden hyperlink destinations and the visible links into
-    # one canonical table. It never uses the network; resolution finishes the job.
-    - name: link-discovery
+      # Discovery collects hidden hyperlink destinations and the visible links into
+      # one canonical table. It never uses the network; resolution finishes the job.
+      - name: link-discovery
 
-    - name: url-resolution
-      # Redirect-only compatibility calls resolve just recognized shorteners by default.
-      # Per-request read timeout after connecting.
-      timeout_seconds: 30.0
-      # Retry transient connection, throttling, and server failures this many times.
-      retries: 4
-      # Inspect at most 20 MiB of HTML for redirects and title metadata.
-      max_html_bytes: 20971520
-      # Download at most 20 MiB for PDF metadata and first-page title text.
-      max_pdf_bytes: 20971520
-      resolve_all: false
-      # Resolve at most this many link titles per item, highest priority first.
-      # A link list of 43 entries is worth reading as titles, not as bodies.
-      resolve_budget: 40
+      - name: url-resolution
+        # Redirect-only compatibility calls resolve just recognized shorteners by default.
+        # Per-request read timeout after connecting.
+        timeout_seconds: 30.0
+        # Retry transient connection, throttling, and server failures this many times.
+        retries: 4
+        # Inspect at most 20 MiB of HTML for redirects and title metadata.
+        max_html_bytes: 20971520
+        # Download at most 20 MiB for PDF metadata and first-page title text.
+        max_pdf_bytes: 20971520
+        resolve_all: false
+        # Resolve at most this many link titles per item, highest priority first.
+        # A link list of 43 entries is worth reading as titles, not as bodies.
+        resolve_budget: 40
 
-    # The only step that retrieves content. Extraction never blocks an item:
-    # every failure is recorded against its link and the item lands regardless.
-    - name: content-extraction
-      # Links given a full extraction, highest priority first.
-      extract_budget: 5
-      # ... and how many when the item is a link list. Extracting 43 article
-      # bodies costs a fortune and cannot change the routing decision.
-      linklist_extract_budget: 2
-      # Per-item ceiling. On exceeding it the remaining links stay title-only so
-      # one 77-minute video cannot stall the text items queued behind it.
-      wall_clock_seconds: 600
-      # Retain what each extractor downloaded under `<extraction>/raw/`. It is
-      # provenance for a human; nothing in the routing path reads it.
-      keep_raw: true
+      # The only step that retrieves content. Extraction never blocks an item:
+      # every failure is recorded against its link and the item lands regardless.
+      - name: content-extraction
+        # Links given a full extraction, highest priority first.
+        extract_budget: 5
+        # ... and how many when the item is a link list. Extracting 43 article
+        # bodies costs a fortune and cannot change the routing decision.
+        linklist_extract_budget: 2
+        # Per-item ceiling. On exceeding it the remaining links stay title-only so
+        # one 77-minute video cannot stall the text items queued behind it.
+        wall_clock_seconds: 600
+        # Retain what each extractor downloaded under `<extraction>/raw/`. It is
+        # provenance for a human; nothing in the routing path reads it.
+        keep_raw: true
 
-    # The last step: everything the item knows about itself, in one file.
-    - name: index-render
-      # Words of `content.md` quoted as the item's lead. Papers quote the
-      # complete abstract instead.
-      lead_words: 120
-      # ... and for short-form media, where the payload is in the on-screen text
-      # and the spoken audio rather than in prose. Every stream is quoted and
-      # labelled within this budget: measured over 14 real Shorts and Reels,
-      # 800 words quotes 12 of them whole (median 183, p90 681).
-      media_lead_words: 800
+      # The last step: everything the item knows about itself, in one file.
+      - name: index-render
+        # Words of `content.md` quoted as the item's lead. Papers quote the
+        # complete abstract instead.
+        lead_words: 120
+        # ... and for short-form media, where the payload is in the on-screen text
+        # and the spoken audio rather than in prose. Every stream is quoted and
+        # labelled within this budget: measured over 14 real Shorts and Reels,
+        # 800 words quotes 12 of them whole (median 183, p90 681).
+        media_lead_words: 800
+
+  # Job postings. A downstream script already fetches and processes the posting,
+  # so this route only records the link: discovery is offline and index-render
+  # needs it to fill `canonical_url`. The captured text is never transformed.
+  - name: job
+    token_env: TELEGRAM_BOT_TOKEN_JOB
+    steps:
+      - name: link-discovery
+      - name: index-render
+        lead_words: 120
+        media_lead_words: 800
+
+  # Tango and photography clips. Downloading happens on the laptop, so nothing
+  # here retrieves, transcribes or OCRs; the URL is the payload.
+  - name: clip
+    token_env: TELEGRAM_BOT_TOKEN_CLIP
+    steps:
+      - name: link-discovery
+      - name: index-render
+        lead_words: 120
+        media_lead_words: 800
+
+  # Vocabulary: a word or phrase plus the context it was found in. There is no
+  # link to discover and the wording is the whole point, so nothing touches it.
+  - name: lang
+    token_env: TELEGRAM_BOT_TOKEN_LANG
+    steps:
+      - name: index-render
+        lead_words: 120
+        media_lead_words: 800

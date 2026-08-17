@@ -2,6 +2,7 @@ import json
 import time
 
 import pytest
+from conftest import job_for
 
 from info_triage.extractors.media.transcription import TranscriptResult
 from info_triage.models import (
@@ -83,21 +84,16 @@ def staged_job(tmp_path, payloads, attachments, content=""):
     store = CaptureStore(tmp_path)
     primary = min(payloads, key=lambda value: (value["date"], value["message_id"]))
     item = store.capture(
+        "info",
         10,
         primary["message_id"],
         content,
         received_at="2026-08-09T10:00:00+00:00",
-        telegram_payload=payloads[0] if len(payloads) == 1 else {"messages": payloads},
+        capture_payload=payloads[0] if len(payloads) == 1 else {"messages": payloads},
         attachments=attachments,
         source_message_ids=[payload["message_id"] for payload in payloads],
     )
-    job = ProcessingJob(
-        item.chat_id,
-        item.message_id,
-        item.revision,
-        item.category,
-        item.path,
-    )
+    job = job_for(item)
     source = (job.path / "capture" / "message.md").read_text(encoding="utf-8")
     return store, item, job, ProcessingResult(source)
 
@@ -275,7 +271,7 @@ def test_missing_download_returns_declared_failure(tmp_path):
 def wait_for_status(store, message_id, status):
     deadline = time.monotonic() + 3
     while time.monotonic() < deadline:
-        item = store.get_item(10, message_id)
+        item = store.get_item("info", 10, message_id)
         if item["status"] == status:
             return item
         time.sleep(0.01)
@@ -293,22 +289,22 @@ def test_ready_item_is_not_backfilled_but_later_revision_is_processed(tmp_path):
     transcriber = FakeTranscriber(result(text="After revision"))
     step = VoiceTranscriptionStep(tmp_path / "models", transcriber=transcriber)
     pipeline = ProcessingPipeline([step])
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     try:
         time.sleep(0.05)
         assert transcriber.calls == []
-        revised = store.categorize(10, 1, "Life")
+        revised = store.categorize("info", 10, 1, "Life")
         coordinator.submit(revised)
         wait_for_status(store, 1, "ready")
     finally:
         worker.stop()
 
-    message = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text()
+    message = (tmp_path / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md").read_text()
     assert message == "## Segment 1 — voice\n\nAfter revision"
-    source = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "source.md").read_text()
+    source = (tmp_path / "inbox" / "info" / "2026-08-09_1" / "capture" / "source.md").read_text()
     assert source == "## Segment 1 — voice\n\nAfter revision"
 
 
@@ -317,13 +313,14 @@ def test_plain_item_still_bypasses_worker(tmp_path):
     store, item, _, _ = staged_job(tmp_path, [payload], [], "plain")
     step = VoiceTranscriptionStep(tmp_path / "models", transcriber=FakeTranscriber())
     pipeline = ProcessingPipeline([step])
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     coordinator.submit(item)
 
-    assert store.get_item(10, 1)["status"] == "ready"
-    assert (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text().endswith("plain")
+    assert store.get_item("info", 10, 1)["status"] == "ready"
+    ready = tmp_path / "inbox" / "info" / "2026-08-09_1"
+    assert (ready / "capture" / "message.md").read_text().endswith("plain")
 
 
 def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
@@ -343,8 +340,8 @@ def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
         transcriber=FakeTranscriber(result(status="failed", text="", error="broken audio")),
     )
     pipeline = ProcessingPipeline([step, TextCleaningStep()])
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     coordinator.submit(item)
@@ -355,7 +352,7 @@ def test_transcription_error_is_logged_but_item_is_delivered(tmp_path):
 
     assert ready["processing_step"] is None
     assert ready["error"] is None
-    item_path = tmp_path / "inbox" / "2026-08-09_1"
+    item_path = tmp_path / "inbox" / "info" / "2026-08-09_1"
     assert item_path.is_dir()
     assert (item_path / "capture" / "attachments" / "01-voice.ogg").read_bytes() == b"media"
     assert (item_path / "capture" / "message.md").read_text().endswith("Keep this raw note")
@@ -388,6 +385,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
     )
     store = CaptureStore(tmp_path)
     item = store.capture(
+        "info",
         10,
         1,
         source,
@@ -414,8 +412,8 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
             ),
         ]
     )
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     coordinator.submit(item)
@@ -424,7 +422,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
     finally:
         worker.stop()
 
-    ready = tmp_path / "inbox" / "2026-08-09_1"
+    ready = tmp_path / "inbox" / "info" / "2026-08-09_1"
     assert (ready / "capture" / "source.md").read_text() == source
     # Cleaning runs first, so the resolved destination is inserted afterwards and keeps
     # its tracking parameters. Canonicalization moves into link discovery.
@@ -438,6 +436,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
     source = "## Segment 1 — text\n\n𝗞𝗲𝗲𝗽 https://t.co/unavailable"
     store = CaptureStore(tmp_path)
     item = store.capture(
+        "info",
         10,
         1,
         source,
@@ -459,8 +458,8 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         resolver=resolver,
     )
     pipeline = ProcessingPipeline([TextCleaningStep(), step])
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     coordinator.submit(item)
@@ -469,7 +468,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
     finally:
         worker.stop()
 
-    message = (tmp_path / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text()
+    message = (tmp_path / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md").read_text()
     assert message.endswith("## Segment 1 — text\n\nKeep https://t.co/unavailable")
     stats_by_name = {row["processor"]: row for row in store.processor_statistics()}
     stats = stats_by_name["url-resolution"]
@@ -530,11 +529,12 @@ def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
     )
     store = CaptureStore(tmp_path)
     item = store.capture(
+        "info",
         10,
         1,
         render_capture_payloads([payload]),
         received_at="2026-08-09T10:00:00+00:00",
-        telegram_payload=payload,
+        capture_payload=payload,
     )
     pipeline = ProcessingPipeline(
         [
@@ -551,8 +551,8 @@ def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
             ),
         ]
     )
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     coordinator.submit(item)
@@ -561,7 +561,7 @@ def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
     finally:
         worker.stop()
 
-    ready = tmp_path / "inbox" / "2026-08-09_1"
+    ready = tmp_path / "inbox" / "info" / "2026-08-09_1"
     # The destinations Telegram hides from message text are in the body itself,
     # both before and after transformation, and are not re-titled by resolution.
     assert "https://poloclub.github.io/diffusion-explainer/" in (
@@ -641,7 +641,7 @@ def test_two_links_resolving_to_one_target_collapse_to_a_duplicate(tmp_path):
 def test_unreadable_payloads_still_deliver_the_visible_links(tmp_path):
     payload = telegram_payload(1, 100, text="https://example.com/x")
     _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
-    (job.path / "capture" / "telegram.json").write_text("not json", encoding="utf-8")
+    (job.path / "capture" / "payload.json").write_text("not json", encoding="utf-8")
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
@@ -671,8 +671,8 @@ def test_index_render_commits_the_item_contract(tmp_path):
             IndexRenderStep(linklist_threshold=8, lead_words=120, media_lead_words=800),
         ]
     )
-    worker = ProcessingWorker(store, pipeline)
-    coordinator = ProcessingCoordinator(store, pipeline, worker)
+    worker = ProcessingWorker(store, {"info": pipeline})
+    coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
     worker.start()
     coordinator.submit(item)
@@ -681,7 +681,7 @@ def test_index_render_commits_the_item_contract(tmp_path):
     finally:
         worker.stop()
 
-    index = (tmp_path / "inbox" / "2026-08-09_1" / "index.md").read_text()
+    index = (tmp_path / "inbox" / "info" / "2026-08-09_1" / "index.md").read_text()
     assert index.startswith("---\nid: 2026-08-09_1\ncaptured_at: 2026-08-09T10:00:00Z\n")
     assert 'intent: "Worth a look"' in index
     assert "canonical_url: https://example.com/x" in index
@@ -695,7 +695,7 @@ def test_index_render_commits_the_item_contract(tmp_path):
 def test_index_render_reports_unreadable_input_without_withholding_the_index(tmp_path):
     payload = telegram_payload(1, 100, text="hello")
     _, _, job, result = staged_job(tmp_path, [payload], None, render_capture_payloads([payload]))
-    (job.path / "capture" / "telegram.json").write_text("not json", encoding="utf-8")
+    (job.path / "capture" / "payload.json").write_text("not json", encoding="utf-8")
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
@@ -735,13 +735,17 @@ def test_a_consent_interstitial_does_not_become_the_canonical_url(tmp_path):
     )
     store = CaptureStore(tmp_path)
     store.capture(
+        "info",
         10,
         1,
         render_capture_payloads([payload]),
         received_at="2026-08-09T10:00:00+00:00",
-        telegram_payload=payload,
+        capture_payload=payload,
     )
-    job = ProcessingJob(10, 1, 1, "Other", store.staging_dir / "2026-08-09_1")
+    job = ProcessingJob(
+        "info", 10, 1, "info", 1, 1, "Other",
+        store.staging_for("info", "2026-08-09T10:00:00+00:00", 1),
+    )
     result = ProcessingResult(message_markdown=render_capture_payloads([payload]))
     links = link_table(job, result, resolver=ConsentResolver({}))
 

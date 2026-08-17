@@ -266,3 +266,33 @@ Comment output separately identifies the chronologically first scanned comment/r
 ## Accuracy notes
 
 “Any language” means automatic multilingual recognition over the languages supported by the installed models; no OCR or speech model can guarantee every language or unclear input. The JSON confidence/probability fields and explicit empty/failure statuses make uncertainty visible.
+
+## Why not `gallery-dl`
+
+`gallery-dl` is the image-and-gallery sibling of `yt-dlp`, and the analogy to
+this project's YouTube path is tempting: several hundred sites behind one
+interface, per-site extractors maintained by other people, cookie handling, and
+metadata written alongside the media. Evaluated and declined, for one decisive
+reason and two supporting ones.
+
+**It does not fetch comments.** `yt-dlp` replaced a media downloader; `gallery-dl`
+would replace a metadata *and* comment client. `_read_comments` and
+`_select_comments` in `downloader.py`, the owner-first-comment rule, the
+like-ranked selection, and `comments.md` itself all have no equivalent in it.
+
+Supporting: the normalised metadata shape in `_metadata()` — `video_play_count`,
+`tagged_users`, `caption_hashtags`, `accessibility_caption` — maps only partially
+onto gallery-dl's Instagram keys, and is pinned by
+`tests/extractors/instagram/test_comments.py` and `test_prepare.py`. And
+Instaloader is used here only as an authenticated GraphQL client: every built-in
+downloader is disabled and the bytes are fetched by `_download_url` into `.part`
+files, which already resume, already reuse existing media, and already degrade
+rather than aborting. It works on the real corpus, and retrieval behaviour
+changes only with a measured reason.
+
+**If Instaloader does break**, the cheap fallback is narrow and does not disturb
+any of the above: at `Post.from_shortcode` in `downloader.py`, catch the failure,
+shell out to `gallery-dl` for media and raw metadata, populate `raw/media/`, set
+`status["comments"] = "skipped"`, and let `prepare_content()` run unchanged. The
+repository already has the pattern for a pinned, self-updating out-of-process
+downloader in `extractors/youtube/runner.py`.

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
+#: Mirrors config.ROUTE_NAMES. Declared here for the same reason CAPTURE_DIR is:
+#: the laptop side is a separate program from the daemon and must not import it.
+#: Each route is its own queue, with its own two views and its own numbering.
+ROUTES = ("info", "job", "clip", "lang")
 # Mirrors storage.CAPTURE_DIR. Declared here so the laptop-side synchronizer stays
 # independent of the daemon's storage layer, as atomic_write_text already is.
 CAPTURE_DIR = "capture"
@@ -93,9 +98,16 @@ class SyncConfig:
 
 @dataclass(frozen=True, order=True)
 class RemoteItem:
+    # Route first: it orders the deletion log the way the inbox is laid out.
+    route: str
     name: str
     revision: int
-    message_id: int
+    local_id: int
+
+    @property
+    def key(self) -> str:
+        """How this item is named in the manifest and under the local inbox."""
+        return f"{self.route}/{self.name}"
 
 
 CommandRunner = Callable[[list[str]], None]
@@ -119,6 +131,11 @@ def valid_item_name(name: str) -> bool:
     return bool(ITEM_NAME.fullmatch(name))
 
 
+def valid_manifest_key(key: str) -> bool:
+    route, separator, name = key.partition("/")
+    return bool(separator) and route in ROUTES and valid_item_name(name)
+
+
 def _require_integer(value: object, field: str, item: str, *, default: int | None = None) -> int:
     if value is None and default is not None:
         return default
@@ -134,24 +151,31 @@ def read_remote_items(metadata_dir: Path) -> list[RemoteItem]:
     at this point; _local_item() enforces it after the full download.
     """
     items = []
-    for item_path in sorted(metadata_dir.iterdir()):
-        if not item_path.is_dir():
+    for route_path in sorted(metadata_dir.iterdir()):
+        if not route_path.is_dir():
             continue
-        name = item_path.name
-        if not valid_item_name(name):
-            raise SyncError(f"Unexpected NAS inbox directory: {name}")
-        metadata_path = item_path / "metadata.json"
-        if not metadata_path.is_file():
-            raise SyncError(f"Missing metadata.json for NAS item: {name}")
-        try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise SyncError(f"Invalid metadata.json for NAS item {name}: {error}") from error
-        if not isinstance(metadata, dict):
-            raise SyncError(f"Invalid metadata.json for NAS item {name}: expected an object")
-        revision = _require_integer(metadata.get("revision"), "revision", name, default=1)
-        message_id = _require_integer(metadata.get("message_id"), "message_id", name)
-        items.append(RemoteItem(name, revision, message_id))
+        route = route_path.name
+        if route not in ROUTES:
+            raise SyncError(f"Unexpected NAS inbox route directory: {route}")
+        for item_path in sorted(route_path.iterdir()):
+            if not item_path.is_dir():
+                continue
+            name = f"{route}/{item_path.name}"
+            if not valid_item_name(item_path.name):
+                raise SyncError(f"Unexpected NAS inbox directory: {name}")
+            metadata_path = item_path / "metadata.json"
+            if not metadata_path.is_file():
+                raise SyncError(f"Missing metadata.json for NAS item: {name}")
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise SyncError(f"Invalid metadata.json for NAS item {name}: {error}") from error
+            if not isinstance(metadata, dict):
+                raise SyncError(f"Invalid metadata.json for NAS item {name}: expected an object")
+            revision = _require_integer(metadata.get("revision"), "revision", name, default=1)
+            # The field that names the directory is the one worth validating.
+            local_id = _require_integer(metadata.get("local_id"), "local_id", name)
+            items.append(RemoteItem(route, item_path.name, revision, local_id))
     return items
 
 
@@ -165,7 +189,7 @@ def read_manifest(path: Path) -> dict[str, int]:
         fields = line.split()
         if not fields:
             continue
-        if len(fields) > 2 or not valid_item_name(fields[0]):
+        if len(fields) > 2 or not valid_manifest_key(fields[0]):
             raise SyncError(f"Invalid delivered-items entry: {line}")
         name = fields[0]
         if len(fields) == 1:
@@ -208,8 +232,8 @@ def write_manifest(path: Path, revisions: dict[str, int]) -> None:
 
 
 def deletion_decision(item: RemoteItem, delivered: dict[str, int], local_inbox: Path) -> str | None:
-    delivered_revision = delivered.get(item.name)
-    if delivered_revision is None or (local_inbox / item.name).is_dir():
+    delivered_revision = delivered.get(item.key)
+    if delivered_revision is None or (local_inbox / item.route / item.name).is_dir():
         return None
     return "delete" if item.revision <= delivered_revision else "restore"
 
@@ -310,15 +334,23 @@ def _header(items: list[tuple[datetime, str, str]]) -> str:
     return f"# Inbox — {_summary(items)}\n\n{GENERATED_NOTICE}"
 
 
-def _sorted_items(local_inbox: Path) -> list[tuple[datetime, str, str]]:
-    """Every local item, oldest first — the one ordering both views number from."""
-    items = [_local_item(path) for path in sorted(local_inbox.iterdir()) if path.is_dir()]
+def _sorted_items(route_dir: Path) -> list[tuple[datetime, str, str]]:
+    """One route's items, oldest first — the ordering both its views number from.
+
+    Called on a route directory, never on the inbox root: from there every entry
+    is a route rather than an item, and `_local_item` would reject each one. A
+    route directory that does not exist yet is empty, not an error — a route can
+    go a long time without receiving anything.
+    """
+    if not route_dir.is_dir():
+        return []
+    items = [_local_item(path) for path in sorted(route_dir.iterdir()) if path.is_dir()]
     items.sort(key=lambda item: (item[0], item[1]))
     return items
 
 
-def render_inbox(local_inbox: Path) -> str:
-    return _render_digest(_sorted_items(local_inbox))
+def render_inbox(route_dir: Path) -> str:
+    return _render_digest(_sorted_items(route_dir))
 
 
 def _render_digest(items: list[tuple[datetime, str, str]]) -> str:
@@ -571,13 +603,54 @@ def render_org(items: list[tuple[datetime, str, str]]) -> str:
 
 
 def generate_inbox(local_inbox: Path) -> None:
-    # Both views are rendered before either is written, so a failure in one
-    # cannot leave the two disagreeing about what is in the inbox.
-    items = _sorted_items(local_inbox)
-    digest = _render_digest(items)
-    org = render_org(items)
-    atomic_write_text(local_inbox / DIGEST_NAME, digest)
-    atomic_write_text(local_inbox / ORG_NAME, org)
+    """Rebuild both views for every route.
+
+    Each route is a self-contained queue: its own two files, its own 1..N. A route
+    with nothing in it still gets both, because an absent `triage.org` cannot be
+    told apart from a sync that did not run.
+    """
+    for route in ROUTES:
+        route_dir = local_inbox / route
+        route_dir.mkdir(parents=True, exist_ok=True)
+        # Both views are rendered before either is written, so a failure in one
+        # cannot leave the two disagreeing about what is in the inbox.
+        items = _sorted_items(route_dir)
+        digest = _render_digest(items)
+        org = render_org(items)
+        atomic_write_text(route_dir / DIGEST_NAME, digest)
+        atomic_write_text(route_dir / ORG_NAME, org)
+
+
+def _remove_stale_local_items(
+    config: SyncConfig, remote_items: list[RemoteItem], delivered: dict[str, int]
+) -> None:
+    """Drop laptop copies of items the NAS no longer has under that name.
+
+    A hashtag edit moves an item between routes by renaming its directory on the
+    NAS, so the old copy is gone before this runs and `deletion_decision` never
+    sees it. The download is deliberately without `--delete` — that is what makes
+    deleting an item locally mean "processed" — so without this pass the old copy
+    would stay in its former route's views forever.
+
+    Still present locally is the discriminator: an item the laptop itself deleted
+    is not here, and must not be resurrected as a deletion notice.
+    """
+    remote_keys = {item.key for item in remote_items}
+    if delivered and not remote_keys:
+        raise SyncError(
+            "The NAS inbox listed no items while items are recorded as delivered.\n"
+            "Refusing to remove local copies because the listing may have failed."
+        )
+    stale = sorted(
+        key for key in set(delivered) - remote_keys if (config.local_inbox / key).is_dir()
+    )
+    if stale:
+        print("==> Removing local copies the NAS no longer has")
+    for key in stale:
+        shutil.rmtree(config.local_inbox / key)
+        delivered.pop(key, None)
+        print(f"Removed stale local item: {key}")
+    write_manifest(config.manifest, delivered)
 
 
 def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command) -> None:
@@ -603,10 +676,15 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
             [
                 "rsync",
                 "-az",
+                # Two levels now: route directories, then item directories. rsync
+                # tests each path component in rule order, so both directory
+                # includes have to precede the file include.
                 "--include",
                 "/*/",
                 "--include",
-                "/*/metadata.json",
+                "/*/*/",
+                "--include",
+                "/*/*/metadata.json",
                 "--exclude",
                 "*",
                 f"{config.remote}:{config.remote_inbox}/",
@@ -621,11 +699,13 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
         for item in remote_items:
             decision = deletion_decision(item, delivered, config.local_inbox)
             if decision == "delete":
-                remote_path = f"{config.remote_inbox}/{item.name}"
+                remote_path = f"{config.remote_inbox}/{item.key}"
                 command_runner(["ssh", config.remote, f"rm -rf -- {shlex.quote(remote_path)}"])
-                print(f"Removed processed item: {item.name} revision {item.revision}")
+                print(f"Removed processed item: {item.key} revision {item.revision}")
             elif decision == "restore":
-                print(f"Restoring updated item: {item.name} revision {item.revision}")
+                print(f"Restoring updated item: {item.key} revision {item.revision}")
+
+        _remove_stale_local_items(config, remote_items, delivered)
 
         print("==> Downloading new and edited items")
         command_runner(
@@ -638,7 +718,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
         )
 
     for item in remote_items:
-        delivered[item.name] = max(delivered.get(item.name, -1), item.revision)
+        delivered[item.key] = max(delivered.get(item.key, -1), item.revision)
     write_manifest(config.manifest, delivered)
     generate_inbox(config.local_inbox)
 

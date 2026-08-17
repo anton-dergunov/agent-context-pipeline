@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+#: Every route the daemon knows about. A route is a capture-time pipeline switch:
+#: one Telegram bot, one ordered step list, one `data/inbox/<route>/` tree.
+#: `info_triage/sync.py` keeps a matching copy so the laptop side stays
+#: independent of this module; the two must not drift.
+ROUTE_NAMES = ("info", "job", "clip", "lang")
 
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
@@ -111,17 +118,34 @@ class MediumExtractorConfig:
 
 
 @dataclass(frozen=True)
+class RouteConfig:
+    name: str
+    #: Name of the environment variable holding this route's bot token. The token
+    #: itself never enters config.yaml; naming the variable here keeps the binding
+    #: greppable and turns a typo into a load-time error.
+    token_env: str
+    steps: tuple[StepConfig, ...]
+
+
+@dataclass(frozen=True)
 class AppConfig:
     path: Path
     data_dir: Path
     web_port: int
+    capture_token_env: str
     grouping_max_gap_seconds: float
     grouping_settle_seconds: float
-    processing_steps: tuple[StepConfig, ...]
+    routes: tuple[RouteConfig, ...]
     linklist_threshold: int
     youtube_extractor: YouTubeExtractorConfig
     instagram_extractor: InstagramExtractorConfig
     medium_extractor: MediumExtractorConfig
+
+    def route(self, name: str) -> RouteConfig:
+        for route in self.routes:
+            if route.name == name:
+                return route
+        raise KeyError(name)
 
 
 def _mapping(value: Any, context: str, allowed: set[str]) -> dict[str, Any]:
@@ -182,8 +206,7 @@ def _optional_string(value: Any, context: str) -> str | None:
     return value.strip()
 
 
-def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
-    context = f"processing.steps[{index}]"
+def _parse_step(value: Any, context: str, base_dir: Path) -> StepConfig:
     if not isinstance(value, dict):
         raise ConfigError(f"{context} must be a mapping")
     name = value.get("name")
@@ -324,6 +347,71 @@ def _parse_step(value: Any, index: int, base_dir: Path) -> StepConfig:
     raise ConfigError(f"{context}.name is unknown: {name}")
 
 
+def _parse_steps(values: Any, context: str, base_dir: Path) -> tuple[StepConfig, ...]:
+    if not isinstance(values, list):
+        raise ConfigError(f"{context} must be a list")
+    steps = tuple(
+        _parse_step(value, f"{context}[{index}]", base_dir) for index, value in enumerate(values)
+    )
+    _validate_step_order(steps, context)
+    return steps
+
+
+def _validate_step_order(steps: tuple[StepConfig, ...], context: str) -> None:
+    """Apply the ordering rules within one route's step list.
+
+    Per route, not globally: two routes may each render an index, but one route
+    may not render two.
+    """
+    names = [step.name for step in steps]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise ConfigError(f"{context} contains duplicate step(s): {', '.join(duplicates)}")
+    if "voice-transcription" in names:
+        voice_index = names.index("voice-transcription")
+        if any(names.index(name) < voice_index for name in TRANSFORM_STEP_NAMES if name in names):
+            raise ConfigError(
+                f"{context}: voice-transcription must appear before every transform step"
+            )
+    if "link-discovery" in names and "url-resolution" in names:
+        if names.index("url-resolution") < names.index("link-discovery"):
+            raise ConfigError(f"{context}: link-discovery must appear before url-resolution")
+    if "content-extraction" in names and "url-resolution" in names:
+        if names.index("content-extraction") < names.index("url-resolution"):
+            raise ConfigError(f"{context}: url-resolution must appear before content-extraction")
+    if "index-render" in names and names[-1] != "index-render":
+        raise ConfigError(f"{context}: index-render must be the last processing step")
+
+
+def _parse_routes(value: Any, base_dir: Path) -> tuple[RouteConfig, ...]:
+    if not isinstance(value, list):
+        raise ConfigError("routes must be a list")
+    routes = []
+    for index, entry in enumerate(value):
+        context = f"routes[{index}]"
+        route = _mapping(entry, context, {"name", "token_env", "steps"})
+        name = _required(route, "name", context)
+        if name not in ROUTE_NAMES:
+            raise ConfigError(f"{context}.name must be one of: {', '.join(ROUTE_NAMES)}")
+        token_env = _required(route, "token_env", context)
+        if not isinstance(token_env, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", token_env):
+            raise ConfigError(
+                f"{context}.token_env must be an upper-case environment variable name"
+            )
+        steps = _parse_steps(_required(route, "steps", context), f"{context}.steps", base_dir)
+        routes.append(RouteConfig(name, token_env, steps))
+
+    names = [route.name for route in routes]
+    if sorted(names) != sorted(ROUTE_NAMES):
+        raise ConfigError(f"routes must declare exactly: {', '.join(ROUTE_NAMES)}")
+    tokens = [route.token_env for route in routes]
+    # Two routes on one token means two pollers on one bot. Telegram answers the
+    # second getUpdates with a 409 and both routes then miss messages.
+    if len(set(tokens)) != len(tokens):
+        raise ConfigError("routes must not share a token_env")
+    return tuple(routes)
+
+
 def _parse_extractors(
     value: Any, base_dir: Path
 ) -> tuple[YouTubeExtractorConfig, InstagramExtractorConfig, MediumExtractorConfig]:
@@ -436,7 +524,7 @@ def load_config(path: Path) -> AppConfig:
     root = _mapping(
         value,
         "configuration",
-        {"storage", "web", "telegram", "processing", "extractors"},
+        {"storage", "web", "telegram", "processing", "routes", "extractors"},
     )
     base_dir = config_path.parent
 
@@ -445,7 +533,7 @@ def load_config(path: Path) -> AppConfig:
         "storage",
         {"data_dir"},
     )
-    web = _mapping(_required(root, "web", "configuration"), "web", {"port"})
+    web = _mapping(_required(root, "web", "configuration"), "web", {"port", "capture_token_env"})
     telegram = _mapping(
         _required(root, "telegram", "configuration"),
         "telegram",
@@ -459,12 +547,17 @@ def load_config(path: Path) -> AppConfig:
     processing = _mapping(
         _required(root, "processing", "configuration"),
         "processing",
-        {"steps", "linklist_threshold"},
+        {"linklist_threshold"},
     )
 
     port = _integer(_required(web, "port", "web"), "web.port", minimum=1)
     if port > 65535:
         raise ConfigError("web.port must be at most 65535")
+    capture_token_env = _required(web, "capture_token_env", "web")
+    if not isinstance(capture_token_env, str) or not re.fullmatch(
+        r"[A-Z][A-Z0-9_]*", capture_token_env
+    ):
+        raise ConfigError("web.capture_token_env must be an upper-case environment variable name")
     max_gap = _number(
         _required(grouping, "max_gap_seconds", "telegram.grouping"),
         "telegram.grouping.max_gap_seconds",
@@ -476,26 +569,7 @@ def load_config(path: Path) -> AppConfig:
     if settle <= max_gap:
         raise ConfigError("telegram.grouping.settle_seconds must be greater than max_gap_seconds")
 
-    step_values = _required(processing, "steps", "processing")
-    if not isinstance(step_values, list):
-        raise ConfigError("processing.steps must be a list")
-    steps = tuple(_parse_step(value, index, base_dir) for index, value in enumerate(step_values))
-    names = [step.name for step in steps]
-    duplicates = sorted({name for name in names if names.count(name) > 1})
-    if duplicates:
-        raise ConfigError(f"processing.steps contains duplicate step(s): {', '.join(duplicates)}")
-    if "voice-transcription" in names:
-        voice_index = names.index("voice-transcription")
-        if any(names.index(name) < voice_index for name in TRANSFORM_STEP_NAMES if name in names):
-            raise ConfigError("voice-transcription must appear before every transform step")
-    if "link-discovery" in names and "url-resolution" in names:
-        if names.index("url-resolution") < names.index("link-discovery"):
-            raise ConfigError("link-discovery must appear before url-resolution")
-    if "content-extraction" in names and "url-resolution" in names:
-        if names.index("content-extraction") < names.index("url-resolution"):
-            raise ConfigError("url-resolution must appear before content-extraction")
-    if "index-render" in names and names[-1] != "index-render":
-        raise ConfigError("index-render must be the last processing step")
+    routes = _parse_routes(_required(root, "routes", "configuration"), base_dir)
 
     linklist_threshold = _integer(
         _required(processing, "linklist_threshold", "processing"),
@@ -514,9 +588,10 @@ def load_config(path: Path) -> AppConfig:
             base_dir,
         ),
         web_port=port,
+        capture_token_env=capture_token_env,
         grouping_max_gap_seconds=max_gap,
         grouping_settle_seconds=settle,
-        processing_steps=steps,
+        routes=routes,
         linklist_threshold=linklist_threshold,
         youtube_extractor=youtube_extractor,
         instagram_extractor=instagram_extractor,

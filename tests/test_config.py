@@ -17,13 +17,30 @@ from info_triage.config import (
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 
+MINIMAL_STEPS = (
+    "      - name: index-render\n        lead_words: 120\n        media_lead_words: 800\n"
+)
 
-def config_text(*, steps: str, data_dir: str = "state", linklist_threshold: int = 8) -> str:
+
+def config_text(
+    *,
+    steps: str,
+    data_dir: str = "state",
+    linklist_threshold: int = 8,
+    other_steps: str = MINIMAL_STEPS,
+) -> str:
+    """Configuration whose `info` route carries `steps`, indented two more spaces.
+
+    The other three routes are always present and always minimal: `routes` must
+    declare all four, and these tests are about one route's step list.
+    """
+    info_steps = "".join(f"  {line}\n" if line else "\n" for line in steps.splitlines())
     return f"""
 storage:
   data_dir: {data_dir}
 web:
   port: 8123
+  capture_token_env: INFO_TRIAGE_CAPTURE_TOKEN
 telegram:
   grouping:
     max_gap_seconds: 2.5
@@ -43,15 +60,27 @@ extractors:
     retry_backoff_seconds: 5
 processing:
   linklist_threshold: {linklist_threshold}
-  steps:
-{steps}
-"""
+routes:
+  - name: info
+    token_env: TELEGRAM_BOT_TOKEN_INFO
+    steps:
+{info_steps}  - name: job
+    token_env: TELEGRAM_BOT_TOKEN_JOB
+    steps:
+{other_steps}  - name: clip
+    token_env: TELEGRAM_BOT_TOKEN_CLIP
+    steps:
+{other_steps}  - name: lang
+    token_env: TELEGRAM_BOT_TOKEN_LANG
+    steps:
+{other_steps}"""
 
 
 def test_shipped_config_has_expected_order_and_explicit_nas_model():
     config = load_config(REPOSITORY / "config.yaml")
 
-    assert [step.name for step in config.processing_steps] == [
+    info = config.route("info")
+    assert [step.name for step in info.steps] == [
         "voice-transcription",
         "text-cleaning",
         "link-discovery",
@@ -59,20 +88,20 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
         "content-extraction",
         "index-render",
     ]
-    resolution = config.processing_steps[3]
+    resolution = info.steps[3]
     assert isinstance(resolution, URLResolutionConfig)
     assert resolution.resolve_budget == 40
-    extraction = config.processing_steps[4]
+    extraction = info.steps[4]
     assert isinstance(extraction, ContentExtractionConfig)
     assert extraction.extract_budget == 5
     assert extraction.linklist_extract_budget == 2
     assert extraction.wall_clock_seconds == 600
     assert extraction.keep_raw is True
-    render = config.processing_steps[5]
+    render = info.steps[5]
     assert isinstance(render, IndexRenderConfig)
     assert render.lead_words == 120
     assert config.linklist_threshold == 8
-    voice = config.processing_steps[0]
+    voice = info.steps[0]
     assert isinstance(voice, VoiceTranscriptionConfig)
     assert voice.backend == "faster-whisper"
     assert voice.model == "small"
@@ -84,6 +113,18 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
     assert config.youtube_extractor.update_channel == "nightly"
     assert isinstance(config.instagram_extractor, InstagramExtractorConfig)
     assert config.instagram_extractor.max_attempts == 3
+
+
+def test_shipped_pass_through_routes_never_retrieve_or_transform():
+    """job, clip and lang record what arrived; only info enriches it."""
+    config = load_config(REPOSITORY / "config.yaml")
+
+    assert [route.name for route in config.routes] == ["info", "job", "clip", "lang"]
+    assert [step.name for step in config.route("job").steps] == ["link-discovery", "index-render"]
+    assert [step.name for step in config.route("clip").steps] == ["link-discovery", "index-render"]
+    assert [step.name for step in config.route("lang").steps] == ["index-render"]
+    assert len({route.token_env for route in config.routes}) == 4
+    assert config.capture_token_env == "INFO_TRIAGE_CAPTURE_TOKEN"
 
 
 def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp_path, monkeypatch):
@@ -109,13 +150,14 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
 
     config = load_config(path)
 
+    steps = config.route("info").steps
     assert config.data_dir == tmp_path / "relative-data"
     assert config.web_port == 8123
-    assert isinstance(config.processing_steps[0], LinkDiscoveryConfig)
-    assert isinstance(config.processing_steps[1], URLResolutionConfig)
-    assert config.processing_steps[1].max_pdf_bytes == 2048
-    assert config.processing_steps[1].resolve_budget == 7
-    assert isinstance(config.processing_steps[2], TextCleaningConfig)
+    assert isinstance(steps[0], LinkDiscoveryConfig)
+    assert isinstance(steps[1], URLResolutionConfig)
+    assert steps[1].max_pdf_bytes == 2048
+    assert steps[1].resolve_budget == 7
+    assert isinstance(steps[2], TextCleaningConfig)
 
 
 @pytest.mark.parametrize(
@@ -194,6 +236,53 @@ def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp
 def test_invalid_processing_configuration_is_rejected(tmp_path, steps, message):
     path = tmp_path / "config.yaml"
     path.write_text(config_text(steps=steps), encoding="utf-8")
+
+    with pytest.raises(ConfigError, match=message):
+        load_config(path)
+
+
+def test_step_errors_name_the_route_they_came_from(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(config_text(steps="    - name: invented\n"), encoding="utf-8")
+
+    with pytest.raises(ConfigError, match=r"routes\[0\]\.steps\[0\]\.name is unknown"):
+        load_config(path)
+
+
+def test_one_step_may_appear_once_per_route_but_on_every_route(tmp_path):
+    """The duplicate rule is per route: four routes each rendering an index is fine."""
+    path = tmp_path / "config.yaml"
+    path.write_text(config_text(steps=MINIMAL_STEPS.replace("      ", "    ")), encoding="utf-8")
+
+    config = load_config(path)
+
+    assert [[step.name for step in route.steps] for route in config.routes] == [
+        ["index-render"]
+    ] * 4
+
+
+@pytest.mark.parametrize(
+    ("replacement", "message"),
+    [
+        (
+            ("token_env: TELEGRAM_BOT_TOKEN_JOB", "token_env: TELEGRAM_BOT_TOKEN_INFO"),
+            "must not share a token_env",
+        ),
+        (("name: lang", "name: info"), "routes must declare exactly"),
+        (("name: clip", "name: invented"), r"routes\[2\]\.name must be one of"),
+        (
+            ("token_env: TELEGRAM_BOT_TOKEN_CLIP", "token_env: not-an-env-var"),
+            "must be an upper-case environment variable name",
+        ),
+    ],
+)
+def test_invalid_route_configuration_is_rejected(tmp_path, replacement, message):
+    old, new = replacement
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        config_text(steps=MINIMAL_STEPS.replace("      ", "    ")).replace(old, new, 1),
+        encoding="utf-8",
+    )
 
     with pytest.raises(ConfigError, match=message):
         load_config(path)

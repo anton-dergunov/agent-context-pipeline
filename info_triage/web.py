@@ -1,16 +1,22 @@
-"""Small read-only operational dashboard and health endpoint."""
+"""Operational dashboard, health endpoint, and the transport-independent ingest."""
 
+import hmac
 import html
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
+from .capture_api import MAX_CAPTURE_REQUEST_BYTES, CaptureError, capture
+from .processing import ProcessingCoordinator
 from .storage import STATUSES, CaptureStore
 
 
 class WebHandler(BaseHTTPRequestHandler):
     store: CaptureStore
+    coordinator: ProcessingCoordinator
+    capture_token: str
+    routes: tuple[str, ...]
 
     def do_GET(self) -> None:
         request = urlsplit(self.path)
@@ -31,6 +37,56 @@ class WebHandler(BaseHTTPRequestHandler):
         body = self._dashboard(selected_view).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self) -> None:
+        if urlsplit(self.path).path != "/capture":
+            self._send_json(404, {"error": "not found"})
+            return
+        try:
+            body = self._capture_body()
+            response = capture(self.store, self.coordinator, body, self.routes)
+        except CaptureError as error:
+            self._send_json(error.status, {"error": str(error)})
+        except Exception as error:
+            self.log_error("capture failed: %s", type(error).__name__)
+            self._send_json(500, {"error": f"capture failed: {type(error).__name__}"})
+        else:
+            self._send_json(201, response)
+
+    def _capture_body(self) -> bytes:
+        """Authorize and read one request, refusing anything unbounded."""
+        if not self._authorized():
+            raise CaptureError("a valid bearer token is required", status=401)
+        content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+        if content_type != "application/json":
+            raise CaptureError("Content-Type must be application/json", status=415)
+        length = self.headers.get("Content-Length")
+        # BaseHTTPRequestHandler will not de-chunk, and reading an unbounded
+        # length is the denial of service. Refuse both before touching rfile.
+        if length is None or not length.isdigit():
+            raise CaptureError("Content-Length is required", status=411)
+        if int(length) > MAX_CAPTURE_REQUEST_BYTES:
+            raise CaptureError(
+                f"body is over the {MAX_CAPTURE_REQUEST_BYTES} byte limit", status=413
+            )
+        return self.rfile.read(int(length))
+
+    def _authorized(self) -> bool:
+        scheme, _, presented = (self.headers.get("Authorization") or "").partition(" ")
+        if scheme != "Bearer":
+            return False
+        # Bytes, because compare_digest raises on a non-ASCII str.
+        return hmac.compare_digest(
+            presented.strip().encode("utf-8"), self.capture_token.encode("utf-8")
+        )
+
+    def _send_json(self, status: int, payload: dict) -> None:
+        body = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -109,13 +165,14 @@ class WebHandler(BaseHTTPRequestHandler):
 
     def _item_table(self, selected_status: str) -> tuple[str, list[str]]:
         heading = (
-            "<tr><th>ID</th><th>Created</th><th>Updated</th>"
+            "<tr><th>Route</th><th>ID</th><th>Created</th><th>Updated</th>"
             "<th>Category</th><th>Rev</th><th>Message</th></tr>"
         )
 
         rows = []
         for item in self.store.items_with_status(selected_status):
-            item_id = self.store.item_name(item["created_at"], item["message_id"])
+            # Item names restart per route, so the route is part of the name.
+            item_id = self.store.item_name(item["created_at"], item["local_id"])
             message = html.escape(item["short_text"] or "")
             if item["processing_step"]:
                 message += (
@@ -127,6 +184,7 @@ class WebHandler(BaseHTTPRequestHandler):
             message += self._problem_details(item["problems"])
             rows.append(
                 "<tr>"
+                f"<td>{html.escape(item['route'])}</td>"
                 f"<td>{html.escape(item_id)}</td>"
                 f"<td>{html.escape(self._display_time(item['created_at']))}</td>"
                 f"<td>{html.escape(self._display_time(item['updated_at']))}</td>"
@@ -136,7 +194,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         if not rows:
-            rows.append('<tr><td colspan="6" class="empty">No items</td></tr>')
+            rows.append('<tr><td colspan="7" class="empty">No items</td></tr>')
         return heading, rows
 
     @staticmethod
@@ -206,11 +264,32 @@ class WebHandler(BaseHTTPRequestHandler):
         return
 
 
+class _WebServer(ThreadingHTTPServer):
+    # Threaded so that a slow capture — a 20 MiB attachment, or a half-open
+    # client — cannot block GET /health, which is the container healthcheck and
+    # the deployment gate.
+    daemon_threads = True
+
+
 def start_web_server(
-    store: CaptureStore, port: int
-) -> tuple[HTTPServer, threading.Thread]:
-    handler = type("ConfiguredWebHandler", (WebHandler,), {"store": store})
-    server = HTTPServer(("0.0.0.0", port), handler)
+    store: CaptureStore,
+    coordinator: ProcessingCoordinator,
+    port: int,
+    *,
+    capture_token: str,
+    routes: tuple[str, ...],
+) -> tuple[ThreadingHTTPServer, threading.Thread]:
+    handler = type(
+        "ConfiguredWebHandler",
+        (WebHandler,),
+        {
+            "store": store,
+            "coordinator": coordinator,
+            "capture_token": capture_token,
+            "routes": routes,
+        },
+    )
+    server = _WebServer(("0.0.0.0", port), handler)
     thread = threading.Thread(
         target=server.serve_forever,
         name="info-triage-web",

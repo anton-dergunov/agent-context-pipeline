@@ -71,9 +71,16 @@ generally useful. In the `productivity-system` repository, see
 `lisp/ps-nav.el`. Two settings point it here:
 
 ```elisp
-(setq ps/info-triage-directory   "~/info-triage-inbox/"
+(setq ps/info-triage-directory   "~/info-triage-inbox/info/"
       ps/info-triage-sync-script "~/projects/tools/info-triage/sync.sh")
 ```
+
+It points at **one route's** directory, not at the inbox root: each route holds
+its own items with its own `triage.org` beside them, and only `info` is triaged
+by hand — `job`, `clip` and `lang` are consumed by other scripts. Point the
+setting at another route's directory to work that one instead; nothing else
+changes, because each view sits next to the items it lists and so every path
+inside it stays a single segment.
 
 Everything is hidden when that directory does not exist, so the configuration
 stays shareable with people who do not run this project.
@@ -123,6 +130,8 @@ it, which is why `/route` is told to quote both.
 
 Emacs reads the directory name back out of the `[[file:<id>/][directory]]` link,
 since that is the only place it appears now that the property drawer is gone.
+It is one path segment and stays one: the views live inside the route directory
+rather than above it, which is exactly what spared this regex the route.
 That link's shape is a contract between the two repositories; `render_org` in
 `info_triage/sync.py` says so, and so does `ps/info-triage--item-directory`. The
 outline levels are part of the same contract: Emacs finds items by `^\*\* <N> `

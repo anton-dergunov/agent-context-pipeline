@@ -46,6 +46,7 @@ mac-transcription = [
 ]
 
 [project.scripts]
+info-triage-capture = "info_triage.capture_cli:main"
 info-triage-clean-text = "info_triage.utilities.text_cleaning:main"
 info-triage-resolve-urls = "info_triage.utilities.url_resolution:main"
 instagram-extract = "info_triage.extractors.instagram.cli:main"

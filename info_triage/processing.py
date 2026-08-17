@@ -6,7 +6,7 @@ import tempfile
 import threading
 import time
 import traceback
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Protocol
@@ -85,7 +85,10 @@ class ProcessorTelemetry:
             "duration_ms": round(duration_ms, 3),
             "processor": processor,
             "outcome": outcome,
+            # Item names repeat across routes, so both are needed to name one.
+            "route": job.route,
             "item_id": job.path.name,
+            "origin_route": job.origin_route,
             "chat_id": job.chat_id,
             "message_id": job.message_id,
             "revision": job.revision,
@@ -125,11 +128,15 @@ class ProcessorTelemetry:
 class ProcessingWorker:
     """Process the durable SQLite queue using exactly one background thread."""
 
-    def __init__(self, store: CaptureStore, pipeline: ProcessingPipeline):
+    def __init__(self, store: CaptureStore, pipelines: Mapping[str, ProcessingPipeline]):
         self.store = store
-        self.pipeline = pipeline
+        self.pipelines = dict(pipelines)
         self.telemetry = ProcessorTelemetry(store)
-        self.store.register_processors(tuple(step.name for step in pipeline.steps))
+        # Counters stay keyed by step name alone, not by route. "Is url-resolution
+        # healthy" is a fleet-wide question, and the route is on every log record.
+        self.store.register_processors(
+            sorted({step.name for pipeline in self.pipelines.values() for step in pipeline.steps})
+        )
         self._wake_event = threading.Event()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -209,7 +216,19 @@ class ProcessingWorker:
     def _process(self, job: ProcessingJob) -> None:
         current_step = None
         try:
-            steps = self.pipeline.steps_for(job)
+            pipeline = self.pipelines.get(job.route)
+            if pipeline is None:
+                # A route with no pipeline is a configuration mistake, and raising
+                # here would strand the item in staging with status `failed`.
+                # Deliver it unenriched and say so loudly instead.
+                logger.error(
+                    "No pipeline configured for route %s; delivering %s unprocessed",
+                    job.route,
+                    job.path.name,
+                )
+                self.store.promote_if_current(job)
+                return
+            steps = pipeline.steps_for(job)
             source = (job.path / CAPTURE_DIR / "source.md").read_text(encoding="utf-8")
             result = ProcessingResult(
                 message_markdown=source,
@@ -251,9 +270,10 @@ class ProcessingWorker:
                         # captured message is the point; enrichment is a bonus.
                         traceback_text = traceback.format_exc()
                         logger.exception(
-                            "Processor %s failed for Telegram item %s",
+                            "Processor %s failed for item %s/%s",
                             step.name,
-                            job.message_id,
+                            job.route,
+                            job.path.name,
                         )
                         outcome = ProcessingStepOutcome.failed(
                             ProcessingIssue(
@@ -295,7 +315,7 @@ class ProcessingWorker:
         except Exception as error:
             if self.store.fail_if_current(job, str(error), current_step):
                 logger.exception(
-                    "Processing failed for Telegram item %s", job.message_id
+                    "Processing failed for item %s/%s", job.route, job.path.name
                 )
 
 
@@ -305,24 +325,28 @@ class ProcessingCoordinator:
     def __init__(
         self,
         store: CaptureStore,
-        pipeline: ProcessingPipeline,
+        pipelines: Mapping[str, ProcessingPipeline],
         worker: ProcessingWorker,
     ):
         self.store = store
-        self.pipeline = pipeline
+        self.pipelines = dict(pipelines)
         self.worker = worker
 
     def submit(self, item: CapturedItem) -> None:
         if item.status != "received":
             return
         job = ProcessingJob(
+            item.origin_route,
             item.chat_id,
             item.message_id,
+            item.route,
+            item.local_id,
             item.revision,
             item.category,
             item.path,
         )
-        if self.pipeline.steps_for(job):
+        pipeline = self.pipelines.get(item.route)
+        if pipeline is not None and pipeline.steps_for(job):
             self.worker.wake()
             return
         self.store.promote_if_current(item)

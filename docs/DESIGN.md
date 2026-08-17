@@ -146,30 +146,36 @@ For example:
 
 ```text
 staging/
-└── 2026-08-08_18492/
-    ├── index.md
-    ├── metadata.json
-    ├── links.json
-    ├── capture/
-    │   ├── source.md
-    │   ├── message.md
-    │   ├── telegram.json
-    │   └── attachments/
-    │       └── 01-photo.jpg
-    └── extracted/
-        └── 01-research-arxiv-2410.04840/
-            ├── content.md
-            ├── metadata.json
-            ├── status.json
-            └── raw/
-                ├── paper.html
-                └── paper.pdf
+└── info/
+    └── 2026-08-08_18492/
+        ├── index.md
+        ├── metadata.json
+        ├── links.json
+        ├── capture/
+        │   ├── source.md
+        │   ├── message.md
+        │   ├── payload.json
+        │   └── attachments/
+        │       └── 01-photo.jpg
+        └── extracted/
+            └── 01-research-arxiv-2410.04840/
+                ├── content.md
+                ├── metadata.json
+                ├── status.json
+                └── raw/
+                    ├── paper.html
+                    └── paper.pdf
 ```
+
+`staging/` and `inbox/` each hold one directory per route, and an item's number
+counts that route's arrivals. Two routes may therefore both hold a
+`2026-08-08_1`; the route is part of the item's name everywhere outside its own
+directory.
 
 `index.md` and `metadata.json` stay at the item root. `index.md` is the item's
 own account of itself and the only file the laptop side has to read;
 `metadata.json` is the item's identity, and synchronization reads every item's
-revision through a metadata-only transfer. Everything captured from Telegram is
+revision through a metadata-only transfer. Everything captured is
 provenance and lives under `capture/`; everything retrieved from the links the
 item carries lives under `extracted/`, one directory per source. Paths recorded
 inside `metadata.json` are relative to the item root.
@@ -233,7 +239,7 @@ resolves that table within a per-item budget and rewrites the readable body.
 Link destinations and titles inserted by resolution are therefore not cleaned
 afterwards, and a second cleaning pass is not the answer.
 
-The complete original Telegram payload remains in `capture/telegram.json`, and
+The complete original Telegram payload remains in `capture/payload.json`, and
 downloaded source media remains in `capture/attachments/`.
 
 For a location or venue, the segment contains a small readable location block
@@ -358,7 +364,7 @@ For example:
 ├── capture/
 │   ├── source.md
 │   ├── message.md
-│   ├── telegram.json
+│   ├── payload.json
 │   └── attachments/
 │       ├── 01-photo.jpg
 │       └── 02-video.mp4
@@ -518,7 +524,7 @@ Content extraction is bounded on both axes: a link budget (five full
 extractions, dropping to two when the item is a link list) and a per-item
 wall-clock ceiling, after which the remaining links stay title-only. It is the
 only expensive stage, so its results are cached outside the item directory and
-keyed on the canonical URL — an item is rebuilt from `capture/telegram.json` on
+keyed on the canonical URL — an item is rebuilt from `capture/payload.json` on
 every Telegram edit, and adding a note to a message must not re-download the
 paper attached to it. No extraction failure ever blocks an item: the failure is
 recorded against its link and the item lands with everything else it has.
@@ -534,7 +540,7 @@ Steps write only to a revision-specific temporary workspace. Storage commits
 `capture/source.md`, `capture/message.md`, and generated output only if the
 claimed revision remains current. Generated output is item-root-relative and may
 not land inside `capture/`, which belongs to the capture layer alone.
-`capture/telegram.json` and original media preserve the exact captured source. A later Telegram edit therefore supersedes a slow result without
+`capture/payload.json` and original media preserve the exact captured source. A later Telegram edit therefore supersedes a slow result without
 blocking capture.
 
 Each step has its own nested workspace and a snapshot of the accumulated

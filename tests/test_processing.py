@@ -22,11 +22,11 @@ from info_triage.storage import CaptureStore
 def wait_for_status(store, message_id, status, timeout=3):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        item = store.get_item(10, message_id)
+        item = store.get_item("info", 10, message_id)
         if item is not None and item["status"] == status:
             return item
         time.sleep(0.01)
-    current = store.get_item(10, message_id)
+    current = store.get_item("info", 10, message_id)
     raise AssertionError(
         f"item {message_id} did not reach {status}; current={dict(current or {})}"
     )
@@ -52,29 +52,32 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline()
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
             item = store.capture(
+                "info",
                 10, 1, "plain", received_at="2026-08-09T10:00:00+00:00"
             )
-            self.assertEqual(store.get_item(10, 1)["status"], "received")
+            self.assertEqual(store.get_item("info", 10, 1)["status"], "received")
             coordinator.submit(item)
 
-            self.assertEqual(store.get_item(10, 1)["status"], "ready")
-            self.assertTrue((Path(temporary) / "inbox" / "2026-08-09_1").is_dir())
+            self.assertEqual(store.get_item("info", 10, 1)["status"], "ready")
+            self.assertTrue((Path(temporary) / "inbox" / "info" / "2026-08-09_1").is_dir())
 
     def test_worker_is_fifo_and_commits_processed_message(self):
         with tempfile.TemporaryDirectory() as temporary:
             calls = []
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline([AppendStep(calls)])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             first = store.capture(
+                "info",
                 10, 1, "first", received_at="2026-08-09T10:00:00+00:00"
             )
             second = store.capture(
+                "info",
                 10, 2, "second", received_at="2026-08-09T10:00:01+00:00"
             )
             coordinator.submit(first)
@@ -88,7 +91,7 @@ class ProcessingTests(unittest.TestCase):
 
             self.assertEqual(calls, [1, 2])
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
+                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
@@ -119,9 +122,10 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline([GenerateStep()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             item = store.capture(
+                "info",
                 10, 1, "image", received_at="2026-08-09T10:00:00+00:00"
             )
             worker.start()
@@ -132,7 +136,7 @@ class ProcessingTests(unittest.TestCase):
                 worker.stop()
 
             generated = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "generated" / "ocr.txt"
+                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "generated" / "ocr.txt"
             )
             self.assertEqual(generated.read_text(), "recognized text")
 
@@ -155,9 +159,10 @@ class ProcessingTests(unittest.TestCase):
             elsewhere.mkdir()
             store = CaptureStore(Path(temporary) / "data")
             pipeline = ProcessingPipeline([OutsideStep(elsewhere)])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             item = store.capture(
+                "info",
                 10, 1, "image", received_at="2026-08-09T10:00:00+00:00"
             )
             worker.start()
@@ -167,7 +172,7 @@ class ProcessingTests(unittest.TestCase):
             finally:
                 worker.stop()
 
-            item_path = Path(temporary) / "data" / "inbox" / "2026-08-09_1"
+            item_path = Path(temporary) / "data" / "inbox" / "info" / "2026-08-09_1"
             self.assertEqual((item_path / "capture" / "source.md").read_text(), "image")
             self.assertFalse((item_path / "generated" / "cached.txt").exists())
             problems = json.loads(ready["problems"])
@@ -188,10 +193,11 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline([SometimesFails(), AppendStep()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             for message_id in (1, 2):
                 item = store.capture(
+                    "info",
                     10,
                     message_id,
                     str(message_id),
@@ -208,7 +214,9 @@ class ProcessingTests(unittest.TestCase):
             # The item is in the inbox with its capture text, and the step that
             # followed the failing one still ran.
             self.assertEqual(
-                (Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md").read_text(),
+                (
+                    Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md"
+                ).read_text(),
                 "1\nprocessed",
             )
             self.assertIsNone(delivered["error"])
@@ -242,9 +250,10 @@ class ProcessingTests(unittest.TestCase):
             data_dir = Path(temporary)
             store = CaptureStore(data_dir)
             pipeline = ProcessingPipeline([MutateThenFail(), AppendStep()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             item = store.capture(
+                "info",
                 10, 1, "original", received_at="2026-08-09T10:00:00+00:00"
             )
             worker.start()
@@ -254,7 +263,7 @@ class ProcessingTests(unittest.TestCase):
             finally:
                 worker.stop()
 
-            ready = data_dir / "inbox" / "2026-08-09_1"
+            ready = data_dir / "inbox" / "info" / "2026-08-09_1"
             self.assertEqual(
                 (ready / "capture" / "message.md").read_text(),
                 "original\nprocessed",
@@ -277,10 +286,11 @@ class ProcessingTests(unittest.TestCase):
             data_dir = Path(temporary)
             store = CaptureStore(data_dir)
             pipeline = ProcessingPipeline([DeclaredFailure()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             source = "first line\nsecond line 世界"
             item = store.capture(
+                "info",
                 10, 1, source, received_at="2026-08-09T10:00:00+00:00"
             )
             worker.start()
@@ -318,14 +328,15 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline([BlockingStep()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
-            first = store.capture(10, 1, "old", received_at="2026-08-09T10:00:00+00:00")
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
+            first = store.capture("info", 10, 1, "old", received_at="2026-08-09T10:00:00+00:00")
             worker.start()
             coordinator.submit(first)
             self.assertTrue(started.wait(3))
 
             edited = store.capture(
+                "info",
                 10,
                 1,
                 "new",
@@ -341,14 +352,14 @@ class ProcessingTests(unittest.TestCase):
 
             self.assertEqual(item["revision"], 2)
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
+                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
                 "new\nrevision 2",
             )
             source = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "source.md"
+                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "source.md"
             ).read_text()
             self.assertEqual(source, "new")
             stats = store.processor_statistics()[0]
@@ -372,16 +383,17 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = CaptureStore(Path(temporary))
             pipeline = ProcessingPipeline([BlockingStep()])
-            worker = ProcessingWorker(store, pipeline)
-            coordinator = ProcessingCoordinator(store, pipeline, worker)
+            worker = ProcessingWorker(store, {"info": pipeline})
+            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             first = store.capture(
+                "info",
                 10, 1, "source", received_at="2026-08-09T10:00:00+00:00"
             )
             worker.start()
             coordinator.submit(first)
             self.assertTrue(started.wait(3))
 
-            categorized = store.categorize(10, 1, "Life")
+            categorized = store.categorize("info", 10, 1, "Life")
             coordinator.submit(categorized)
             release.set()
             try:
@@ -392,7 +404,7 @@ class ProcessingTests(unittest.TestCase):
             self.assertEqual(item["revision"], 2)
             self.assertEqual(item["category"], "Life")
             message = (
-                Path(temporary) / "inbox" / "2026-08-09_1" / "capture" / "message.md"
+                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md"
             ).read_text()
             self.assertEqual(
                 message,
@@ -411,20 +423,21 @@ class ProcessingTests(unittest.TestCase):
             }
             source = render_capture_payloads([payload])
             first = store.capture(
+                "info",
                 10,
                 1,
                 source,
                 received_at="2026-08-09T10:00:00+00:00",
-                telegram_payload=payload,
+                capture_payload=payload,
             )
             store.promote_if_current(first)
 
             # The retained raw payload, not either derived Markdown file, owns
             # source reconstruction for the next revision.
-            ready = data_dir / "inbox" / "2026-08-09_1"
+            ready = data_dir / "inbox" / "info" / "2026-08-09_1"
             (ready / "capture" / "source.md").write_text("stale transformed text")
             (ready / "capture" / "message.md").write_text("stale transformed text")
-            categorized = store.categorize(10, 1, "Life")
+            categorized = store.categorize("info", 10, 1, "Life")
             store.promote_if_current(categorized)
 
             self.assertEqual((ready / "capture" / "source.md").read_text(), source)
@@ -434,18 +447,18 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
             store = CaptureStore(data_dir)
-            store.capture(10, 1, "plain", received_at="2026-08-09T10:00:00+00:00")
+            store.capture("info", 10, 1, "plain", received_at="2026-08-09T10:00:00+00:00")
             self.assertIsNotNone(store.claim_next_received())
-            self.assertEqual(store.get_item(10, 1)["status"], "processing")
+            self.assertEqual(store.get_item("info", 10, 1)["status"], "processing")
 
             recovered = CaptureStore(data_dir)
-            self.assertEqual(recovered.get_item(10, 1)["status"], "received")
+            self.assertEqual(recovered.get_item("info", 10, 1)["status"], "received")
 
             interrupted = recovered.claim_next_received()
             self.assertIsNotNone(interrupted)
-            interrupted.path.rename(data_dir / "inbox" / interrupted.path.name)
+            interrupted.path.rename(data_dir / "inbox" / "info" / interrupted.path.name)
             promoted = CaptureStore(data_dir)
-            self.assertEqual(promoted.get_item(10, 1)["status"], "ready")
+            self.assertEqual(promoted.get_item("info", 10, 1)["status"], "ready")
 
 
 if __name__ == "__main__":

@@ -16,9 +16,10 @@ from telegram.ext import (
     filters,
 )
 
+from .config import ROUTE_NAMES
 from .models import AttachmentSpec, DownloadedAttachment
 from .processing import ProcessingCoordinator
-from .rendering import message_content, payload_order, render_capture_payloads
+from .rendering import entity_slice, message_content, payload_order, render_capture_payloads
 from .storage import CaptureStore
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
@@ -219,15 +220,40 @@ def group_new_messages(
     return batches
 
 
+def requested_route(payloads: list[dict[str, Any]]) -> str | None:
+    """Return the route a `#route` hashtag asks for, or None.
+
+    The correction path for having shared to the wrong bot: edit the message, add
+    `#job`, and the item moves. Read out of Telegram's own `hashtag` entities
+    rather than out of the text, because Telegram has already located them and a
+    `#clip` inside a URL fragment is not an instruction.
+    """
+    found = set()
+    for payload in payloads:
+        for text_key, entity_key in (("text", "entities"), ("caption", "caption_entities")):
+            text = payload.get(text_key)
+            if not isinstance(text, str):
+                continue
+            for entity in payload.get(entity_key) or ():
+                if not isinstance(entity, dict) or entity.get("type") != "hashtag":
+                    continue
+                tag = entity_slice(text, entity.get("offset"), entity.get("length"))
+                if tag and tag[1:].lower() in ROUTE_NAMES:
+                    found.add(tag[1:].lower())
+    # Two routes named at once says nothing about which was meant. Never guess.
+    return found.pop() if len(found) == 1 else None
+
+
 def _pending_batches(
     store: CaptureStore,
+    origin_route: str,
     chat_id: int,
     max_gap_seconds: float = CAPTURE_GROUP_MAX_GAP_SECONDS,
 ) -> list[tuple[int | None, list[dict[str, Any]]]]:
     existing: dict[int, list[dict[str, Any]]] = {}
     new_rows = []
-    for row in store.pending_messages(chat_id):
-        item = store.item_for_source_message(chat_id, row["message_id"])
+    for row in store.pending_messages(origin_route, chat_id):
+        item = store.item_for_source_message(origin_route, chat_id, row["message_id"])
         if item is None:
             new_rows.append(row)
         else:
@@ -253,7 +279,7 @@ def schedule_capture_finalization(application: Application, chat_id: int) -> Non
         task.cancel()
     tasks[chat_id] = application.create_task(
         finalize_pending_chat(application, chat_id),
-        name=f"capture-group-{chat_id}",
+        name=f"capture-group-{application.bot_data['route']}-{chat_id}",
     )
 
 
@@ -265,9 +291,10 @@ async def _finalize_batch(
 ) -> None:
     store: CaptureStore = application.bot_data["store"]
     coordinator: ProcessingCoordinator = application.bot_data["coordinator"]
+    origin_route: str = application.bot_data["route"]
     staged_payloads = {row["message_id"]: row["payload"] for row in rows}
     existing_bundle = (
-        store.item_bundle(chat_id, item_message_id)
+        store.item_bundle(origin_route, chat_id, item_message_id)
         if item_message_id is not None
         else None
     )
@@ -305,21 +332,24 @@ async def _finalize_batch(
     edited_at = max(
         (row["edited_at"] for row in rows if row["edited_at"]), default=None
     )
-    telegram_payload = payloads[0] if len(payloads) == 1 else {"messages": payloads}
+    capture_payload = payloads[0] if len(payloads) == 1 else {"messages": payloads}
+    current_route = existing_bundle["item"]["route"] if existing_bundle else origin_route
     item = store.capture(
+        origin_route,
         chat_id,
         item_message_id,
         render_capture_payloads(payloads),
+        route=requested_route(payloads) or current_route,
         edited_at=edited_at,
         received_at=received_at,
-        telegram_payload=telegram_payload,
+        capture_payload=capture_payload,
         attachments=attachments,
         replace_attachment_source_ids=replace_source_ids,
         media_group_id=media_group_id,
         source_message_ids=source_message_ids,
     )
     coordinator.submit(item)
-    store.clear_pending_messages(chat_id, [row["message_id"] for row in rows])
+    store.clear_pending_messages(origin_route, chat_id, [row["message_id"] for row in rows])
 
 
 async def finalize_pending_chat(application: Application, chat_id: int) -> None:
@@ -334,7 +364,7 @@ async def finalize_pending_chat(application: Application, chat_id: int) -> None:
             "capture_group_max_gap_seconds", CAPTURE_GROUP_MAX_GAP_SECONDS
         )
         for item_message_id, rows in _pending_batches(
-            store, chat_id, max_gap_seconds
+            store, application.bot_data["route"], chat_id, max_gap_seconds
         ):
             try:
                 await _finalize_batch(application, chat_id, item_message_id, rows)
@@ -353,8 +383,14 @@ async def finalize_pending_chat(application: Application, chat_id: int) -> None:
 
 
 async def recover_pending_captures(application: Application) -> None:
+    """Resume this bot's unfinished capture groups after a restart.
+
+    Scoped to this route: a private chat's id is the user's own id and therefore
+    identical on all four bots, so an unscoped sweep would have every bot try to
+    finalize the others' messages and download their files with the wrong token.
+    """
     store: CaptureStore = application.bot_data["store"]
-    for chat_id in store.pending_chat_ids():
+    for chat_id in store.pending_chat_ids(application.bot_data["route"]):
         schedule_capture_finalization(application, chat_id)
 
 
@@ -384,6 +420,7 @@ async def handle_message(
     raw_payload = json.loads(message.to_json())
     try:
         store.stage_pending_message(
+            context.application.bot_data["route"],
             message.chat_id,
             message.message_id,
             message.media_group_id,
@@ -415,6 +452,7 @@ async def handle_edited_message(
 def build_application(
     bot_token: str,
     allowed_user_id: int,
+    route: str,
     store: CaptureStore,
     coordinator: ProcessingCoordinator,
     *,
@@ -430,6 +468,9 @@ def build_application(
     )
     application.bot_data["store"] = store
     application.bot_data["coordinator"] = coordinator
+    # Which route this bot captures into. Read wherever a store call needs it, and
+    # what makes the per-Application debounce dict route-scoped for free.
+    application.bot_data["route"] = route
     application.bot_data["allowed_user_id"] = allowed_user_id
     application.bot_data["capture_group_max_gap_seconds"] = grouping_max_gap_seconds
     application.bot_data["capture_group_settle_seconds"] = grouping_settle_seconds

@@ -1,8 +1,24 @@
 # Preprocessing Catalogue
 
 This file is the authoritative catalogue of automatic preprocessing applied to
-captured items. `config.yaml` enables processors by listing them under the
-ordered `processing.steps` sequence.
+captured items. `config.yaml` enables processors per route, by listing them
+under that route's ordered `steps` sequence.
+
+## Preprocessing by route
+
+Preprocessing is chosen at capture time by which bot the item was shared to.
+
+| Route | Steps | Why |
+| --- | --- | --- |
+| `info` | `voice-transcription`, `text-cleaning`, `link-discovery`, `url-resolution`, `content-extraction`, `index-render` | The default route: the item is read later and every enrichment pays for itself there |
+| `job` | `link-discovery`, `index-render` | A downstream script already fetches and processes the posting. Discovery is offline and only records the URL so the index can name it |
+| `clip` | `link-discovery`, `index-render` | Downloading happens on the laptop. Nothing here transcribes or OCRs a video |
+| `lang` | `index-render` | A word and its context. There is no link to discover and the wording is the payload |
+
+On every route but `info` the captured text reaches the laptop byte-for-byte as
+it was sent: neither `link-discovery` nor `index-render` rewrites the body.
+
+The table below describes the `info` route.
 
 ## Current behaviour
 
@@ -107,7 +123,7 @@ tab and in the append-only processor log.
 No separate transcript artifact is generated. The transcript exists in both
 the materialized `capture/source.md` and processed `capture/message.md`; the
 original voice file remains under `capture/attachments/` and the original
-Telegram data remains in `capture/telegram.json`.
+Telegram data remains in `capture/payload.json`.
 
 ## Text cleaning and URL/title enrichment
 
@@ -254,7 +270,7 @@ turns it off.
 
 Results are cached outside the item, under `data/extraction-cache/`, keyed on the
 canonical URL. This is not an optimization but a requirement: an item is
-re-materialized from `telegram.json` on every Telegram edit, so without the cache
+re-materialized from `payload.json` on every Telegram edit, so without the cache
 adding a note to a message would re-download the paper attached to it. A cache
 entry's manifest is written last, so an interrupted extraction is re-run rather
 than served half-finished. What the item keeps is a copy: a cache entry is never

@@ -15,22 +15,60 @@ The goal is to make capturing information extremely low-friction while keeping t
 The current implementation is deliberately small:
 
 ```text
-Telegram message
+Telegram message to one of four bots  (or POST /capture)
     -> wait for the configurable nearby-message grouping window
-    -> grouped source and media saved in data/staging/
-    -> queued for the configured single-worker pipeline
+    -> grouped source and media saved in data/staging/<route>/
+    -> queued for that route's single-worker pipeline
        (or direct to inbox when every configured step is inapplicable)
     -> category: Other
-    -> NAS data/inbox/<YYYY-MM-DD>_<message_id>/
+    -> NAS data/inbox/<route>/<YYYY-MM-DD>_<n>/
     -> ./sync.sh
-    -> ~/info-triage-inbox/ item directories + generated triage.md/.org
+    -> ~/info-triage-inbox/<route>/ item directories + generated triage.md/.org
 ```
 
-The directory date is the UTC creation date supplied by Telegram.
+The directory date is the UTC creation date supplied by Telegram, and `<n>`
+counts the items that route has received.
+
+### Routes
+
+Which bot something is shared to decides how it is processed and where it lands.
+That is one tap in the share sheet, the same as sharing anywhere else, and there
+is no follow-up question to answer.
+
+| Route | For | Automatic processing |
+|---|---|---|
+| `info` | Things to think about and file later | Everything: transcription, cleaning, link resolution, retrieval, index |
+| `job` | Job postings | Records the link. Nothing is fetched or rewritten |
+| `clip` | Tango and photography clips | Records the link. Downloading happens on the laptop |
+| `lang` | Vocabulary and phrases, with their context | Nothing. The wording is the point |
+
+Each route has its own bot, its own inbox directory, and its own queue on the
+laptop with its own numbering.
+
+Shared to the wrong bot? Edit the message and add `#job`, `#clip`, `#lang` or
+`#info`. The item moves to that route, is renumbered there, and re-runs that
+route's processing. Two route hashtags at once change nothing.
+
+### Capturing without Telegram
+
+`POST /capture` takes the same item from anywhere:
+
+```bash
+export INFO_TRIAGE_CAPTURE_URL=http://<server>:8000
+export INFO_TRIAGE_CAPTURE_TOKEN=…            # from .env
+
+info-triage-capture --route job "https://example.com/posting  worth a look"
+echo "sobremesa — the talk after a meal" | info-triage-capture --route lang
+info-triage-capture --file spec.pdf "the spec I mentioned"
+```
+
+The endpoint requires a bearer token and is otherwise reachable from the whole
+LAN, exactly as the dashboard already is. Reaching it from elsewhere is a job
+for Tailscale or the equivalent, not for the endpoint itself.
 
 Each completed item keeps `metadata.json` at its root and everything captured
-from Telegram under `capture/`: a materialized `source.md`, a processed
-`message.md`, the complete received Telegram payload in `telegram.json`, and
+under `capture/`: a materialized `source.md`, a processed
+`message.md`, the complete received payload in `payload.json`, and
 useful source media in `capture/attachments/` — documents, photos, video,
 animations, voice/audio notes, and video notes. Albums are one logical message. Consecutive logical messages whose
 Telegram timestamps are no more than three seconds apart are combined into one
@@ -60,9 +98,10 @@ The Python runtime remains deliberately small. `app.py` only wires together
 the application. The `info_triage/` package separates shared models, storage,
 processing, Telegram handling, and the read-only web dashboard. SQLite's
 `received` rows are the durable processing queue, and one background thread
-processes at most one item at a time. The shipped ordered pipeline performs
-voice transcription when applicable, text cleaning, and then bounded URL/title
-enrichment.
+processes at most one item at a time, across every route. The `info` route's
+shipped ordered pipeline performs voice transcription when applicable, text
+cleaning, and then bounded URL/title enrichment; the other three routes do
+almost nothing, so the expensive work only ever runs for `info`.
 
 Voice transcription first materializes the complete segmented body in
 `capture/source.md`. Text cleaning runs next, so that invisible characters and
@@ -72,7 +111,7 @@ bounded public HTML or PDF metadata/first-page text provides a trustworthy
 title; blocked ordinary requests get one anonymous Chrome-compatible HTTP retry.
 The result is the laptop-facing `capture/message.md`; category front matter is
 added only after those body transforms.
-Raw Telegram data remains in `capture/telegram.json`, and original downloaded
+The raw received payload remains in `capture/payload.json`, and original downloaded
 media remains in `capture/attachments/`. Both Markdown files are committed only
 if their source revision is still current.
 
@@ -110,20 +149,31 @@ Apple-Silicon MLX remain available with:
 uv sync --extra surya --extra mac-transcription
 ```
 
-Copy `.env.example` to a local `.env` (it is ignored by Git) and set the two
-credentials:
+Copy `.env.example` to a local `.env` (it is ignored by Git) and set the
+credentials — one bot token per route, plus the capture token:
 
 ```dotenv
-TELEGRAM_BOT_TOKEN=your-token
+TELEGRAM_BOT_TOKEN_INFO=your-token
+TELEGRAM_BOT_TOKEN_JOB=your-token
+TELEGRAM_BOT_TOKEN_CLIP=your-token
+TELEGRAM_BOT_TOKEN_LANG=your-token
 ALLOWED_USER_ID=your-numeric-telegram-user-id
+INFO_TRIAGE_CAPTURE_TOKEN=a-long-random-string   # openssl rand -base64 32
 ```
 
+Create the three new bots with BotFather's `/newbot`, send each a `/start` so
+the chat exists, and pin all four chats in Telegram — the share sheet orders its
+chat row by pinned-then-recent, so pinning is what puts all four in the top row.
+Distinct profile pictures matter more than names at that size. A missing or
+rejected token stops the daemon rather than leaving one route unpolled.
+
 Non-secret daemon settings live in the commented [`config.yaml`](config.yaml).
-Its `processing.steps` list is literal and ordered: remove a step to disable it.
-Relative paths are resolved from the configuration file's directory. Set
-`INFO_TRIAGE_CONFIG` in `.env` only when using another file. Unknown fields,
-invalid values, duplicate steps, and voice transcription after a text transform
-fail startup rather than being silently ignored.
+Each route's `steps` list is literal and ordered: remove a step to disable it for
+that route. Relative paths are resolved from the configuration file's directory.
+Set `INFO_TRIAGE_CONFIG` in `.env` only when using another file. Unknown fields,
+invalid values, duplicate steps within a route, two routes sharing a token
+variable, and voice transcription after a text transform fail startup rather
+than being silently ignored.
 
 The shipped Compose port mapping and health check use the default YAML port
 `8000`. If `web.port` changes, update those two infrastructure values to match;
@@ -164,14 +214,16 @@ Download new/edited items with:
 ./sync.sh
 ```
 
-The synchronization script keeps each delivered Telegram item ID and revision
+The synchronization script keeps each delivered item's route, ID and revision
 under `~/.local/state/info-triage/`. Removing a delivered item directory from
-`~/info-triage-inbox/` marks that revision processed; the next sync removes its
-NAS copy. If a constituent Telegram message is edited later, its higher revision
-is downloaded again.
+`~/info-triage-inbox/<route>/` marks that revision processed; the next sync
+removes its NAS copy. If a constituent Telegram message is edited later, its
+higher revision is downloaded again. An item that moved to another route loses
+its copy in the route it left.
 
-After each successful sync, two views are regenerated as a single oldest-first
-list of the current items, grouped under a heading per day. `triage.md` is the
+After each successful sync, each route gets two views regenerated beside its
+items as a single oldest-first list, grouped under a heading per day. Every route
+numbers from 1 independently. `triage.md` is the
 one to read: each `### N — <id>` section carries the UTC capture time,
 user-facing metadata, a quoted lead, and working links into the self-contained
 item directory. `N` is what you select by ("route items 1, 5 and 10"), runs
