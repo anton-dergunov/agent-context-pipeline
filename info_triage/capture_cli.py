@@ -46,8 +46,26 @@ def _load_env_file(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
+def resolve_route(route: str | None, item_id: str | None) -> str:
+    """Decide which route a request names, given what was and was not asked for.
+
+    A replacement that did not ask to move the item must not move it: a --route
+    defaulting to info would quietly re-file every clip item it corrected.
+    """
+    if route is not None:
+        return route
+    if item_id:
+        return item_id.split("/")[0]
+    return "info"
+
+
 def build_payload(
-    route: str, text: str, files: Sequence[Path], source: str, captured_at: str | None
+    route: str,
+    text: str,
+    files: Sequence[Path],
+    source: str,
+    captured_at: str | None,
+    item_id: str | None = None,
 ) -> dict:
     payload = {
         "route": route,
@@ -64,6 +82,8 @@ def build_payload(
     }
     if captured_at is not None:
         payload["captured_at"] = captured_at
+    if item_id is not None:
+        payload["id"] = item_id
     return payload
 
 
@@ -76,9 +96,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("text", nargs="*", help="Capture text; read from stdin when omitted")
     parser.add_argument(
         "--route",
-        default="info",
+        default=None,
         choices=ROUTE_NAMES,
-        help="Which pipeline and inbox the item belongs to (default: info)",
+        help="Which pipeline and inbox the item belongs to (default: info, or --id's route)",
+    )
+    parser.add_argument(
+        "--id",
+        dest="item_id",
+        help="Replace the item with this handle, as printed by an earlier capture "
+        "(<route>/<name>). Everything omitted here is dropped, attachments included.",
     )
     parser.add_argument(
         "--file",
@@ -102,14 +128,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{TOKEN_VARIABLE} is not set", file=sys.stderr)
         return 2
 
+    route = resolve_route(arguments.route, arguments.item_id)
     text = " ".join(arguments.text) if arguments.text else sys.stdin.read()
     try:
         payload = build_payload(
-            arguments.route,
+            route,
             text.strip(),
             arguments.files,
             arguments.source,
             arguments.captured_at,
+            arguments.item_id,
         )
     except OSError as error:
         print(error, file=sys.stderr)
@@ -126,7 +154,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
-            print(f"{arguments.route}/{json.load(response)['id']}")
+            # The server's route, not the requested one: replacing an item into
+            # another route renumbers it, and this line is the handle to reuse.
+            item = json.load(response)
+            print(f"{item['route']}/{item['id']}")
     except urllib.error.HTTPError as error:
         print(f"{error.code} {error.read().decode('utf-8', 'replace').strip()}", file=sys.stderr)
         return 1

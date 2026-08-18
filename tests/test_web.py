@@ -102,8 +102,8 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class CaptureEndpointTests(unittest.TestCase):
-    """POST /capture: the ingest contract Telegram is only one client of."""
+class CaptureRequests:
+    """Drives POST /capture without a socket, for the two suites below."""
 
     def handler(self, store, body, *, token="secret-token", content_type="application/json"):
         class RecordingHandler(WebHandler):
@@ -139,6 +139,10 @@ class CaptureEndpointTests(unittest.TestCase):
         handler = self.handler(store, json.dumps(payload).encode("utf-8"), **kwargs)
         handler.do_POST()
         return handler.status, json.loads(handler.wfile.getvalue())
+
+
+class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
+    """POST /capture: the ingest contract Telegram is only one client of."""
 
     def test_a_text_capture_lands_as_an_item_in_its_route(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -254,3 +258,146 @@ class CaptureEndpointTests(unittest.TestCase):
             handler.path = "/"
             handler.do_POST()
             self.assertEqual(handler.status, 404)
+
+
+class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
+    """`id` on a capture rewrites the item that handle names, whole."""
+
+    def capture(self, store, route, text, **extra):
+        status, body = self.post(store, {"route": route, "text": text, **extra})
+        self.assertIn(status, (200, 201), body)
+        return body
+
+    def test_a_replacement_rewrites_the_item_in_place(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(store, "job", "first text")
+
+            status, second = self.post(
+                store, {"route": "job", "id": f"job/{first['id']}", "text": "second text"}
+            )
+
+            # 200, not 201: the handle the caller held still names the item.
+            self.assertEqual(status, 200)
+            self.assertEqual(second["id"], first["id"])
+            self.assertEqual(second["route"], "job")
+            item = Path(temporary) / "inbox" / "job" / second["id"]
+            self.assertEqual((item / "capture" / "message.md").read_text(), "second text")
+            payload = json.loads((item / "capture" / "payload.json").read_text())
+            self.assertEqual(payload["text"], "second text")
+            # The revision has to move, or the laptop keeps the copy it deleted.
+            self.assertEqual(second["revision"], 2)
+            metadata = json.loads((item / "metadata.json").read_text())
+            self.assertEqual(metadata["revision"], 2)
+            self.assertFalse((Path(temporary) / "staging" / "job" / second["id"]).exists())
+
+    def test_a_replacement_drops_the_files_it_does_not_repeat(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(
+                store,
+                "info",
+                "the spec",
+                files=[{"name": "spec.pdf", "data": base64.b64encode(b"%PDF-1.4").decode()}],
+            )
+
+            self.post(
+                store, {"route": "info", "id": f"info/{first['id']}", "text": "no spec after all"}
+            )
+
+            item = Path(temporary) / "inbox" / "info" / first["id"]
+            metadata = json.loads((item / "metadata.json").read_text())
+            self.assertEqual(metadata["attachments"], [])
+            self.assertFalse((item / "capture" / "attachments").exists())
+
+    def test_a_replacement_discards_what_the_last_revision_generated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(store, "info", "https://example.com/paper")
+            item = Path(temporary) / "inbox" / "info" / first["id"]
+            (item / "index.md").write_text("---\nkind: link\n---\n")
+            (item / "links.json").write_text("[]")
+            (item / "extracted" / "01-document-abcd").mkdir(parents=True)
+            (item / "extracted" / "01-document-abcd" / "content.md").write_text("old body")
+
+            self.post(store, {"route": "info", "id": f"info/{first['id']}", "text": "never mind"})
+
+            # The old index and extraction describe text that is gone.
+            self.assertFalse((item / "links.json").exists())
+            self.assertFalse((item / "extracted").exists())
+            self.assertEqual((item / "index.md").exists(), False)
+            # Provenance is not generated, and survives.
+            self.assertEqual((item / "capture" / "message.md").read_text(), "never mind")
+            self.assertTrue((item / "metadata.json").is_file())
+
+    def test_a_replacement_may_move_the_item_to_another_route(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(store, "job", "a posting")
+
+            status, moved = self.post(
+                store, {"route": "clip", "id": f"job/{first['id']}", "text": "a posting"}
+            )
+
+            self.assertEqual(status, 200)
+            self.assertEqual(moved["route"], "clip")
+            self.assertFalse((Path(temporary) / "inbox" / "job" / first["id"]).exists())
+            self.assertTrue((Path(temporary) / "inbox" / "clip" / moved["id"]).is_dir())
+
+            # Identity stayed on the route that first received it, so the new
+            # handle keeps resolving to the same item.
+            status, again = self.post(
+                store, {"route": "clip", "id": f"clip/{moved['id']}", "text": "still a posting"}
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(again["revision"], 3)
+            self.assertEqual(again["id"], moved["id"])
+
+    def test_a_handle_that_names_nothing_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(store, "info", "a note")
+            wrong_date = f"info/1999-01-01_{first['id'].split('_')[1]}"
+            for handle, status, message in (
+                ("info/2026-08-18_99", 404, "no item named"),
+                (wrong_date, 404, "no item named"),
+                (f"job/{first['id']}", 404, "no item named"),
+                ("nonsense", 400, "item handle"),
+                ("2026-08-18_1", 400, "item handle"),
+                ("invented/2026-08-18_1", 400, "unknown route"),
+            ):
+                got_status, body = self.post(store, {"route": "info", "id": handle, "text": "x"})
+                self.assertEqual(got_status, status, handle)
+                self.assertIn(message, body["error"], handle)
+
+    def test_a_new_capture_time_is_refused_because_the_handle_carries_it(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            first = self.capture(store, "info", "a note")
+
+            status, body = self.post(
+                store,
+                {
+                    "route": "info",
+                    "id": f"info/{first['id']}",
+                    "text": "a note",
+                    "captured_at": "2026-08-09T10:00:00+00:00",
+                },
+            )
+
+            self.assertEqual(status, 400)
+            self.assertIn("part of the item's id", body["error"])
+
+    def test_a_telegram_capture_is_not_rewritable_over_http(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = CaptureStore(Path(temporary))
+            # A real Telegram message still exists upstream, and editing it would
+            # fight this rewrite over the same directory.
+            item = store.capture("info", 4242, 17, "sent from a phone", route="info")
+
+            status, body = self.post(
+                store, {"route": "info", "id": f"info/{item.path.name}", "text": "rewritten"}
+            )
+
+            self.assertEqual(status, 409)
+            self.assertIn("edit the message instead", body["error"])

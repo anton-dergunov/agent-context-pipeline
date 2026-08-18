@@ -57,14 +57,14 @@ class WebHandler(BaseHTTPRequestHandler):
             return
         try:
             body = self._capture_body()
-            response = capture(self.store, self.coordinator, body, self.routes)
+            status, response = capture(self.store, self.coordinator, body, self.routes)
         except CaptureError as error:
             self._send_json(error.status, {"error": str(error)})
         except Exception as error:
             self.log_error("capture failed: %s", type(error).__name__)
             self._send_json(500, {"error": f"capture failed: {type(error).__name__}"})
         else:
-            self._send_json(201, response)
+            self._send_json(status, response)
 
     def _capture_body(self) -> bytes:
         """Authorize and read one request, refusing anything unbounded."""

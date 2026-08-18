@@ -62,6 +62,21 @@ echo "sobremesa — the talk after a meal" | info-triage-capture --route lang
 info-triage-capture --file spec.pdf "the spec I mentioned"
 ```
 
+Each capture prints the handle of the item it created, such as
+`job/2026-08-18_4`. Passing that handle back rewrites the item rather than
+capturing a second one:
+
+```bash
+info-triage-capture --id job/2026-08-18_4 "the posting, with the note I meant"
+info-triage-capture --id job/2026-08-18_4 --route clip "actually just worth reading"
+```
+
+A rewrite replaces the whole item: attachments not attached again are dropped,
+and the route's processing runs from scratch. Re-filing it under another route
+renumbers it, so the printed handle is the one to keep. The capture time cannot
+be changed — it is part of the handle — and an item captured from Telegram is
+edited by editing the Telegram message.
+
 The endpoint requires a bearer token and is otherwise reachable from the whole
 LAN, exactly as the dashboard already is. Reaching it from elsewhere is a job
 for Tailscale or the equivalent, not for the endpoint itself.

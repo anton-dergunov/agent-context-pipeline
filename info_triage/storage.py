@@ -240,6 +240,19 @@ class CaptureStore:
                 (origin_route, chat_id, message_id),
             ).fetchone()
 
+    def item_by_local_id(self, route: str, local_id: int):
+        """Find an item by the name it is filed under, rather than by identity.
+
+        This is how a client that only kept the `<route>/<name>` handle the
+        capture answered with reaches its item again. `items_route_local_id`
+        makes the pair unique, so a route change moves the handle.
+        """
+        with self._connect() as connection:
+            return connection.execute(
+                "SELECT * FROM items WHERE route = ? AND local_id = ?",
+                (route, local_id),
+            ).fetchone()
+
     def item_for_source_message(self, origin_route: str, chat_id: int, message_id: int):
         with self._connect() as connection:
             return connection.execute(
@@ -781,6 +794,22 @@ class CaptureStore:
                 staging_path,
                 already_known,
             )
+
+    def reset_generated_output(self, item_path: Path) -> None:
+        """Discard everything a previous revision generated inside one item.
+
+        A replacement rewrites the item's content, so the last revision's index,
+        link table and extractions describe text that is gone. What survives is
+        exactly `RESERVED_GENERATED_PATHS`: the paths no step is allowed to
+        write are the ones that are not generated.
+        """
+        for entry in item_path.iterdir():
+            if entry.name in RESERVED_GENERATED_PATHS:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
 
     def categorize(
         self, origin_route: str, chat_id: int, message_id: int, category: str
