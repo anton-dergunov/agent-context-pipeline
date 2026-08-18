@@ -357,19 +357,46 @@
 
     intentInput.focus();
 
-    // Close logic
-    function closeDialog() {
-      document.removeEventListener('keydown', handleKeyDown);
-      host.remove();
-    }
-
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        closeDialog();
+    // Stop all key events inside shadow DOM modal from propagating out to host page (e.g. GitHub shortcuts)
+    function stopEventLeakage(e) {
+      if (e.key === 'Escape') return; // Allow Escape key to be handled by closeDialog
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) {
+        e.stopImmediatePropagation();
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown);
+    ['keydown', 'keyup', 'keypress'].forEach((evt) => {
+      shadow.addEventListener(evt, stopEventLeakage, true);
+    });
+
+    // Global capture phase listener to block external site key handlers when modal is open
+    function handleGlobalKeyCapture(e) {
+      const currentHost = document.getElementById('info-triage-capture-host');
+      if (currentHost && currentHost.shadowRoot) {
+        if (e.key === 'Escape') {
+          closeDialog();
+          return;
+        }
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) {
+          e.stopImmediatePropagation();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyCapture, true);
+    window.addEventListener('keyup', handleGlobalKeyCapture, true);
+    window.addEventListener('keypress', handleGlobalKeyCapture, true);
+
+    // Close logic
+    function closeDialog() {
+      window.removeEventListener('keydown', handleGlobalKeyCapture, true);
+      window.removeEventListener('keyup', handleGlobalKeyCapture, true);
+      window.removeEventListener('keypress', handleGlobalKeyCapture, true);
+      host.remove();
+    }
+
     cancelBtn.addEventListener('click', closeDialog);
     closeBtn.addEventListener('click', closeDialog);
 

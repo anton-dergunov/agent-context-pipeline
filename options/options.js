@@ -166,6 +166,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  const shortcutsLink = document.getElementById('shortcuts-link');
+  if (shortcutsLink) {
+    shortcutsLink.style.cursor = 'pointer';
+    shortcutsLink.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+    });
+  }
+
   function showToast(msg, type) {
     statusToast.textContent = msg;
     statusToast.className = `toast ${type}`;
