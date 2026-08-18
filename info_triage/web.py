@@ -5,11 +5,18 @@ import html
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from .capture_api import MAX_CAPTURE_REQUEST_BYTES, CaptureError, capture
 from .processing import ProcessingCoordinator
 from .storage import STATUSES, CaptureStore
+
+_STATIC_DIR = Path(__file__).parent / "static"
+_STATIC_FILES = {
+    "/favicon.ico": ("favicon.ico", "image/x-icon"),
+    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+}
 
 
 class WebHandler(BaseHTTPRequestHandler):
@@ -22,6 +29,9 @@ class WebHandler(BaseHTTPRequestHandler):
         request = urlsplit(self.path)
         if request.path == "/health":
             self._send_text("Info Triage is running\n")
+            return
+        if request.path in _STATIC_FILES:
+            self._send_static(*_STATIC_FILES[request.path])
             return
         if request.path != "/":
             self.send_error(404)
@@ -91,6 +101,15 @@ class WebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_static(self, filename: str, content_type: str) -> None:
+        body = (_STATIC_DIR / filename).read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_text(self, content: str) -> None:
         body = content.encode("utf-8")
         self.send_response(200)
@@ -131,6 +150,8 @@ class WebHandler(BaseHTTPRequestHandler):
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="10">
   <title>Info Triage</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <style>
     body {{ font: 15px system-ui, sans-serif; margin: 2rem; color: #202124; }}
     h1 {{ margin: 0 0 1.5rem; }}
