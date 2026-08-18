@@ -326,6 +326,16 @@ the vault has actually doubled rather than pre-emptively.
 
 ## 7. Where this should run — reviewing the GitHub-polling proposal
 
+> **Superseded — see `docs/Related-notes-implementation-plan.md` §1.** This section
+> argued for a NAS pipeline step fed by a laptop-pushed index, against the original
+> GitHub-polling proposal. §3a then removed the embedding model, which was the only
+> component expensive enough to justify precomputing anywhere. Measured end to end,
+> the whole job is **63 s on the laptop for 15 items** (0.6 s to parse both corpora,
+> 0.4 s to build two BM25 indices, 4.2 s to load the reranker, 57.4 s to rerank).
+> It therefore runs entirely in `sync.py`, after the download and before view
+> generation. The reasoning below about *not* polling GitHub still stands and is
+> now stronger: there is nothing to fetch and nothing to push.
+
 The proposal was: the NAS pulls both repos from GitHub on a timer and rebuilds
 embeddings in the background, with a token and repo paths in `config.yaml`.
 
