@@ -63,9 +63,9 @@ info-triage-capture-extension/
 Right-click the extension icon in Chrome and click **Options** (or go to `chrome://extensions` → Details → Extension options).
 
 Enter your server credentials:
-- **INFO_TRIAGE_CAPTURE_URL**: e.g., `https:// <your-server-domain>` (or ` <your-server-domain>`)
+- **INFO_TRIAGE_CAPTURE_URL**: e.g., `https://<your-server-domain>` (or `<your-server-domain>`)
 - **INFO_TRIAGE_CAPTURE_PORT**: e.g., `8443`
-- **INFO_TRIAGE_CAPTURE_TOKEN**: e.g., ` <your-token-here>=`
+- **INFO_TRIAGE_CAPTURE_TOKEN**: e.g., `<your-token-here>`
 - **Transport**: `https` or `http`
 - **Routes**: Manage allowed capture routes (`info`, `job`, `clip`, `lang`).
 
@@ -110,3 +110,9 @@ Authorization: Bearer <INFO_TRIAGE_CAPTURE_TOKEN>
   "error": "human-readable message"
 }
 ```
+
+---
+
+## 📝 Attribution
+
+- **Icon**: [Reading icons created by Magnific - Flaticon](https://www.flaticon.com/free-icons/reading)
