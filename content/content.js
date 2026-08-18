@@ -407,9 +407,44 @@
     });
 
     let currentCapturedId = null;
+    let isCaptured = false;
+    let lastSavedRoute = '';
+    let lastSavedText = '';
+    let lastSavedIntent = '';
+
+    function checkDirty() {
+      if (!isCaptured) {
+        sendBtnText.textContent = 'Send Capture';
+        return;
+      }
+
+      const currentRoute = routeSelect.value;
+      const currentText = textEditor.value;
+      const currentIntent = intentInput.value.trim();
+
+      const isDirty = (currentRoute !== lastSavedRoute) ||
+                      (currentText !== lastSavedText) ||
+                      (currentIntent !== lastSavedIntent);
+
+      if (isDirty) {
+        sendBtnText.textContent = 'Update Capture';
+      } else {
+        sendBtnText.textContent = 'Close';
+      }
+    }
+
+    routeSelect.addEventListener('change', checkDirty);
+    textEditor.addEventListener('input', checkDirty);
+    intentInput.addEventListener('input', checkDirty);
 
     // Send & Update Logic
     sendBtn.addEventListener('click', async () => {
+      // If captured and no unsaved changes exist, "Close" closes the dialog
+      if (isCaptured && sendBtnText.textContent === 'Close') {
+        closeDialog();
+        return;
+      }
+
       const selectedRoute = routeSelect.value;
       const textContent = textEditor.value;
       const intentText = intentInput.value.trim();
@@ -443,12 +478,18 @@
         setLoading(false);
 
         if (response && response.success) {
-          const isUpdate = Boolean(currentCapturedId);
+          const isUpdate = isCaptured;
           const handle = getItemHandle(response.data);
           if (handle) {
             currentCapturedId = handle;
           }
+          isCaptured = true;
+          lastSavedRoute = selectedRoute;
+          lastSavedText = textContent;
+          lastSavedIntent = intentText;
+
           showSuccessResult(response.data, isUpdate, handle, response.status);
+          checkDirty();
         } else {
           const err = response ? response.error : 'Network error or no response received';
           showErrorResult(err, response ? response.status : 0);
@@ -478,10 +519,10 @@
 
       if (isLoading) {
         sendSpinner.classList.remove('hidden');
-        sendBtnText.textContent = currentCapturedId ? 'Updating...' : 'Sending...';
+        sendBtnText.textContent = isCaptured ? 'Updating...' : 'Sending...';
       } else {
         sendSpinner.classList.add('hidden');
-        sendBtnText.textContent = currentCapturedId ? 'Update Capture' : 'Send Capture';
+        checkDirty();
       }
     }
 
@@ -509,8 +550,6 @@
           </div>
         </div>
       `;
-
-      sendBtnText.textContent = 'Update Capture';
     }
 
     function showErrorResult(errorMsg, statusCode) {
