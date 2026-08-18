@@ -28,8 +28,8 @@
     const routesList = Array.isArray(stored.routes) && stored.routes.length > 0 ? stored.routes : DEFAULTS.routes;
     const defaultRoute = stored.defaultRoute && routesList.includes(stored.defaultRoute) ? stored.defaultRoute : routesList[0];
 
-    // Initial text value: URL + selection if present, else URL
-    const initialText = selection ? `${pageUrl}\n\n${selection}` : pageUrl;
+    // Initial text value: URL + selection formatted with Selection: prefix and quotes, else URL
+    const initialText = selection ? `${pageUrl}\n\nSelection:\n"${selection}"` : pageUrl;
 
     // Create top-level host element in light DOM with absolute modal positioning
     const host = document.createElement('div');
@@ -406,7 +406,9 @@
       }
     });
 
-    // Send Logic
+    let currentCapturedId = null;
+
+    // Send & Update Logic
     sendBtn.addEventListener('click', async () => {
       const selectedRoute = routeSelect.value;
       const textContent = textEditor.value;
@@ -417,15 +419,17 @@
         finalText = `${textContent}\n\nIntent: ${intentText}`;
       }
 
-      // Format ISO timestamp with local UTC offset
-      const capturedAt = getIsoTimestampWithOffset();
-
       const payload = {
         route: selectedRoute,
         text: finalText,
-        source: 'chrome-extension',
-        captured_at: capturedAt
+        source: 'chrome-extension'
       };
+
+      if (currentCapturedId) {
+        payload.id = currentCapturedId;
+      } else {
+        payload.captured_at = getIsoTimestampWithOffset();
+      }
 
       setLoading(true);
       statusArea.innerHTML = '';
@@ -439,7 +443,12 @@
         setLoading(false);
 
         if (response && response.success) {
-          showSuccessResult(response.data);
+          const isUpdate = Boolean(currentCapturedId);
+          const handle = getItemHandle(response.data);
+          if (handle) {
+            currentCapturedId = handle;
+          }
+          showSuccessResult(response.data, isUpdate, handle, response.status);
         } else {
           const err = response ? response.error : 'Network error or no response received';
           showErrorResult(err, response ? response.status : 0);
@@ -450,6 +459,16 @@
       }
     });
 
+    function getItemHandle(data) {
+      if (!data || !data.id) return null;
+      const idStr = String(data.id);
+      if (idStr.includes('/')) {
+        return idStr;
+      }
+      const routeStr = String(data.route || 'info');
+      return `${routeStr}/${idStr}`;
+    }
+
     function setLoading(isLoading) {
       sendBtn.disabled = isLoading;
       cancelBtn.disabled = isLoading;
@@ -459,14 +478,16 @@
 
       if (isLoading) {
         sendSpinner.classList.remove('hidden');
-        sendBtnText.textContent = 'Sending...';
+        sendBtnText.textContent = currentCapturedId ? 'Updating...' : 'Sending...';
       } else {
         sendSpinner.classList.add('hidden');
-        sendBtnText.textContent = 'Send Capture';
+        sendBtnText.textContent = currentCapturedId ? 'Update Capture' : 'Send Capture';
       }
     }
 
-    function showSuccessResult(data) {
+    function showSuccessResult(data, isUpdate = false, handle = null, httpStatus = 201) {
+      const actionTitle = isUpdate ? 'Successfully Updated' : 'Successfully Captured';
+      const displayId = handle || (data.route && data.id ? `${data.route}/${data.id}` : data.id);
       statusArea.innerHTML = `
         <div class="status-card success">
           <div class="status-title">
@@ -474,11 +495,11 @@
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
-            Successfully Captured (HTTP 201)
+            ${actionTitle} (HTTP ${httpStatus})
           </div>
           <div class="meta-grid">
             <span class="meta-key">ID:</span>
-            <span class="meta-val">${escapeHtml(String(data.id || 'N/A'))}</span>
+            <span class="meta-val">${escapeHtml(String(displayId || 'N/A'))}</span>
             <span class="meta-key">Route:</span>
             <span class="meta-val">${escapeHtml(String(data.route || 'N/A'))}</span>
             <span class="meta-key">Status:</span>
@@ -489,10 +510,7 @@
         </div>
       `;
 
-      shadow.getElementById('dialog-footer').innerHTML = `
-        <button type="button" class="btn btn-primary" id="done-btn">Done</button>
-      `;
-      shadow.getElementById('done-btn').addEventListener('click', closeDialog);
+      sendBtnText.textContent = 'Update Capture';
     }
 
     function showErrorResult(errorMsg, statusCode) {

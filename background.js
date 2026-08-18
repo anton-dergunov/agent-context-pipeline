@@ -90,7 +90,7 @@ async function handleCaptureApi(payload, sendResponse) {
       data = {};
     }
 
-    if (res.ok && res.status === 201) {
+    if (res.ok && (res.status === 200 || res.status === 201)) {
       sendResponse({
         success: true,
         status: res.status,
@@ -164,7 +164,7 @@ async function handleTestConnection(providedConfig, sendResponse) {
       data = await res.json();
     } catch (e) {}
 
-    if (res.ok && res.status === 201) {
+    if (res.ok && (res.status === 200 || res.status === 201)) {
       sendResponse({ success: true, status: res.status, data });
     } else {
       sendResponse({
