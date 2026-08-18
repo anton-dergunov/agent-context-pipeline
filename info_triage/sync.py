@@ -11,8 +11,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,6 +22,15 @@ ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
 #: the laptop side is a separate program from the daemon and must not import it.
 #: Each route is its own queue, with its own two views and its own numbering.
 ROUTES = ("info", "job", "clip", "lang")
+#: The one route triaged by hand and handed to `/route`, and so the only one whose
+#: items are annotated with their possible neighbours. `job`, `clip` and `lang` are
+#: consumed by other scripts, which have nothing to do with the plans.
+NEIGHBOUR_ROUTE = "info"
+#: Words of an item's Lead that reach its neighbour query. Measured; see
+#: `docs/Related-notes-design.md` §3.
+NEIGHBOUR_LEAD_WORDS = 120
+#: Where the two corpora live, unless the environment says otherwise.
+NOTES_DIR = "Library/CloudStorage/Dropbox/notes"
 # Mirrors storage.CAPTURE_DIR. Declared here so the laptop-side synchronizer stays
 # independent of the daemon's storage layer, as atomic_write_text already is.
 CAPTURE_DIR = "capture"
@@ -90,6 +100,11 @@ class SyncConfig:
     remote_inbox: str
     local_inbox: Path
     state_dir: Path
+    #: The two note corpora searched for an item's possible neighbours. None disables
+    #: the annotation, as does a path that is not there.
+    org_root: Path | None = None
+    vault_root: Path | None = None
+    annotate: bool = True
 
     @property
     def manifest(self) -> Path:
@@ -113,6 +128,14 @@ class RemoteItem:
 CommandRunner = Callable[[list[str]], None]
 
 
+def _corpus_root(variable: str, default: Path) -> Path | None:
+    """Where one note corpus is. An empty environment variable turns it off."""
+    value = os.environ.get(variable)
+    if value is None:
+        return default
+    return Path(value).expanduser() if value.strip() else None
+
+
 def default_config() -> SyncConfig:
     home = Path.home()
     return SyncConfig(
@@ -120,6 +143,8 @@ def default_config() -> SyncConfig:
         remote_inbox="/volume1/docker/info-triage/data/inbox",
         local_inbox=home / "info-triage-inbox",
         state_dir=home / ".local/state/info-triage",
+        org_root=_corpus_root("INFO_TRIAGE_ORG_ROOT", home / NOTES_DIR / "org"),
+        vault_root=_corpus_root("INFO_TRIAGE_VAULT_ROOT", home / NOTES_DIR / "obsidian"),
     )
 
 
@@ -621,6 +646,143 @@ def generate_inbox(local_inbox: Path) -> None:
         atomic_write_text(route_dir / ORG_NAME, org)
 
 
+def neighbour_query(index: str) -> str:
+    """What one item is about, in the words its own index uses.
+
+    Title, the user's intent and the opening of the Lead — the query the retrieval was
+    measured against. A short-form Lead's stream labels (`**Caption**`) are dropped:
+    they say where the text came from, not what it is about.
+    """
+    fields = _front_matter_fields(index)
+    lead_lines = _index_section(index, "Lead") or _index_section(index, "Captured")
+    lead = " ".join(
+        text
+        for text in _quoted_lines(lead_lines)
+        if not (text.startswith("**") and text.endswith("**"))
+    )
+    parts = (
+        fields.get("title") or fields.get("headline") or "",
+        fields.get("intent", ""),
+        " ".join(lead.split()[:NEIGHBOUR_LEAD_WORDS]),
+    )
+    return ". ".join(part for part in parts if part and part != "null")
+
+
+def _neighbours_module():
+    """Import the annotator lazily.
+
+    Keeps this file free of third-party imports, so `--regenerate` costs nothing and a
+    laptop without the optional extra still synchronizes.
+    """
+    from info_triage import neighbours
+
+    return neighbours
+
+
+def _progress(label: str, done: int, total: int) -> None:
+    """Report the annotation pass: one rewritten line on a terminal, one line per item
+    when the output is piped or run from Emacs."""
+    if not total:
+        print(f"    {label}", flush=True)
+        return
+    line = f"    [{done:>{len(str(total))}}/{total}] {label}"
+    if sys.stdout.isatty():
+        print(f"\r{line}\033[K", end="", flush=True)
+        if done == total:
+            print()
+    else:
+        print(line, flush=True)
+
+
+def _write_blocks(route_dir: Path, blocks: dict[str, str], apply_block: Callable) -> int:
+    """Put each item's block into its own index.md. Returns how many were written.
+
+    An item that is no longer here was processed while this ran, which is the whole
+    point of running it late. It is logged and skipped: `atomic_write_text` creates
+    parents, and would otherwise resurrect the directory the user just dropped as an
+    item holding nothing but an index.
+    """
+    written = 0
+    for name in sorted(blocks):
+        index_path = route_dir / name / INDEX_NAME
+        if not (route_dir / name).is_dir() or not index_path.is_file():
+            print(f"Item is no longer here, leaving it: {NEIGHBOUR_ROUTE}/{name}")
+            continue
+        try:
+            index = index_path.read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"Could not re-read {NEIGHBOUR_ROUTE}/{name}: {error}")
+            continue
+        atomic_write_text(index_path, apply_block(index, blocks[name]))
+        written += 1
+    return written
+
+
+def annotate_inbox(config: SyncConfig) -> None:
+    """Add each `info` item's possible-neighbours section, once the queue is usable.
+
+    This deliberately runs last, after both views are on disk and the items have been
+    announced as ready. It costs about a minute, and it is for the agent rather than
+    for the reader, who is already working the queue by the time it starts. So every
+    index it needs is read into memory before the slow part begins, and every write is
+    conditional on the item still being there.
+
+    Enrichment, in the sense `AGENTS.md` gives the word: nothing here may fail a sync.
+    """
+    route_dir = config.local_inbox / NEIGHBOUR_ROUTE
+    if not config.annotate or not route_dir.is_dir():
+        return
+    if config.org_root is None or config.vault_root is None:
+        return
+    for root in (config.org_root, config.vault_root):
+        if not root.is_dir():
+            print(f"Possible neighbours skipped: no notes at {root}")
+            return
+    try:
+        neighbours = _neighbours_module()
+    except ImportError:
+        print("Possible neighbours skipped: run 'uv sync --extra neighbours' to enable them")
+        return
+
+    # Read first, compute second, write third. Nothing below this loop reads an item
+    # again except to write it, so the user is free to work the queue meanwhile.
+    queries: list[tuple[str, str]] = []
+    for item in sorted(path for path in route_dir.iterdir() if path.is_dir()):
+        try:
+            index = (item / INDEX_NAME).read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"Could not read {NEIGHBOUR_ROUTE}/{item.name}: {error}")
+            continue
+        queries.append((item.name, neighbour_query(index)))
+    if not queries:
+        return
+
+    print(
+        f"==> Looking for possible neighbours of {_plural(len(queries), 'item')} — "
+        "the queue above is ready now; this only adds a section for the agent"
+    )
+    started = time.monotonic()
+    try:
+        blocks = neighbours.annotate(
+            queries, config.org_root, config.vault_root, progress=_progress
+        )
+        written = _write_blocks(route_dir, blocks, neighbours.apply_block)
+        if written:
+            # Rendered from disk immediately before the write, not from what was read
+            # above: dropping an item regenerates both views, so this must reflect
+            # whatever is there now to stay numbered like the `triage.org` beside it.
+            atomic_write_text(route_dir / DIGEST_NAME, _render_digest(_sorted_items(route_dir)))
+    except Exception as error:  # noqa: BLE001 - enrichment may never fail a sync
+        print(f"Possible neighbours skipped: {type(error).__name__}: {error}")
+        return
+    elapsed = f"{time.monotonic() - started:.0f}s"
+    if written:
+        print(f"==> Neighbours added to {written} of {len(queries)} items in {elapsed}")
+        print(f"Rebuilt with them: {route_dir / DIGEST_NAME}")
+    else:
+        print(f"==> No possible neighbours cleared the threshold ({elapsed})")
+
+
 def _remove_stale_local_items(
     config: SyncConfig, remote_items: list[RemoteItem], delivered: dict[str, int]
 ) -> None:
@@ -722,8 +884,11 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
     write_manifest(config.manifest, delivered)
     generate_inbox(config.local_inbox)
 
-    print("==> Synchronization complete")
+    # Everything the laptop was owed is on disk here. What follows is enrichment for
+    # the agent, and the queue is meant to be read while it runs.
+    print("==> Synchronization complete — the inbox is ready to review now")
     print(f"Laptop inbox: {config.local_inbox}")
+    annotate_inbox(config)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -740,14 +905,36 @@ def main(argv: Sequence[str] | None = None) -> int:
             "views renumber together, so the numbers you quote to /route still agree."
         ),
     )
+    parser.add_argument(
+        "--no-neighbours",
+        dest="neighbours",
+        action="store_false",
+        default=None,
+        help=(
+            "Skip the possible-neighbours pass that runs after the items are delivered. "
+            "The sync itself is unaffected either way."
+        ),
+    )
+    parser.add_argument(
+        "--neighbours",
+        dest="neighbours",
+        action="store_true",
+        help=(
+            "Recompute possible neighbours during --regenerate. Without it a regenerate "
+            "reuses the sections already in the item directories, which is what makes it "
+            "instant; pass this when the plans or the vault have moved since the sync."
+        ),
+    )
     arguments = parser.parse_args(argv)
     config = default_config()
     try:
         if arguments.regenerate:
             generate_inbox(config.local_inbox)
             print(f"==> Regenerated {DIGEST_NAME} and {ORG_NAME} in {config.local_inbox}")
+            if arguments.neighbours:
+                annotate_inbox(config)
         else:
-            synchronize(config)
+            synchronize(replace(config, annotate=arguments.neighbours is not False))
     except (SyncError, OSError, subprocess.CalledProcessError) as error:
         print(error, file=sys.stderr)
         return 1

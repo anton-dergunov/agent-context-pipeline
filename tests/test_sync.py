@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import re
 import shutil
@@ -9,15 +11,19 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from info_triage.sync import (
+    DIGEST_NAME,
+    ORG_NAME,
     RemoteItem,
     SyncConfig,
     SyncError,
     _remove_stale_local_items,
     _sorted_items,
+    annotate_inbox,
     atomic_write_text,
     deletion_decision,
     generate_inbox,
     main,
+    neighbour_query,
     read_manifest,
     read_remote_items,
     render_inbox,
@@ -823,3 +829,237 @@ class RouteTests(unittest.TestCase):
             (metadata / "invented").mkdir()
             with self.assertRaisesRegex(SyncError, "Unexpected NAS inbox route directory"):
                 read_remote_items(metadata)
+
+
+BLOCK = (
+    "<!-- neighbours:begin -->\n\n## Possible neighbours — unverified\n\n<!-- neighbours:end -->"
+)
+
+
+class FakeNeighbours:
+    """Stands in for `info_triage.neighbours`: no corpora, no model, no network."""
+
+    def __init__(self, blocks=None, error=None, during=None):
+        self.blocks = blocks or {}
+        self.error = error
+        self.during = during
+        self.queries: list[tuple[str, str]] = []
+        self.reported: list[tuple[str, int, int]] = []
+
+    def annotate(self, queries, org_root, vault_root, *, scorer=None, progress=None):
+        self.queries = list(queries)
+        for position, (key, _) in enumerate(self.queries, start=1):
+            if progress is not None:
+                progress(key, position, len(self.queries))
+        if self.during is not None:
+            self.during()
+        if self.error is not None:
+            raise self.error
+        return {key: self.blocks[key] for key, _ in self.queries if key in self.blocks}
+
+    @staticmethod
+    def apply_block(index, block):
+        """Deliberately the real one: inserting a block is string surgery, not a model."""
+        from info_triage.neighbours import apply_block
+
+        return apply_block(index, block)
+
+
+class NeighbourAnnotationTests(unittest.TestCase):
+    """The annotation runs after delivery, and may never cost an item or a sync."""
+
+    @contextlib.contextmanager
+    def inbox(self, *, notes=True):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state = root / "remote", root / "local", root / "state"
+            for directory in (remote, local, state):
+                directory.mkdir()
+            write_item(remote, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00")
+            write_item(remote, "2026-08-10_2", received_at="2026-08-10T09:00:00+00:00")
+            corpus = root / "notes"
+            corpus.mkdir()
+            config = SyncConfig(
+                "server",
+                "/remote/inbox",
+                local,
+                state,
+                org_root=corpus if notes else None,
+                vault_root=corpus if notes else None,
+            )
+            yield config, FakeSyncCommands(remote)
+
+    def run_sync(self, config, commands, neighbours):
+        output = io.StringIO()
+        with (
+            unittest.mock.patch("info_triage.sync._neighbours_module", return_value=neighbours),
+            contextlib.redirect_stdout(output),
+        ):
+            synchronize(config, commands)
+        return output.getvalue()
+
+    def test_the_queue_is_complete_before_the_annotation_starts(self):
+        """The whole point of running late: both views are usable while this works."""
+        seen = {}
+        with self.inbox() as (config, commands):
+            digest = config.local_inbox / "info" / DIGEST_NAME
+            neighbours = FakeNeighbours(
+                blocks={"2026-08-09_1": BLOCK},
+                during=lambda: seen.update(
+                    digest=digest.read_text(),
+                    org=(config.local_inbox / "info" / ORG_NAME).read_text(),
+                ),
+            )
+            self.run_sync(config, commands, neighbours)
+
+        self.assertIn("### 1 — 2026-08-09_1", seen["digest"])
+        self.assertIn("### 2 — 2026-08-10_2", seen["digest"])
+        self.assertIn("** 2 · ", seen["org"])
+        self.assertNotIn("neighbours:begin", seen["digest"])
+        self.assertEqual([key for key, _ in neighbours.queries], ["2026-08-09_1", "2026-08-10_2"])
+
+    def test_the_block_reaches_the_item_and_the_digest(self):
+        with self.inbox() as (config, commands):
+            neighbours = FakeNeighbours(blocks={"2026-08-10_2": BLOCK})
+            self.run_sync(config, commands, neighbours)
+
+            info = config.local_inbox / "info"
+            self.assertIn("neighbours:begin", (info / "2026-08-10_2" / "index.md").read_text())
+            self.assertNotIn("neighbours:begin", (info / "2026-08-09_1" / "index.md").read_text())
+            digest = (info / DIGEST_NAME).read_text()
+            self.assertEqual(digest.count("neighbours:begin"), 1)
+            # The item's own headings are demoted into the digest; the block's are too.
+            self.assertIn("#### Possible neighbours — unverified", digest)
+            # Navigation only, and no frontmatter changed: the Org view is untouched.
+            self.assertNotIn("neighbours", (info / ORG_NAME).read_text())
+
+    def test_an_item_dropped_while_the_pass_runs_is_left_alone(self):
+        """The user works the queue meanwhile. A gone item is logged, never recreated."""
+        with self.inbox() as (config, commands):
+            dropped = config.local_inbox / "info" / "2026-08-09_1"
+            neighbours = FakeNeighbours(
+                blocks={"2026-08-09_1": BLOCK, "2026-08-10_2": BLOCK},
+                during=lambda: shutil.rmtree(dropped),
+            )
+            output = self.run_sync(config, commands, neighbours)
+
+            self.assertFalse(dropped.exists())
+            self.assertIn("no longer here", output)
+            info = config.local_inbox / "info"
+            self.assertIn("neighbours:begin", (info / "2026-08-10_2" / "index.md").read_text())
+            digest = (info / DIGEST_NAME).read_text()
+            self.assertNotIn("2026-08-09_1", digest)
+            self.assertIn("### 1 — 2026-08-10_2", digest)
+
+    def test_a_failing_annotation_leaves_the_delivered_inbox_intact(self):
+        with self.inbox() as (config, commands):
+            neighbours = FakeNeighbours(error=RuntimeError("no model"))
+            output = self.run_sync(config, commands, neighbours)
+
+            self.assertIn("skipped", output)
+            info = config.local_inbox / "info"
+            self.assertTrue((info / "2026-08-09_1" / "index.md").is_file())
+            self.assertIn("### 2 — 2026-08-10_2", (info / DIGEST_NAME).read_text())
+
+    def test_a_laptop_without_the_extra_still_synchronizes(self):
+        with self.inbox() as (config, commands):
+            output = io.StringIO()
+            with (
+                unittest.mock.patch(
+                    "info_triage.sync._neighbours_module", side_effect=ImportError("no torch")
+                ),
+                contextlib.redirect_stdout(output),
+            ):
+                synchronize(config, commands)
+
+            self.assertIn("uv sync --extra neighbours", output.getvalue())
+            self.assertIn(
+                "### 1 — 2026-08-09_1", (config.local_inbox / "info" / DIGEST_NAME).read_text()
+            )
+
+    def test_without_configured_notes_nothing_is_annotated(self):
+        with self.inbox(notes=False) as (config, commands):
+            with unittest.mock.patch("info_triage.sync._neighbours_module") as module:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    synchronize(config, commands)
+            module.assert_not_called()
+
+    def test_only_the_info_route_is_annotated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inbox, corpus = root / "inbox", root / "notes"
+            inbox.mkdir()
+            corpus.mkdir()
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00", route="job")
+            neighbours = FakeNeighbours(blocks={"2026-08-09_1": BLOCK})
+            config = SyncConfig(
+                "server", "/remote/inbox", inbox, root / "state", org_root=corpus, vault_root=corpus
+            )
+            with (
+                unittest.mock.patch("info_triage.sync._neighbours_module", return_value=neighbours),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                annotate_inbox(config)
+
+            self.assertEqual(neighbours.queries, [])
+            self.assertNotIn(
+                "neighbours", (inbox / "job" / "2026-08-09_1" / "index.md").read_text()
+            )
+
+    def test_no_neighbours_turns_the_pass_off_for_the_whole_sync(self):
+        with self.inbox() as (config, _commands):
+            with unittest.mock.patch("info_triage.sync.default_config", return_value=config):
+                with unittest.mock.patch("info_triage.sync.synchronize") as sync:
+                    self.assertEqual(main(["--no-neighbours"]), 0)
+                    self.assertFalse(sync.call_args.args[0].annotate)
+                with unittest.mock.patch("info_triage.sync.synchronize") as sync:
+                    self.assertEqual(main([]), 0)
+                    self.assertTrue(sync.call_args.args[0].annotate)
+
+    def test_regenerate_reuses_the_sections_already_in_the_items(self):
+        """Renumbering after a drop must stay instant, and the blocks are on disk."""
+        with self.inbox() as (config, commands):
+            neighbours = FakeNeighbours(blocks={"2026-08-09_1": BLOCK})
+            self.run_sync(config, commands, neighbours)
+            neighbours.queries = []
+
+            with (
+                unittest.mock.patch("info_triage.sync._neighbours_module", return_value=neighbours),
+                unittest.mock.patch("info_triage.sync.default_config", return_value=config),
+                unittest.mock.patch("info_triage.sync.run_command") as runner,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(main(["--regenerate"]), 0)
+                self.assertEqual(neighbours.queries, [])
+                self.assertEqual(main(["--regenerate", "--neighbours"]), 0)
+                self.assertEqual(
+                    [key for key, _ in neighbours.queries], ["2026-08-09_1", "2026-08-10_2"]
+                )
+
+            runner.assert_not_called()
+            digest = (config.local_inbox / "info" / DIGEST_NAME).read_text()
+            # One block, whichever path put it there.
+            self.assertEqual(digest.count("neighbours:begin"), 1)
+
+
+class NeighbourQueryTests(unittest.TestCase):
+    def test_the_query_is_the_title_the_intent_and_the_lead(self):
+        index = (
+            "---\nid: x\ntitle: KV cache transfer\nintent: read before the interview\n---\n\n"
+            "## Lead\n\n> the paper argues something\n\n## Links\n\n- https://example.com\n"
+        )
+        self.assertEqual(
+            neighbour_query(index),
+            "KV cache transfer. read before the interview. the paper argues something",
+        )
+
+    def test_a_short_form_lead_keeps_its_streams_and_drops_their_labels(self):
+        index = (
+            "---\nid: x\nheadline: A reel\nintent: null\n---\n\n## Lead\n\n"
+            "> **Caption**\n> what the poster wrote\n>\n> **Spoken audio**\n> what was said\n"
+        )
+        self.assertEqual(neighbour_query(index), "A reel. what the poster wrote what was said")
+
+    def test_an_item_with_no_lead_falls_back_to_what_was_captured(self):
+        index = "---\nid: x\nintent: null\n---\n\n## Captured\n\n> [A page](https://e.com)\n"
+        self.assertEqual(neighbour_query(index), "[A page](https://e.com)")

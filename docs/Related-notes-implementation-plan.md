@@ -14,6 +14,31 @@ Hand this to a fresh session. The evidence behind every decision here is in
 - Do not add this to the daemon, to `config.yaml`, to the Docker image, or to any
   route's `steps` list. See §1.
 
+## 0. Amendments made when this was implemented
+
+Four, all decided with the user before any code was written. Everything else below
+stands.
+
+1. **The pass runs after delivery, not before it.** `sync.sh` writes the items and both
+   views, prints that the inbox is ready to review, and only then searches for
+   neighbours, reporting progress as it goes. The minute this costs is free: the user
+   reads the queue himself for several minutes before handing anything to `/route`, and
+   the block is for the agent, not for him. So he starts immediately and the pass
+   finishes underneath him. Consequences, all load-bearing:
+   - every index it needs is read into memory before the search starts, so his parallel
+     edits are never read half-written;
+   - nothing is written to an item that has since gone — checked, because
+     `atomic_write_text` creates parents and would otherwise resurrect a directory he
+     just dropped. A gone item is logged and skipped, and is not an error;
+   - `triage.md` is re-rendered at the end, from disk, so the blocks reach the file
+     `/route` actually reads.
+2. **`info` only.** `job`, `clip` and `lang` are consumed by other scripts.
+3. **`triage.md` alone is rewritten at the end.** `triage.org` renders from frontmatter,
+   the block adds no field, and the user is looking at that buffer.
+4. **`--regenerate` reuses the blocks already in the item directories** rather than
+   recomputing, which is what keeps renumbering after a drop instant. `--neighbours`
+   forces a fresh pass; `--no-neighbours` skips one.
+
 ## 1. Decision: this runs on the laptop, inside `sync.py`
 
 `docs/Related-notes-design.md` §7 originally proposed a NAS pipeline step fed by a
@@ -27,15 +52,17 @@ corpora as live working copies.
 So: no GitHub token, no polling, no index transfer, no vault mirror on a box that
 serves an unauthenticated dashboard, and no daemon changes at all.
 
-Insertion point is exact. In `sync.py:synchronize()`, between
+Insertion point is exact. In `sync.py:synchronize()` — **amended when built, see §0:
+the annotation runs *after* the views, not before**:
 
 ```python
         _remove_stale_local_items(...)          # existing
         ...rsync -azc download...               # existing
     for item in remote_items: ...               # existing, manifest update
     write_manifest(...)                         # existing
-    annotate_inbox(config.local_inbox, ...)     # NEW — this feature
     generate_inbox(config.local_inbox)          # existing, unchanged
+    print("...ready to review now")             # existing line, reworded
+    annotate_inbox(config)                      # NEW — this feature
 ```
 
 `generate_inbox` is not touched. `triage.md` stays a pure concatenation of
@@ -162,8 +189,9 @@ that. Add to `SyncConfig`:
 ```
 
 defaulted in `default_config()`, overridable by `INFO_TRIAGE_ORG_ROOT` /
-`INFO_TRIAGE_VAULT_ROOT`. Add `--no-neighbours` to skip annotation, and make
-`--regenerate` annotate too, so a regenerate produces the same file a sync would.
+`INFO_TRIAGE_VAULT_ROOT`. Add `--no-neighbours` to skip annotation. (Amended, §0: a
+`--regenerate` reproduces the same file by concatenation, because the block is in each
+`index.md` already; `--neighbours` recomputes when the plans have moved.)
 
 If either root is missing or unreadable: print one line, skip annotation, continue.
 Never raise.

@@ -120,6 +120,28 @@ readable copy.
 a glance and a glance is sometimes wrong. The next `sync.sh` propagates the
 removal to the NAS either way.
 
+## The minute after a sync
+
+`sync.sh` prints `Synchronization complete — the inbox is ready to review now`
+and then keeps running for about a minute, counting through the items. That
+second phase is looking for each `info` item's possible neighbours in the plans
+and the vault, and it writes a section only `/route` cares about. **Start
+reading as soon as the ready line appears** — the items and both views are
+complete at that moment, and the pass is deliberately after them for exactly
+this reason.
+
+Working the queue while it runs is safe, including dropping items. Every index
+it needs is read before the search starts, and nothing is written to an item
+that has gone: a dropped item is reported as `Item is no longer here, leaving
+it` and the run carries on. When it finishes it rewrites `triage.md` alone, so
+the `triage.org` buffer in front of you never changes under you.
+
+If the pass cannot run — no notes directory, or the optional dependency missing
+— it says so in one line and the sync is unaffected. `sync.sh --no-neighbours`
+skips it outright, `g` (`--regenerate`) reuses the sections already in the item
+directories, and `sync.sh --regenerate --neighbours` recomputes them after the
+plans have moved.
+
 ## The item number
 
 The number in a heading is what you pass to `/route` ("route items 1, 5 and
