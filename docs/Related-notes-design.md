@@ -11,7 +11,10 @@ Status: prototype measured, design proposed, nothing implemented in the daemon.
 2. **The embedding is not carrying this.** BM25 over the item's full text puts the
    gold answer in the rerank pool 15/15 times; the embedding manages 12/15 and
    ranks two gold answers 448th and 537th. Start without a vector index. §3a.
-3. **~68% of the token bill is fixed preamble re-read every turn**, not search. The
+3. **Best configuration measured: Opus + hedged wording + destination hint — 40%
+   fewer tokens than the control**, at 1.6x Sonnet's cost, with visibly better
+   routing. Opus reads *less*, not more. §6.
+4. **~68% of the token bill is fixed preamble re-read every turn**, not search. The
    lever is turns and batch size, not corpus size. §6a.
 
 ## 1. The problem this addresses
@@ -178,55 +181,54 @@ quality. A larger bi-encoder would not have solved the abstention problem, and
 `bge-reranker-v2-m3` (568M) was tried and offered no visible gain over the 278M base
 at four times the cost.
 
-## 6. Effect on `/route` — three runs, and the wording is the variable
+## 6. Effect on `/route` — four runs
 
-Same six real items, same skill, same model (`claude-sonnet-5`, the default). Only
-the field differs. One run per condition, so treat single-digit differences as noise
-— the verdict column is the part that is not noise.
+Same six real items, same skill. One run per condition, so treat single-digit token
+differences as noise; the verdict columns are not noise.
 
-| | no field | `## Related` | `## Possible neighbours — unverified` |
-|---|---|---|---|
-| total tokens | 997,415 | 1,010,462 (+1.3%) | **843,168 (−15.5%)** |
-| cost | $1.0237 | $1.0103 | **$0.9445** |
-| turns | 33 | 26 | **24** |
-| wall clock | 225 s | 193 s | 184 s |
-| output tokens | 20,234 | 17,276 | 16,516 |
-| repo-wide greps | 17 | 2 | 8 |
-| verdicts | 5 `TASKIFY`, 1 `DUP`, 1 `MERGE` | **7 `MERGE`** | 4 `MERGE`, 1 `DROP`, 1 `DUP` |
+| | model | field | tokens | cost | turns |
+|---|---|---|---|---|---|
+| control | Sonnet | none | 997,415 | $1.0237 | 33 |
+| anchored | Sonnet | `## Related` | 1,010,462 (+1.3%) | $1.0103 | 26 |
+| hedged | Sonnet | unverified candidates | 843,168 (−15.5%) | $0.9445 | 24 |
+| + destination | Sonnet | + likely destination file | **696,545 (−30.2%)** | $0.8625 | 23 |
+| + destination | **Opus** | + likely destination file | **600,912 (−39.8%)** | $1.3894 | 24 |
 
-**The first version of the field failed on both axes.** It moved slightly *more*
-tokens, and it returned `MERGE` for every single item. On the two items where the
-unaided run and the field run converged on the same neighbouring line — `:304`/`:305`
-for the trace-inversion paper, `:324`/`:325` for the KV-cache paper — they reached
-*opposite* conclusions about whether that neighbour absorbs the item or sits beside
-it. Being handed a plausible home turns "is this new?" into "where does this fit?".
+Three separate effects, each measured:
 
-The unaided run also ran a `vet` check the field run skipped: it opened each LinkedIn
-post looking for a primary source, found none, and marked three tasks `unverified`
-rather than passing paraphrased benchmark numbers off as checked facts.
+**Wording is worth ~17 points.** Labelled `## Related`, the field cost 1.3% *more*
+tokens and returned `MERGE` for all six items. On the two items where the control and
+the anchored run found the same neighbouring line, they reached opposite conclusions
+about whether that neighbour absorbs the item. Rewording the identical rows as
+"machine retrieval, not a finding … an item with a neighbour is as likely to need a
+new task beside it as a merge into it" cut tokens 15.5% and restored a mixed verdict
+set (4 merge, 2 new). **The caveat is part of the feature, not decoration.**
 
-**Rewording the same rows fixed both.** The only change was replacing the heading and
-adding six lines of caveat — "machine retrieval, not a finding … roughly one in eight
-is wrong … an item with a neighbour is as likely to need a new task beside it as a
-merge into it." That version cut tokens 15.5% against the control, cut turns 27%, and
-restored a mixed verdict set including a `DROP` neither other run produced.
+**The destination hint is worth another ~17 points**, and is free — it is the *file*
+of the top-ranked neighbour, not a separate computation. Deriving it instead from the
+32 file charters was tried and measurably fails (~7/20: Rust → `Admin/Funds.org`,
+photography → `Admin/Data.org`), because a charter is too abstract to match a concrete
+paper title. Neighbour-file accuracy is ~90% (top-1 was exactly right 15/20 and in the
+right file 18/20).
 
-Crucially it got the contested case **right**, and said why:
+**Opus is the largest quality step, and costs 1.6x, not 5x.** It used *fewer* tokens
+than Sonnet on identical input (601k vs 697k) because it read less: "items 1 and 3
+have complete abstracts and needed no Read" — using the `lead:` field exactly as the
+skill documents. Net cost ratio against Sonnet on the same variant is **1.61x**.
 
-> **NEW task** → `ML/Systems.org`, sibling to line 324. This NVIDIA paper is a
-> different mechanism — cross-*model* transfer … not cross-instance transfer of the
-> same model — so it earns its own TODO rather than folding into 324.
+The quality gap is not marginal. On the Walmart item, Sonnet proposed one new task;
+Opus identified that four existing tasks (`:143`, `:145`, `:147`, `:149`) already
+cover most of the post and isolated the single genuinely uncovered idea
+(legacy-aware distillation warm-start when swapping a production backbone). That is
+precisely what `dup` exists to do. On the KV-cache item, Opus **rejected the
+destination hint and said why** — "the `Generative_AI.org:48` neighbour is the wrong
+file: this is operational, not architectural" — which is the ideal relationship
+between agent and field. It also cited the user's `intent:`, proposed the
+distinguishing exercise `AGENTS.md` asks for, raised a secondary cross-file note per
+`lenses.md`, and refused to invent a missing link.
 
-That matches the file: `:324` is a one-liner among uniform one-liner siblings
-(chunked prefill, prefix caching, speculative decoding, SLO scheduling), and folding
-a specific paper into it would break the section's granularity. The hedged run also
-found *better* targets than the field suggested — `ML/Ranking.org:357` for the
-Walmart item, `:390` for the Pinterest item — which is what "candidates, verify them"
-is supposed to produce.
-
-**Design consequence: the caveat is part of the feature, not decoration.** Ship the
-section as `## Possible neighbours — unverified` with the disclaimer inline. A bare
-`## Related` heading is actively harmful.
+**Recommendation: Opus, hedged wording, destination hint.** 40% fewer tokens than the
+control at 1.36x its cost, for materially better routing.
 
 ## 6a. Where the tokens actually go
 
@@ -254,17 +256,34 @@ Cost is `turns × context`, and context grows ~8k per item. That makes it
 **superlinear in batch size**: roughly `T·fixed + growth·T²/2`. Six items doubled the
 context, 49k → 98k.
 
-**Practical guidance: 8–12 items per session, and prefer several sessions to one
-large one.** Two sessions of 15 cost less than one of 30, because the back half of a
-large session drags the whole front half through every turn. Going below ~6 wastes
-the fixed 49k preamble. At the measured rate this is ~$0.17/item.
+**Practical guidance: smaller batches than intuition suggests.** Splitting does *not*
+waste the fixed preamble the way it first appears to: total turns are roughly
+constant in the number of items, so `T·fixed` is paid either way, and only the
+quadratic term is halved. What splitting does cost is one session start-up (~4 turns
+× 49k ≈ 200k tokens).
 
-**On model choice.** Both runs used Sonnet. The failure that mattered — uniform
-`MERGE`, skipped `vet` — is a judgement failure, not a retrieval failure, and
-anchoring on a supplied hint is exactly what a stronger model resists better. It is
-therefore possible the original anchoring was a Sonnet artifact rather than a
-property of the field. Since rewording already fixed it at Sonnet prices, Opus is not
-needed for this; it remains the thing to try if a future field variant anchors again.
+Fitting the measured constants (`fixed` 49k, ~4.8 turns/item, ~1.7k context growth
+per turn, ~4 start-up turns) and minimising over batch size `m` for 12 items:
+
+| items per session | sessions | modelled total |
+|---|---|---|
+| 12 | 1 | 6.25M |
+| 6 | 2 | 5.04M |
+| 4 | 3 | 4.79M |
+| 3 | 4 | 4.76M |
+| 2 | 6 | 4.94M |
+| 1 | 12 | 5.97M |
+
+The curve is flat between about 3 and 6 and rises sharply above 8. **One batch of 30
+is the worst option available.** The model ignores cross-item reuse — two items
+routed to the same file share that file's read — which pushes the optimum up somewhat,
+so 4–8 is the defensible range and the exact value is not worth chasing. At the
+measured rate this is ~$0.17/item.
+
+**On model choice.** Measured in §6: Opus costs 1.61x Sonnet on this task, not the
+5x a naive per-token comparison suggests, because it does fewer redundant reads. For
+a task whose whole output is judgement — merge or not, which file, is the source
+primary — that is a good trade, and it is the recommended configuration.
 
 ## 6b. Does this survive a 10x vault?
 
