@@ -14,6 +14,29 @@ overwritten on every sync:
   structural meaning, and an escaper bug would corrupt items rather than merely
   look wrong.
 
+**Saving one link twice.** It happens — read a page, get distracted, save it
+again. The two captures stay two items, keep two numbers and are never deleted,
+but the later one is marked in both views. In `triage.org` it takes a second tag
+and a trailing note on its link line:
+
+```org
+** 6 · [[file:2026-08-18_6/index.md][Just saw that the repository passed 100,000 stars]]  :post:dup:
+   [[file:2026-08-18_6/][directory]] · [[https://www.linkedin.com/posts/…][source]] · dup of 1
+```
+
+In `triage.md` its section keeps its frontmatter and what it captured — the note
+you wrote the second time is not the one you wrote the first — and says where the
+rest is, rather than repeating a body that is identical by construction:
+
+```markdown
+**Duplicate capture** — the same link as item 1 (`2026-08-18_1`). Its sources,
+lead and links are printed there and are not repeated here; what differs is
+below. Route it once, then drop both directories.
+```
+
+Route it once and drop both directories: the numbering makes them two items, but
+they are one thing.
+
 **The two numberings are the same numbering.** Both views are rendered from the
 same oldest-first list in the same pass, and that is the entire interface
 between the halves: the user picks numbers out of the Org view and quotes them

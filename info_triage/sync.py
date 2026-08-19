@@ -277,7 +277,25 @@ def _demote_heading(line: str) -> str:
     return "#" * level + line[match.end(1) :]
 
 
-def _section_body(index: str, item_name: str) -> str:
+def _keep_sections(lines: Sequence[str], headings: Sequence[str]) -> list[str]:
+    """Return only the `## <heading>` sections of LINES named in HEADINGS."""
+    kept: list[str] = []
+    inside = False
+    for line in lines:
+        if line.startswith("## "):
+            inside = line[3:].strip() in headings
+        if inside:
+            kept.append(line)
+    return kept
+
+
+def _section_body(
+    index: str,
+    item_name: str,
+    *,
+    note: str = "",
+    sections: Sequence[str] | None = None,
+) -> str:
     """Turn one index.md into an inbox section: fenced frontmatter, demoted headings.
 
     Frontmatter is only unambiguous at the top of a file, so the delimiters become
@@ -287,6 +305,10 @@ def _section_body(index: str, item_name: str) -> str:
     Relative link destinations are rebased onto the item directory. That is a
     change of vantage point, not of content: `index.md` writes them relative to
     its own directory, and one level up they would resolve to nothing.
+
+    NOTE is this file's own remark about the item rather than part of it, so it
+    sits below the fence rather than inside it. SECTIONS narrows the body to the
+    named sections, which is how a duplicate capture is collapsed.
     """
     lines = index.splitlines()
     body_start = 0
@@ -307,7 +329,13 @@ def _section_body(index: str, item_name: str) -> str:
         line = _demote_heading(line)
         return MARKDOWN_DESTINATION.sub(rf"]({item_name}/\1)", line)
 
-    return "\n".join(lines[:body_start] + [rewrite(line) for line in lines[body_start:]]).strip()
+    body = lines[body_start:]
+    if sections is not None:
+        # The blank line the dropped sections took with them: a heading has to be
+        # separated from whatever now precedes it.
+        body = ["", *_keep_sections(body, sections)]
+    head = lines[:body_start] + (["", note] if note else [])
+    return "\n".join(head + [rewrite(line) for line in body]).strip()
 
 
 def _received_at(metadata: object, item_name: str) -> datetime:
@@ -374,6 +402,88 @@ def _sorted_items(route_dir: Path) -> list[tuple[datetime, str, str]]:
     return items
 
 
+@dataclass(frozen=True)
+class Duplicate:
+    """A repeat capture of a link some earlier item in the queue already has."""
+
+    #: The earliest capture of the same link, by directory name.
+    of: str
+    #: Whether everything this copy would print is already printed under `of`.
+    collapse: bool
+
+
+def duplicate_captures(items: Sequence[tuple[datetime, str, str]]) -> dict[str, Duplicate]:
+    """Map each repeat capture to the earliest capture of the same link.
+
+    Saving one page twice is an ordinary accident — read it, get distracted, save
+    it again — and two captures of one link produce two items whose Sources, Lead
+    and Links are identical, because extraction is cached on the canonical URL.
+    Both items stay on disk exactly as captured; only the views collapse them,
+    and being derived they are corrected by the next sync if this is ever wrong.
+
+    Identity is the canonical URL alone, which by this point has had its tracking
+    parameters stripped, so a link shared once from a share sheet and once by hand
+    is one link. Nothing fuzzier: matching note-only items on their text would be
+    brittle in exchange for collapsing a two-line item.
+
+    ITEMS must be the oldest-first list both views number from, which is what
+    makes the earliest capture the representative and what keeps the two views
+    from disagreeing about which copy that is.
+    """
+    indexes = {name: index for _, name, index in items}
+    first: dict[str, str] = {}
+    duplicates: dict[str, Duplicate] = {}
+    for _, name, index in items:
+        fields = _front_matter_fields(index)
+        url = fields.get("canonical_url", "")
+        # A link list's `canonical_url` is only its top-priority row, so it names
+        # one of the item's links rather than the item.
+        if not url or fields.get("kind") == "linklist":
+            continue
+        original = first.setdefault(url, name)
+        if original == name:
+            continue
+        # Collapsing may never hide what the representative does not itself carry.
+        # The realistic way that happens is an extraction that failed on the first
+        # capture and worked on the second, which would otherwise stub away the
+        # only retrieved copy in the queue.
+        collapse = _has_sources(indexes[original]) or not _has_sources(index)
+        duplicates[name] = Duplicate(original, collapse)
+    return duplicates
+
+
+def _has_sources(index: str) -> bool:
+    return "\n## Sources\n" in index
+
+
+#: The only sections a collapsed duplicate repeats. `## Captured` is the one that
+#: can legitimately differ — the same link saved twice with two different notes —
+#: and `## Problems` may not be dropped from any view: `AGENTS.md` names the three
+#: places a failure surfaces, and all three are meant to keep saying it.
+DUPLICATE_SECTIONS = ("Captured", "Problems")
+
+
+def _duplicate_note(duplicate: Duplicate, positions: dict[str, int]) -> str:
+    """Say what this item repeats, what was left out, and what to do about it.
+
+    Addressed to `/route` rather than to the reader, and worded the way
+    `neighbours.py`'s block is for the same measured reason
+    (`docs/Related-notes-design.md` §6): a bare "duplicate of 1" leaves the agent
+    to work out whether it still has to open anything.
+    """
+    where = f"item {positions[duplicate.of]} (`{duplicate.of}`)"
+    if duplicate.collapse:
+        return (
+            f"**Duplicate capture** — the same link as {where}. Its sources, lead and links "
+            f"are printed there and are not repeated here; what differs is below. "
+            f"Route it once, then drop both directories."
+        )
+    return (
+        f"**Duplicate capture** — the same link as {where}, which retrieved nothing, so this "
+        f"copy is printed in full instead. Route it once, then drop both directories."
+    )
+
+
 def render_inbox(route_dir: Path) -> str:
     return _render_digest(_sorted_items(route_dir))
 
@@ -384,7 +494,13 @@ def _render_digest(items: list[tuple[datetime, str, str]]) -> str:
     The day headings mirror `render_org`'s grouping so the two views describe the
     same shape. They change nothing about how an item is selected: the number is
     still global, positional and identical to the Org view's.
+
+    A repeat capture of a link an earlier item already has keeps its own number
+    and its own section, but the section only carries what could differ between
+    the two — see `duplicate_captures`.
     """
+    duplicates = duplicate_captures(items)
+    positions = {name: position for position, (_, name, _) in enumerate(items, 1)}
     sections: list[str] = []
     day = None
     for position, (received_at, name, index) in enumerate(items, 1):
@@ -392,12 +508,18 @@ def _render_digest(items: list[tuple[datetime, str, str]]) -> str:
         if received_on != day:
             sections.append(f"## {received_on}")
             day = received_on
+        duplicate = duplicates.get(name)
+        body = _section_body(
+            index,
+            name,
+            note=_duplicate_note(duplicate, positions) if duplicate else "",
+            sections=DUPLICATE_SECTIONS if duplicate and duplicate.collapse else None,
+        )
         # The number is what the reader selects by and is regenerated on every
         # sync; the id names the directory and outlives the numbering, so a
         # routing decision recorded against "5 — <id>" survives the next run.
         sections.append(
-            f"{'#' * DIGEST_ITEM_LEVEL} {position} — {name}\n\n"
-            f"{_nav_line(name)}\n\n{_section_body(index, name)}"
+            f"{'#' * DIGEST_ITEM_LEVEL} {position} — {name}\n\n{_nav_line(name)}\n\n{body}"
         )
     content = _header(items)
     if sections:
@@ -539,15 +661,20 @@ def _org_link_description(text: str) -> str:
     return text.replace("[", "(").replace("]", ")")
 
 
-def _org_tag(value: str) -> str:
-    """Return VALUE as a trailing Org tag, or "" when nothing usable is left.
+def _org_tags(*values: str) -> str:
+    """Return VALUES as one trailing Org tag string, or "" when nothing is left.
 
     Org tags admit only `[[:alnum:]_@#%]`, and `kind` comes from an extractor
     rather than from a fixed list, so anything else becomes `_` instead of
-    producing a heading whose tag Org does not read as one.
+    producing a heading whose tag Org does not read as one. Empty values are
+    dropped, so a caller can pass a tag it may or may not have.
     """
-    tag = ORG_TAG_UNSAFE.sub("_", value.strip()).strip("_")
-    return f"  :{tag}:" if tag else ""
+    tags = [
+        tag
+        for tag in (ORG_TAG_UNSAFE.sub("_", value.strip()).strip("_") for value in values)
+        if tag
+    ]
+    return f"  :{':'.join(tags)}:" if tags else ""
 
 
 def _org_italic(text: str) -> str:
@@ -580,7 +707,14 @@ def render_org(items: list[tuple[datetime, str, str]]) -> str:
 
     `showall` rather than `overview`: with two levels, `overview` shows the days
     and hides every item under them, which is the file with its contents removed.
+
+    A repeat capture keeps its own number and its own line — folding two captures
+    into one heading would make the numbering non-injective, and the number is what
+    Emacs finds an item by. It is marked with a `dup` tag and told which item it
+    repeats, and `triage.md` is where what that means is spelled out.
     """
+    duplicates = duplicate_captures(items)
+    positions = {name: position for position, (_, name, _) in enumerate(items, 1)}
     lines = [
         "#+TITLE: Info triage inbox",
         f"#+SUBTITLE: {_summary(items)} — generated by sync.sh, do not edit",
@@ -607,23 +741,22 @@ def render_org(items: list[tuple[datetime, str, str]]) -> str:
         # The kind is a tag rather than a column: Org right-aligns it, which
         # gives every title the same left edge and the full width to run to.
         kind = fields.get("kind", "")
-        tag = _org_tag(kind) if kind and kind != "null" else ""
+        duplicate = duplicates.get(name)
+        tag = _org_tags(kind if kind != "null" else "", "dup" if duplicate else "")
         lines.append(f"** {position} · {heading}{tag}")
         # The user's own words about why he kept it, when they are not already
         # the label — the one thing the heading cannot carry and nothing else has.
         if intent and intent != label:
             lines.append(f"   {_org_italic(_org_text(intent, limit=90))}")
-        lines.append(
-            "   "
-            + " · ".join(
-                link
-                for link in (
-                    _org_link(f"file:{name}/", "directory"),
-                    _org_link(fields.get("canonical_url", ""), "source"),
-                )
-                if link
-            )
-        )
+        # The directory link stays first on this line: Emacs reads the item's own
+        # directory back out of the first one it finds after the heading.
+        trail = [
+            _org_link(f"file:{name}/", "directory"),
+            _org_link(fields.get("canonical_url", ""), "source"),
+        ]
+        if duplicate:
+            trail.append(f"dup of {positions[duplicate.of]}")
+        lines.append("   " + " · ".join(part for part in trail if part))
     return "\n".join(lines) + "\n"
 
 
@@ -744,10 +877,25 @@ def annotate_inbox(config: SyncConfig) -> None:
         print("Possible neighbours skipped: run 'uv sync --extra neighbours' to enable them")
         return
 
+    # A collapsed duplicate's block would be written into an index whose neighbours
+    # section `triage.md` does not print, so the pass would spend a second per item
+    # on nothing. Defensive against a half-deleted item: annotating everything is
+    # the safe answer, and this may not fail a sync.
+    try:
+        collapsed = {
+            name
+            for name, duplicate in duplicate_captures(_sorted_items(route_dir)).items()
+            if duplicate.collapse
+        }
+    except SyncError:
+        collapsed = set()
+
     # Read first, compute second, write third. Nothing below this loop reads an item
     # again except to write it, so the user is free to work the queue meanwhile.
     queries: list[tuple[str, str]] = []
     for item in sorted(path for path in route_dir.iterdir() if path.is_dir()):
+        if item.name in collapsed:
+            continue
         try:
             index = (item / INDEX_NAME).read_text(encoding="utf-8")
         except OSError as error:

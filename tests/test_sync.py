@@ -21,6 +21,7 @@ from info_triage.sync import (
     annotate_inbox,
     atomic_write_text,
     deletion_decision,
+    duplicate_captures,
     generate_inbox,
     main,
     neighbour_query,
@@ -37,6 +38,32 @@ def index_text(name: str, captured_at: str, body: str = "> a note") -> str:
     return (
         f"---\nid: {name}\ncaptured_at: {captured_at}\nintent: null\n---\n\n## Captured\n\n{body}\n"
     )
+
+
+def linked_index(
+    name: str,
+    captured_at: str,
+    url: str,
+    *,
+    kind: str = "post",
+    sources: bool = True,
+    captured: str = "> a note",
+    problem: str = "",
+) -> str:
+    """An index carrying every section a duplicate collapse has to reason about."""
+    text = (
+        f"---\nid: {name}\ncaptured_at: {captured_at}\nintent: null\nkind: {kind}\n"
+        f"canonical_url: {url}\n---\n\n## Captured\n\n{captured}\n"
+    )
+    if sources:
+        text += (
+            "\n## Sources\n\n1. [content.md](extracted/01-web-a/content.md) — complete · 900 words"
+            "\n\n## Lead\n\n> the opening of the body\n"
+        )
+    text += f"\n## Links\n\n1. <{url}> — web · resolved\n"
+    if problem:
+        text += f"\n## Problems\n\n- {problem}\n"
+    return text
 
 
 def write_item(
@@ -898,6 +925,27 @@ class NeighbourAnnotationTests(unittest.TestCase):
             synchronize(config, commands)
         return output.getvalue()
 
+    def test_a_collapsed_duplicate_is_not_annotated(self):
+        """Its block would be written into an index whose section `triage.md` does
+        not print, so the pass would spend its time on nothing."""
+        url = "https://example.com/post"
+        with self.inbox() as (config, commands):
+            for name, day in (("2026-08-11_3", 11), ("2026-08-12_4", 12)):
+                received_at = f"2026-08-{day}T09:00:00+00:00"
+                write_item(
+                    commands.remote_inbox,
+                    name,
+                    received_at=received_at,
+                    index=linked_index(name, received_at, url),
+                )
+            neighbours = FakeNeighbours()
+            self.run_sync(config, commands, neighbours)
+
+        self.assertEqual(
+            [key for key, _ in neighbours.queries],
+            ["2026-08-09_1", "2026-08-10_2", "2026-08-11_3"],
+        )
+
     def test_the_queue_is_complete_before_the_annotation_starts(self):
         """The whole point of running late: both views are usable while this works."""
         seen = {}
@@ -1063,3 +1111,128 @@ class NeighbourQueryTests(unittest.TestCase):
     def test_an_item_with_no_lead_falls_back_to_what_was_captured(self):
         index = "---\nid: x\nintent: null\n---\n\n## Captured\n\n> [A page](https://e.com)\n"
         self.assertEqual(neighbour_query(index), "[A page](https://e.com)")
+
+
+
+class DuplicateCaptureTests(unittest.TestCase):
+    """Saving one link twice is an ordinary accident: the views collapse it, and
+    nothing on disk is touched."""
+
+    URL = "https://example.com/post"
+
+    def inbox(self, temporary, *items):
+        """Write ITEMS as `(name, day, index kwargs or None)`, oldest first."""
+        inbox = Path(temporary)
+        for name, day, kwargs in items:
+            received_at = f"2026-08-{day:02d}T09:00:00+00:00"
+            index = None if kwargs is None else linked_index(name, received_at, **kwargs)
+            write_item(inbox, name, received_at=received_at, index=index)
+        return inbox / "info"
+
+    def test_a_repeat_capture_is_matched_to_the_earliest_one(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL}),
+                ("2026-08-10_2", 10, {"url": self.URL}),
+                ("2026-08-11_3", 11, {"url": self.URL}),
+            )
+
+            duplicates = duplicate_captures(_sorted_items(route))
+
+            # Both later copies point at the earliest, never at each other.
+            self.assertEqual(
+                {name: value.of for name, value in duplicates.items()},
+                {"2026-08-10_2": "2026-08-09_1", "2026-08-11_3": "2026-08-09_1"},
+            )
+            self.assertTrue(all(value.collapse for value in duplicates.values()))
+
+    def test_a_different_link_a_link_list_and_a_note_are_never_duplicates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL}),
+                ("2026-08-10_2", 10, {"url": "https://example.com/other"}),
+                # A link list's canonical_url is only its top-priority row, so two
+                # reading lists sharing a first link are still two items.
+                ("2026-08-11_3", 11, {"url": self.URL, "kind": "linklist"}),
+                ("2026-08-12_4", 12, None),
+            )
+
+            self.assertEqual(duplicate_captures(_sorted_items(route)), {})
+
+    def test_the_digest_keeps_only_what_could_differ(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL}),
+                ("2026-08-10_2", 10, {"url": self.URL, "captured": "> my second thought"}),
+            )
+
+            result = render_inbox(route)
+            first, second = result.split("### 2 — 2026-08-10_2")
+
+            # The representative is untouched, and carries what the stub drops.
+            self.assertIn("#### Sources", first)
+            self.assertIn("#### Links", first)
+            # The stub names the item by the number the reader selects by, keeps
+            # the frontmatter verbatim, and keeps the one section that can differ.
+            self.assertIn(
+                "**Duplicate capture** — the same link as item 1 (`2026-08-09_1`)", second
+            )
+            self.assertIn("```yaml\nid: 2026-08-10_2", second)
+            self.assertIn(f"canonical_url: {self.URL}", second)
+            self.assertIn("#### Captured\n\n> my second thought", second)
+            for dropped in ("#### Sources", "#### Lead", "#### Links"):
+                self.assertNotIn(dropped, second)
+
+    def test_problems_are_never_dropped_from_a_stub(self):
+        """One of the three places a failure surfaces; all three keep saying it."""
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL}),
+                ("2026-08-10_2", 10, {"url": self.URL, "problem": "url-resolution: timed out"}),
+            )
+
+            second = render_inbox(route).split("### 2 — 2026-08-10_2")[1]
+
+            self.assertIn("#### Problems\n\n- url-resolution: timed out", second)
+            self.assertNotIn("#### Sources", second)
+
+    def test_a_duplicate_is_printed_in_full_when_the_earliest_retrieved_nothing(self):
+        """Collapsing may never hide what the representative does not itself carry."""
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL, "sources": False}),
+                ("2026-08-10_2", 10, {"url": self.URL}),
+            )
+
+            self.assertFalse(duplicate_captures(_sorted_items(route))["2026-08-10_2"].collapse)
+
+            second = render_inbox(route).split("### 2 — 2026-08-10_2")[1]
+            # Still marked, so the repeat is never left for the reader to notice.
+            self.assertIn("**Duplicate capture** — the same link as item 1", second)
+            self.assertIn("which retrieved nothing", second)
+            self.assertIn("#### Sources", second)
+            self.assertIn("#### Lead", second)
+
+    def test_the_org_view_marks_the_duplicate_and_keeps_its_own_number(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            route = self.inbox(
+                temporary,
+                ("2026-08-09_1", 9, {"url": self.URL}),
+                ("2026-08-10_2", 10, {"url": self.URL}),
+            )
+
+            lines = render_org(_sorted_items(route)).splitlines()
+            heading = next(line for line in lines if line.startswith("** 2 · "))
+            trail = lines[lines.index(heading) + 1]
+
+            # The kind keeps its tag; `dup` joins it rather than replacing it.
+            self.assertTrue(heading.endswith("  :post:dup:"), heading)
+            self.assertNotIn(":dup:", next(line for line in lines if line.startswith("** 1 · ")))
+            # The directory link stays first: Emacs reads the item's id out of it.
+            self.assertTrue(trail.strip().startswith("[[file:2026-08-10_2/][directory]]"), trail)
+            self.assertTrue(trail.endswith(" · dup of 1"), trail)
