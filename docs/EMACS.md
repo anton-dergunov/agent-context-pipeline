@@ -159,6 +159,26 @@ that has gone: a dropped item is reported as `Item is no longer here, leaving
 it` and the run carries on. When it finishes it rewrites `triage.md` alone, so
 the `triage.org` buffer in front of you never changes under you.
 
+Where it looks is set in `~/.config/info-triage/sync.toml` (under
+`$XDG_CONFIG_HOME` when that is set):
+
+```toml
+[neighbours]
+org_root = "~/Library/CloudStorage/Dropbox/notes/org"
+obsidian_root = "~/obsidian"
+# Org files never searched. Replaces the default list (workspace.org, init.org).
+org_exclude = ["workspace.org", "init.org", "Inbox.org", "Unsorted.org"]
+```
+
+Each setting can be overridden for one run by an environment variable:
+`INFO_TRIAGE_ORG_ROOT`, `INFO_TRIAGE_OBSIDIAN_ROOT`, and `INFO_TRIAGE_ORG_EXCLUDE`
+(comma-separated). An empty value turns a corpus off. Without the file, the roots
+default to `notes/org` and `notes/obsidian` in the Dropbox folder. A file with an
+unknown key, a wrong type or broken TOML is reported in one line and ignored, and
+the sync goes on with the defaults. Emacs starts `sync.sh` with its own
+environment, so the file is the reliable place for these; a variable exported only
+in a terminal does not reach a sync started from Emacs.
+
 If the pass cannot run — no notes directory, or the optional dependency missing
 — it says so in one line and the sync is unaffected. `sync.sh --no-neighbours`
 skips it outright, `g` (`--regenerate`) reuses the sections already in the item
