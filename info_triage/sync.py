@@ -12,7 +12,8 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sequence
+import tomllib
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,8 +30,26 @@ NEIGHBOUR_ROUTE = "info"
 #: Words of an item's Lead that reach its neighbour query. Measured; see
 #: `docs/Related-notes-design.md` §3.
 NEIGHBOUR_LEAD_WORDS = 120
-#: Where the two corpora live, unless the environment says otherwise.
+#: Where the two corpora live, unless the settings file or the environment says
+#: otherwise.
 NOTES_DIR = "Library/CloudStorage/Dropbox/notes"
+#: The laptop's own settings, under `$XDG_CONFIG_HOME` (`~/.config` by default). The
+#: daemon's `config.yaml` is not read here: the two are separate programs, and that
+#: file rejects fields it does not know.
+SETTINGS_FILE = "info-triage/sync.toml"
+#: What each key of the settings file's `[neighbours]` table may be overridden by. An
+#: environment variable wins even when empty, which is how a corpus is turned off for
+#: one run.
+NEIGHBOUR_SETTINGS = {
+    "org_root": "INFO_TRIAGE_ORG_ROOT",
+    "obsidian_root": "INFO_TRIAGE_OBSIDIAN_ROOT",
+    "org_exclude": "INFO_TRIAGE_ORG_EXCLUDE",
+}
+#: Org files left out of the neighbour search unless the settings name others: the
+#: Emacs configuration's per-folder settings, which are not plans. Setting
+#: `org_exclude` replaces this list rather than adding to it. Mirrors
+#: `neighbours.ORG_SKIP`, which this module must not import.
+DEFAULT_ORG_EXCLUDE = ("workspace.org", "init.org")
 # Mirrors storage.CAPTURE_DIR. Declared here so the laptop-side synchronizer stays
 # independent of the daemon's storage layer, as atomic_write_text already is.
 CAPTURE_DIR = "capture"
@@ -103,7 +122,11 @@ class SyncConfig:
     #: The two note corpora searched for an item's possible neighbours. None disables
     #: the annotation, as does a path that is not there.
     org_root: Path | None = None
-    vault_root: Path | None = None
+    obsidian_root: Path | None = None
+    #: Org file names never searched: an unprocessed pile such as an inbox matches
+    #: everything it has not been filed into yet, which says nothing about where an
+    #: item belongs.
+    org_exclude: tuple[str, ...] = DEFAULT_ORG_EXCLUDE
     annotate: bool = True
 
     @property
@@ -128,23 +151,86 @@ class RemoteItem:
 CommandRunner = Callable[[list[str]], None]
 
 
-def _corpus_root(variable: str, default: Path) -> Path | None:
-    """Where one note corpus is. An empty environment variable turns it off."""
-    value = os.environ.get(variable)
+def settings_path(environ: Mapping[str, str] | None = None) -> Path:
+    """Where the laptop settings file is, following `XDG_CONFIG_HOME`."""
+    environ = os.environ if environ is None else environ
+    base = environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base).expanduser() / SETTINGS_FILE
+
+
+def read_settings(path: Path) -> dict[str, object]:
+    """Return the settings file's `[neighbours]` table, validated; {} when absent.
+
+    Raises `SyncError` for a key or section it does not know and for a value of the
+    wrong type, and `tomllib.TOMLDecodeError` for a file that is not TOML.
+    """
+    if not path.is_file():
+        return {}
+    with path.open("rb") as handle:
+        data = tomllib.load(handle)
+    unknown = set(data) - {"neighbours"}
+    if unknown:
+        raise SyncError(f"{path}: unknown section(s): {', '.join(sorted(unknown))}")
+    table = data.get("neighbours", {})
+    if not isinstance(table, dict):
+        raise SyncError(f"{path}: [neighbours] must be a table")
+    unknown = set(table) - set(NEIGHBOUR_SETTINGS)
+    if unknown:
+        raise SyncError(f"{path}: unknown setting(s): {', '.join(sorted(unknown))}")
+    for key in ("org_root", "obsidian_root"):
+        if key in table and not isinstance(table[key], str):
+            raise SyncError(f"{path}: neighbours.{key} must be a string")
+    exclude = table.get("org_exclude", [])
+    if not isinstance(exclude, list) or not all(isinstance(name, str) for name in exclude):
+        raise SyncError(f"{path}: neighbours.org_exclude must be a list of file names")
+    return table
+
+
+def _corpus_root(value: object | None, default: Path) -> Path | None:
+    """Where one note corpus is. Unset means the default; empty turns it off."""
     if value is None:
         return default
-    return Path(value).expanduser() if value.strip() else None
+    text = str(value)
+    return Path(text).expanduser() if text.strip() else None
 
 
-def default_config() -> SyncConfig:
+def _org_exclude(value: object | None) -> tuple[str, ...]:
+    """File names from a list, or from a comma-separated string (the environment)."""
+    if value is None:
+        return DEFAULT_ORG_EXCLUDE
+    names = value.split(",") if isinstance(value, str) else value
+    return tuple(name.strip() for name in names if name.strip())
+
+
+def default_config(environ: Mapping[str, str] | None = None) -> SyncConfig:
+    """The laptop's configuration: built-in defaults, then the settings file, then
+    the environment, each overriding the one before.
+
+    A settings file that cannot be read or does not validate is reported and ignored
+    rather than failing the sync: it only feeds the neighbour pass, which is
+    enrichment and may never withhold a delivery.
+    """
+    environ = os.environ if environ is None else environ
     home = Path.home()
+    path = settings_path(environ)
+    try:
+        settings = read_settings(path)
+    except (SyncError, OSError, tomllib.TOMLDecodeError) as error:
+        print(f"Ignoring the settings in {path}: {error}", file=sys.stderr)
+        settings = {}
+
+    def setting(key: str) -> object | None:
+        variable = NEIGHBOUR_SETTINGS[key]
+        return environ[variable] if variable in environ else settings.get(key)
+
     return SyncConfig(
         remote="server",
         remote_inbox="/volume1/docker/info-triage/data/inbox",
         local_inbox=home / "info-triage-inbox",
         state_dir=home / ".local/state/info-triage",
-        org_root=_corpus_root("INFO_TRIAGE_ORG_ROOT", home / NOTES_DIR / "org"),
-        vault_root=_corpus_root("INFO_TRIAGE_VAULT_ROOT", home / NOTES_DIR / "obsidian"),
+        org_root=_corpus_root(setting("org_root"), home / NOTES_DIR / "org"),
+        obsidian_root=_corpus_root(setting("obsidian_root"), home / NOTES_DIR / "obsidian"),
+        org_exclude=_org_exclude(setting("org_exclude")),
     )
 
 
@@ -865,9 +951,9 @@ def annotate_inbox(config: SyncConfig) -> None:
     route_dir = config.local_inbox / NEIGHBOUR_ROUTE
     if not config.annotate or not route_dir.is_dir():
         return
-    if config.org_root is None or config.vault_root is None:
+    if config.org_root is None or config.obsidian_root is None:
         return
-    for root in (config.org_root, config.vault_root):
+    for root in (config.org_root, config.obsidian_root):
         if not root.is_dir():
             print(f"Possible neighbours skipped: no notes at {root}")
             return
@@ -912,7 +998,11 @@ def annotate_inbox(config: SyncConfig) -> None:
     started = time.monotonic()
     try:
         blocks = neighbours.annotate(
-            queries, config.org_root, config.vault_root, progress=_progress
+            queries,
+            config.org_root,
+            config.obsidian_root,
+            org_exclude=config.org_exclude,
+            progress=_progress,
         )
         written = _write_blocks(route_dir, blocks, neighbours.apply_block)
         if written:

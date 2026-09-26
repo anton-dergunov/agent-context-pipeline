@@ -141,6 +141,25 @@ class BM25Tests(unittest.TestCase):
         scores = BM25([tokenize("serving and inference")]).score(tokenize("beekeeping"))
         self.assertEqual(list(scores), [0.0])
 
+    def test_excluded_org_files_are_left_out_of_the_search(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            org_root, vault_root = corpus(Path(temporary))
+            (org_root / "Inbox.org").write_text(ORG, encoding="utf-8")
+            (org_root / "ML" / "workspace.org").write_text(ORG, encoding="utf-8")
+
+            def files(index):
+                return {unit.file for unit in index.units["org"]}
+
+            # The default leaves out only the Emacs configuration's settings files.
+            self.assertEqual(
+                files(build_index(org_root, vault_root)), {"Inbox.org", "ML/Systems.org"}
+            )
+            # A caller's list replaces the default, matched by name at any depth.
+            self.assertEqual(
+                files(build_index(org_root, vault_root, {"Inbox.org"})),
+                {"ML/Systems.org", "ML/workspace.org"},
+            )
+
     def test_each_corpus_keeps_its_own_index(self):
         """Design §6b: a shared index lets vault growth move Org-side ranking."""
         with tempfile.TemporaryDirectory() as temporary:

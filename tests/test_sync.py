@@ -11,7 +11,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from info_triage.sync import (
+    DEFAULT_ORG_EXCLUDE,
     DIGEST_NAME,
+    NOTES_DIR,
     ORG_NAME,
     RemoteItem,
     SyncConfig,
@@ -20,6 +22,7 @@ from info_triage.sync import (
     _sorted_items,
     annotate_inbox,
     atomic_write_text,
+    default_config,
     deletion_decision,
     duplicate_captures,
     generate_inbox,
@@ -873,8 +876,11 @@ class FakeNeighbours:
         self.queries: list[tuple[str, str]] = []
         self.reported: list[tuple[str, int, int]] = []
 
-    def annotate(self, queries, org_root, vault_root, *, scorer=None, progress=None):
+    def annotate(
+        self, queries, org_root, obsidian_root, *, org_exclude=(), scorer=None, progress=None
+    ):
         self.queries = list(queries)
+        self.org_exclude = tuple(org_exclude)
         for position, (key, _) in enumerate(self.queries, start=1):
             if progress is not None:
                 progress(key, position, len(self.queries))
@@ -912,7 +918,7 @@ class NeighbourAnnotationTests(unittest.TestCase):
                 local,
                 state,
                 org_root=corpus if notes else None,
-                vault_root=corpus if notes else None,
+                obsidian_root=corpus if notes else None,
             )
             yield config, FakeSyncCommands(remote)
 
@@ -1041,7 +1047,7 @@ class NeighbourAnnotationTests(unittest.TestCase):
             write_item(inbox, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00", route="job")
             neighbours = FakeNeighbours(blocks={"2026-08-09_1": BLOCK})
             config = SyncConfig(
-                "server", "/remote/inbox", inbox, root / "state", org_root=corpus, vault_root=corpus
+                "server", "/remote/inbox", inbox, root / "state", org_root=corpus, obsidian_root=corpus
             )
             with (
                 unittest.mock.patch("info_triage.sync._neighbours_module", return_value=neighbours),
@@ -1088,6 +1094,81 @@ class NeighbourAnnotationTests(unittest.TestCase):
             digest = (config.local_inbox / "info" / DIGEST_NAME).read_text()
             # One block, whichever path put it there.
             self.assertEqual(digest.count("neighbours:begin"), 1)
+
+
+class SettingsTests(unittest.TestCase):
+    """The laptop settings: defaults, then sync.toml, then the environment."""
+
+    def settings(self, text=None):
+        """An environment whose XDG_CONFIG_HOME holds a sync.toml with TEXT, if any."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        base = Path(directory.name)
+        if text is not None:
+            (base / "info-triage").mkdir()
+            (base / "info-triage" / "sync.toml").write_text(text, encoding="utf-8")
+        return {"XDG_CONFIG_HOME": str(base)}
+
+    def config(self, environ):
+        with contextlib.redirect_stderr(io.StringIO()) as errors:
+            config = default_config(environ)
+        return config, errors.getvalue()
+
+    def test_without_a_settings_file_the_defaults_apply(self):
+        config, errors = self.config(self.settings())
+        self.assertEqual(config.org_root, Path.home() / NOTES_DIR / "org")
+        self.assertEqual(config.obsidian_root, Path.home() / NOTES_DIR / "obsidian")
+        self.assertEqual(config.org_exclude, DEFAULT_ORG_EXCLUDE)
+        self.assertEqual(errors, "")
+
+    def test_the_settings_file_sets_the_roots_and_the_exclusions(self):
+        environ = self.settings(
+            "[neighbours]\n"
+            'org_root = "~/notes/org"\n'
+            'obsidian_root = "/srv/obsidian"\n'
+            'org_exclude = ["Inbox.org", "Unsorted.org"]\n'
+        )
+        config, _ = self.config(environ)
+        self.assertEqual(config.org_root, Path.home() / "notes/org")
+        self.assertEqual(config.obsidian_root, Path("/srv/obsidian"))
+        # Replaces the default list rather than adding to it.
+        self.assertEqual(config.org_exclude, ("Inbox.org", "Unsorted.org"))
+
+    def test_the_environment_overrides_the_settings_file(self):
+        environ = self.settings(
+            '[neighbours]\norg_root = "/from/file"\norg_exclude = ["Inbox.org"]\n'
+        )
+        environ |= {
+            "INFO_TRIAGE_ORG_ROOT": "/from/environment",
+            "INFO_TRIAGE_ORG_EXCLUDE": "Inbox.org, Someday.org,",
+        }
+        config, _ = self.config(environ)
+        self.assertEqual(config.org_root, Path("/from/environment"))
+        self.assertEqual(config.org_exclude, ("Inbox.org", "Someday.org"))
+
+    def test_an_empty_value_turns_a_corpus_off(self):
+        environ = self.settings('[neighbours]\nobsidian_root = ""\n')
+        self.assertIsNone(self.config(environ)[0].obsidian_root)
+        environ = self.settings() | {"INFO_TRIAGE_ORG_ROOT": ""}
+        self.assertIsNone(self.config(environ)[0].org_root)
+
+    def test_an_empty_exclusion_list_searches_every_file(self):
+        environ = self.settings() | {"INFO_TRIAGE_ORG_EXCLUDE": ""}
+        self.assertEqual(self.config(environ)[0].org_exclude, ())
+
+    def test_a_bad_settings_file_is_reported_and_ignored(self):
+        for text in (
+            "[neighbours]\nvault_root = '/old/name'\n",
+            "[remote]\nhost = 'server'\n",
+            "[neighbours]\norg_exclude = 'Inbox.org'\n",
+            "[neighbours]\norg_root = 3\n",
+            "not toml at all = = =\n",
+        ):
+            with self.subTest(text=text):
+                config, errors = self.config(self.settings(text))
+                self.assertIn("Ignoring the settings in", errors)
+                self.assertEqual(config.org_exclude, DEFAULT_ORG_EXCLUDE)
+                self.assertEqual(config.org_root, Path.home() / NOTES_DIR / "org")
 
 
 class NeighbourQueryTests(unittest.TestCase):

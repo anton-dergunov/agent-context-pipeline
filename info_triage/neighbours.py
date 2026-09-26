@@ -22,14 +22,16 @@ import math
 import re
 import sys
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-#: Model and generated files, not plans.
-ORG_SKIP = {"workspace.org", "init.org"}
+#: Org files skipped when the caller names none: the Emacs configuration's per-folder
+#: settings, which are not plans. `sync.py` passes the laptop's `org_exclude` setting
+#: instead, whose default mirrors this.
+ORG_SKIP = frozenset({"workspace.org", "init.org"})
 #: Vault directories holding machinery, attachments or templates rather than notes.
 VAULT_SKIP_DIRS = {
     ".git",
@@ -260,21 +262,26 @@ def parse_vault(path: Path, rel: str, max_words: int = 280) -> list[Unit]:
     return units
 
 
-def build_corpus(org_root: Path, vault_root: Path) -> dict[str, list[Unit]]:
-    """Parse both corpora, keyed by source. Unreadable files are skipped, not fatal."""
+def build_corpus(
+    org_root: Path, obsidian_root: Path, org_exclude: Collection[str] = ORG_SKIP
+) -> dict[str, list[Unit]]:
+    """Parse both corpora, keyed by source. Unreadable files are skipped, not fatal.
+
+    `org_exclude` names Org files to leave out, matched by file name at any depth.
+    """
     units: dict[str, list[Unit]] = {"org": [], "vault": []}
     for path in sorted(org_root.rglob("*.org")):
-        if ".git" in path.parts or path.name in ORG_SKIP:
+        if ".git" in path.parts or path.name in org_exclude:
             continue
         try:
             units["org"] += parse_org(path, str(path.relative_to(org_root)))
         except OSError:
             continue
-    for path in sorted(vault_root.rglob("*.md")):
+    for path in sorted(obsidian_root.rglob("*.md")):
         if any(directory in path.parts for directory in VAULT_SKIP_DIRS):
             continue
         try:
-            units["vault"] += parse_vault(path, str(path.relative_to(vault_root)))
+            units["vault"] += parse_vault(path, str(path.relative_to(obsidian_root)))
         except OSError:
             continue
     return units
@@ -334,8 +341,10 @@ class Index:
         return sum(len(units) for units in self.units.values())
 
 
-def build_index(org_root: Path, vault_root: Path) -> Index:
-    units = build_corpus(org_root, vault_root)
+def build_index(
+    org_root: Path, obsidian_root: Path, org_exclude: Collection[str] = ORG_SKIP
+) -> Index:
+    units = build_corpus(org_root, obsidian_root, org_exclude)
     return Index(
         units=units,
         indices={
@@ -487,8 +496,9 @@ def apply_block(index_text: str, block: str) -> str:
 def annotate(
     queries: Sequence[tuple[str, str]],
     org_root: Path,
-    vault_root: Path,
+    obsidian_root: Path,
     *,
+    org_exclude: Collection[str] = ORG_SKIP,
     scorer: Scorer | None = None,
     progress: Progress | None = None,
 ) -> dict[str, str]:
@@ -504,7 +514,7 @@ def annotate(
             progress(label, done, total)
 
     report("parsing the plans and the vault")
-    index = build_index(org_root, vault_root)
+    index = build_index(org_root, obsidian_root, org_exclude)
     report(f"{index.size} passages indexed")
     if scorer is None:
         report("loading the reranker")
@@ -527,10 +537,10 @@ def _dry_run(route_dir: Path) -> int:
     from info_triage.sync import default_config, neighbour_query
 
     config = default_config()
-    if config.org_root is None or config.vault_root is None:
+    if config.org_root is None or config.obsidian_root is None:
         print("No corpus roots configured", file=sys.stderr)
         return 1
-    index = build_index(config.org_root, config.vault_root)
+    index = build_index(config.org_root, config.obsidian_root, config.org_exclude)
     print(f"{index.size} passages indexed")
     scorer = default_scorer()
     for item in sorted(path for path in route_dir.iterdir() if path.is_dir()):

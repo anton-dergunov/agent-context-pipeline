@@ -61,6 +61,13 @@ Charters (a file's `#+SUBTITLE:` plus opening prose) are indexed but held **out*
 the duplicate list: a charter is never a duplicate of anything. It is a
 *destination* signal, which is a different output.
 
+Some Org files are left out of the plans corpus altogether: by default the Emacs
+configuration's `workspace.org` and `init.org`, and on this laptop the unprocessed
+piles too (`Inbox.org`, `Unsorted.org`). A pile matches everything it has not been
+filed into yet, so a pointer into it says nothing about where an item belongs. The
+list is the `org_exclude` setting in the laptop's `~/.config/info-triage/sync.toml`,
+beside the two corpus roots; see `docs/EMACS.md`.
+
 ## 3. Retrieval design
 
 Three stages. The third is what makes the result trustworthy.
@@ -417,3 +424,27 @@ Ordered by value per unit of effort, all measurable against the same corpus.
   design is insensitive to distractor *count*; it cannot show what happens if the
   vault grows in a way that changes its *character* — many more notes on topics the
   plans also cover would raise the false-positive rate in a way this cannot predict.
+
+## Appendix: the earlier prototype
+
+A one-evening prototype in June 2026, before this design, triaged about 25 saved items
+with a small cloud model (Gemini Flash-Lite) and an embedding search over the same two
+corpora. Three of its results are negative, and they are recorded here because each
+would otherwise be tried again:
+
+- **A cheap model asked whether an item is still useful approves nearly everything.**
+  It chose "both a task and a note" for 15 of 20 items in the first run and 16 of 25 in
+  the second, dropped only bare social links, and called items "highly relevant" 15–17
+  times. Given real file names but not section names, it invented sections. The
+  verdict carried no information, which is part of why the decision step now runs in
+  `/route` with a strong model and a `vet` lens that is expected to drop.
+- **Bi-encoder similarities bunch together here on a second model too.** With
+  `bge-small`, unrelated notes scored 0.67–0.74, the same compression §3 found with e5
+  (0.76–0.93).
+- **Clustering near-duplicates on the model's own title and topics fails.** A 0.62
+  centroid threshold put 18 of 25 items into one cluster. If intra-inbox duplicate
+  detection by similarity is ever built, embed the item's text, not a model summary,
+  and do not use a threshold in that range.
+
+It also left the inbox piles out of its search, the exclusion now in `org_exclude`.
+
