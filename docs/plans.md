@@ -10,7 +10,7 @@ the document for that topic, or when it is no longer wanted. Git keeps what it s
   improvement to routing quality, and independent of everything else here.
 - **OCR of Telegram photo attachments.** Short-form video earns its OCR because on-screen text is
   measurably where the content is. Whether a forwarded photo carries signal or noise is untested.
-  The engine already exists in `info_triage/extractors/media/ocr.py` if the answer is yes. Evidence
+  The engine already exists in `src/info_triage/extractors/media/ocr.py` if the answer is yes. Evidence
   first.
 
 ## Server

@@ -4,7 +4,7 @@
 agent, well enough to trust, and does handing them to the routing agent make routing cheaper?
 
 **Status.** Measured 18 Aug 2026 on one person's corpus. Built the same day as
-`info_triage/neighbours.py`: BM25, a cross-encoder rerank, an abstain gate, and a hedged block in
+`src/info_triage/neighbours.py`: BM25, a cross-encoder rerank, an abstain gate, and a hedged block in
 each item's `index.md`. Best configuration measured: 40% fewer tokens than the control. Every A/B
 below is one run per condition.
 

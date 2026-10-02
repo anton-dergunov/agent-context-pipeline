@@ -12,11 +12,17 @@ __pycache__
 .pytest_cache
 .uv-cache
 .whisper_models
+assets
+data_for_analysis
 docs
 experiments
+extension
 instagram_output
 linkedin_output
+medium_output
 url_output
+url_title_audit
+youtube_output
 secrets
 tests
 *.part

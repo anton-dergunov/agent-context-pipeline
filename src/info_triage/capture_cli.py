@@ -19,31 +19,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .config import ROUTE_NAMES
+from .envfile import load_env_file
 
 DEFAULT_URL = "http://localhost:8000"
 TOKEN_VARIABLE = "INFO_TRIAGE_CAPTURE_TOKEN"
 URL_VARIABLE = "INFO_TRIAGE_CAPTURE_URL"
-ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
-
-
-def _load_env_file(path: Path) -> None:
-    """Fill unset environment variables from a `KEY=VALUE` file, if present.
-
-    Real environment variables always win; this only covers what a checkout's
-    own .env already provides, so a laptop running from source needs no shell
-    profile changes. Deliberately not python-dotenv: that would pull in the
-    daemon's dependencies for what is otherwise a stdlib-only script.
-    """
-    try:
-        lines = path.read_text().splitlines()
-    except OSError:
-        return
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
 def resolve_route(route: str | None, item_id: str | None) -> str:
@@ -88,7 +68,7 @@ def build_payload(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    _load_env_file(ENV_FILE)
+    load_env_file()
     parser = argparse.ArgumentParser(
         prog="info-triage-capture",
         description="Send one capture to the Info Triage daemon over HTTP.",

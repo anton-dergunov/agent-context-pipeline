@@ -87,7 +87,7 @@ Pi, where Surya was measured at 8.3 s/frame. `--image-ocr-engine` and
 Recognition covers **English, Spanish and Russian from one model** — the
 PP-OCRv5 Cyrillic recognizer, whose charset was verified to cover Latin,
 Cyrillic and Spanish accents in full. Chinese needs a separate model; enable it
-by uncommenting `"ch"` in `DEFAULT_SCRIPTS` in `info_triage/extractors/media/engines.py`.
+by uncommenting `"ch"` in `DEFAULT_SCRIPTS` in `src/info_triage/extractors/media/engines.py`.
 With more than one script enabled the engine calibrates on the first frames
 containing text and then keeps the best-scoring model for the rest of the file.
 `--rec-script` forces a specific one.

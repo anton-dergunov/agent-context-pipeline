@@ -18,7 +18,7 @@ the reasons are in [`item-contract.md`](../architecture/item-contract.md#why-not
 
 ## Routing
 
-`info_triage/extractors/router.py:route_url()` is the only routing authority. It checks strict
+`src/info_triage/extractors/router.py:route_url()` is the only routing authority. It checks strict
 parsers in this order:
 
 1. Instagram, LinkedIn and YouTube

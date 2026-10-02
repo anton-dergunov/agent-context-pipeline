@@ -17,8 +17,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY app.py config.yaml ./
-COPY info_triage/ ./info_triage/
+COPY config.yaml ./
+COPY src/ ./src/
 COPY docker/ ./docker/
 RUN uv sync --frozen --no-dev
 
@@ -55,4 +55,4 @@ USER 1026:100
 WORKDIR /app
 VOLUME ["/app/data"]
 
-CMD ["python", "app.py"]
+CMD ["python", "-m", "info_triage"]

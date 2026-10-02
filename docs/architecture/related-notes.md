@@ -2,7 +2,7 @@
 
 Each `info` item arrives with pointers to the existing plans and notes it most likely belongs with,
 so the routing agent starts from candidates instead of a search. The pointers are computed on the
-laptop after a sync, by `info_triage/neighbours.py`, and appended to the item's `index.md`.
+laptop after a sync, by `src/info_triage/neighbours.py`, and appended to the item's `index.md`.
 
 Every number here comes from [`experiments/related-notes/`](../../experiments/related-notes/README.md),
 which also holds the scripts that produced them. The parameters are measured, not chosen: re-measure

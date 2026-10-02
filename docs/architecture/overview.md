@@ -38,7 +38,7 @@ Telegram bots (one per route)        POST /capture (CLI, browser extension, scri
             │                                   │
             └──────────────┬────────────────────┘
                            ▼
-Server ── app.py
+Server ── python -m info_triage
    ├── capture            durable staging in data/staging/<route>/
    ├── one worker thread  runs the route's ordered steps, one item at a time
    ├── SQLite             item state, source-to-item mapping, processor counters
@@ -57,25 +57,25 @@ Laptop ── ~/info-triage-inbox/<route>/
    and the next sync removes it from the server.
 ```
 
-`app.py` is the only runtime entry point and only wires things together. The long-lived execution
+`src/info_triage/__main__.py` is the only runtime entry point and only wires things together. The long-lived execution
 paths are one asyncio event loop that polls every route's bot, one processing-worker thread, and the
 HTTP server, which is threaded so that a slow upload cannot block the health check.
 
 | Module | Holds |
 |---|---|
-| `info_triage/telegram_bot.py` | Telegram capture, grouping, edits, route hashtags |
-| `info_triage/capture_api.py`, `capture_cli.py` | the `POST /capture` contract and its shipped client |
-| `info_triage/storage.py` | SQLite and the item directories |
-| `info_triage/processing.py` | the worker, the step loop and telemetry |
-| `info_triage/preprocessing.py` | the configured steps |
-| `info_triage/rendering.py` | Telegram payload to segments |
-| `info_triage/links.py` | offline link discovery, canonicalization, ranking |
-| `info_triage/extraction.py` | the extraction cache and handler dispatch |
-| `info_triage/index.py` | intent detection and the `index.md` contract |
-| `info_triage/extractors/` | the content extractors, also usable standalone |
-| `info_triage/utilities/` | text cleaning, URL resolution, Markdown helpers |
-| `info_triage/web.py` | health check, dashboard, capture endpoint |
-| `info_triage/sync.py`, `neighbours.py` | the laptop side; they never import the daemon |
+| `src/info_triage/telegram_bot.py` | Telegram capture, grouping, edits, route hashtags |
+| `src/info_triage/capture_api.py`, `capture_cli.py` | the `POST /capture` contract and its shipped client |
+| `src/info_triage/storage.py` | SQLite and the item directories |
+| `src/info_triage/processing.py` | the worker, the step loop and telemetry |
+| `src/info_triage/preprocessing.py` | the configured steps |
+| `src/info_triage/rendering.py` | Telegram payload to segments |
+| `src/info_triage/links.py` | offline link discovery, canonicalization, ranking |
+| `src/info_triage/extraction.py` | the extraction cache and handler dispatch |
+| `src/info_triage/index.py` | intent detection and the `index.md` contract |
+| `src/info_triage/extractors/` | the content extractors, also usable standalone |
+| `src/info_triage/utilities/` | text cleaning, URL resolution, Markdown helpers |
+| `src/info_triage/web.py` | health check, dashboard, capture endpoint |
+| `src/info_triage/sync.py`, `neighbours.py` | the laptop side; they never import the daemon |
 
 Daemon settings are read strictly from `config.yaml` (or the file named by `INFO_TRIAGE_CONFIG`):
 unknown fields and invalid values stop startup. `.env` holds only secrets: one bot token per route,

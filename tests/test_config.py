@@ -77,7 +77,7 @@ routes:
 
 
 def test_shipped_config_has_expected_order_and_explicit_nas_model():
-    config = load_config(REPOSITORY / "config.yaml")
+    config = load_config(REPOSITORY / "config.example.yaml")
 
     info = config.route("info")
     assert [step.name for step in info.steps] == [
@@ -117,7 +117,7 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
 
 def test_shipped_pass_through_routes_never_retrieve_or_transform():
     """job, clip and lang record what arrived; only info enriches it."""
-    config = load_config(REPOSITORY / "config.yaml")
+    config = load_config(REPOSITORY / "config.example.yaml")
 
     assert [route.name for route in config.routes] == ["info", "job", "clip", "lang"]
     assert [step.name for step in config.route("job").steps] == ["link-discovery", "index-render"]

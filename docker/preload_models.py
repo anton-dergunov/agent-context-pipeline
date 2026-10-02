@@ -9,17 +9,14 @@ the image.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from info_triage.config import VoiceTranscriptionConfig, load_config  # noqa: E402
-from info_triage.extractors.media.engines import (  # noqa: E402
+from info_triage.config import VoiceTranscriptionConfig, load_config
+from info_triage.extractors.media.engines import (
     DEFAULT_SCRIPTS,
     RapidOCREngine,
 )
-from info_triage.extractors.media.transcription import (  # noqa: E402
+from info_triage.extractors.media.transcription import (
     download_faster_whisper_model,
 )
 

@@ -6,12 +6,12 @@ import os
 import signal
 from pathlib import Path
 
-from dotenv import load_dotenv
 from telegram import Update
 from telegram.error import InvalidToken
 from telegram.ext import Application
 
 from info_triage.config import AppConfig, load_config
+from info_triage.envfile import load_env_file, project_root
 from info_triage.preprocessing import processing_steps_for_route
 from info_triage.processing import (
     ProcessingCoordinator,
@@ -21,8 +21,6 @@ from info_triage.processing import (
 from info_triage.storage import CaptureStore
 from info_triage.telegram_bot import build_application
 from info_triage.web import start_web_server
-
-BASE_DIR = Path(__file__).resolve().parent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("info_triage")
@@ -107,9 +105,9 @@ async def _serve(
 
 
 def main() -> None:
-    load_dotenv(BASE_DIR / ".env")
+    load_env_file()
     allowed_user_id = int(os.environ["ALLOWED_USER_ID"])
-    config_path = Path(os.environ.get("INFO_TRIAGE_CONFIG", BASE_DIR / "config.yaml"))
+    config_path = Path(os.environ.get("INFO_TRIAGE_CONFIG", project_root() / "config.yaml"))
     config = load_config(config_path)
     tokens = _read_tokens(config)
     capture_token = os.environ.get(config.capture_token_env, "").strip()

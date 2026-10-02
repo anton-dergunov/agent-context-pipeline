@@ -83,7 +83,7 @@ name is what does not change, which is why a routing decision is recorded agains
 
 Emacs reads the item's directory back out of the `[[file:<id>/][directory]]` link, and finds items by
 `^\*\* <N> `. Those two shapes are a contract between the two repositories; `render_org` in
-`info_triage/sync.py` says so, and so does `ps/info-triage--item-directory`.
+`src/info_triage/sync.py` says so, and so does `ps/info-triage--item-directory`.
 
 ## The minute after a sync
 

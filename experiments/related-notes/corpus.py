@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-# The same variables and defaults `info_triage/sync.py` reads.
+# The same variables and defaults `src/info_triage/sync.py` reads.
 NOTES = Path.home() / "Library/CloudStorage/Dropbox/notes"
 ORG_ROOT = Path(os.environ.get("INFO_TRIAGE_ORG_ROOT") or NOTES / "org").expanduser()
 VAULT_ROOT = Path(os.environ.get("INFO_TRIAGE_OBSIDIAN_ROOT") or NOTES / "obsidian").expanduser()

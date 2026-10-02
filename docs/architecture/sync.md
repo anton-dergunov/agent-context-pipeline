@@ -1,7 +1,7 @@
 # Synchronization and the laptop inbox
 
 `sync.sh` brings the server's inbox to `~/info-triage-inbox/` and regenerates two views of each
-route's queue. It is a small Python program (`info_triage/sync.py`) that drives `ssh` and `rsync`,
+route's queue. It is a small Python program (`src/info_triage/sync.py`) that drives `ssh` and `rsync`,
 runs on the laptop, and never imports the daemon.
 
 ```bash

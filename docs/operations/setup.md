@@ -45,7 +45,7 @@ INFO_TRIAGE_CAPTURE_TOKEN=a-long-random-string   # openssl rand -base64 32
 Each route has its own bot. Create them with BotFather's `/newbot`, send each a `/start` so the chat
 exists, and pin all four chats in Telegram: the share sheet orders its chat row by pinned and then
 recent, so pinning is what puts all four in the top row. Distinct profile pictures matter more than
-names at that size; [`icons/`](../../icons/) holds a set of four.
+names at that size; [`assets/bot-icons/`](../../assets/bot-icons/) holds a set of four.
 
 Two routes may not share a token, and a missing or rejected token stops the daemon instead of
 leaving one route unpolled. Only one process may poll a bot token at a time, so stop a local copy

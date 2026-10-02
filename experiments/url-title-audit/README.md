@@ -13,7 +13,7 @@ real collection of notes can be titled from public page metadata alone, and what
 - **Corpus.** [`tests/fixtures/url_titles.txt`](../../tests/fixtures/url_titles.txt): 529 unique
   HTTP(S) URLs collected from the owner's notes and from earlier extractor output. It spans
   publishers, journals, shortened and affiliate links, PDFs, social pages and dead hosts.
-- **Apparatus.** The shipped resolver, `info_triage/utilities/url_resolution.py`, run sequentially
+- **Apparatus.** The shipped resolver, `src/info_triage/utilities/url_resolution.py`, run sequentially
   with a 15-second timeout and no retries. The opt-in test is the reproducible form:
 
   ```bash
