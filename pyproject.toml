@@ -17,6 +17,8 @@ dependencies = [
     "numpy>=2.1",
     "onnxruntime>=1.28.0",
     "opencv-python-headless>=4.10",
+    # Held below 11 by surya-ocr (the optional `surya` extra; uv locks all extras together).
+    # 10.x has no wheels for Python 3.14, where it builds from source and needs libjpeg and zlib.
     "pillow>=10.2,<11",
     "pdfplumber>=0.11.9,<0.12",
     "pypdf>=6.14,<7",
