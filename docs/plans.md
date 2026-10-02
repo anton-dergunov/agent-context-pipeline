@@ -28,7 +28,7 @@ the document for that topic, or when it is no longer wanted. Git keeps what it s
 ## Extraction
 
 - **Throughput on the target hardware.** OCR and transcription were measured on a laptop. The NAS
-  figure is an estimate; run `instagram-ocr-bench` there
+  figure is an estimate; run `experiments/video-ocr/bench.py` there
   ([`experiments/video-ocr/`](../experiments/video-ocr/README.md)).
 - **The original source of a Medium story.** A story cross-posted from a personal site could be
   retrieved there instead of through the member wall

@@ -2,49 +2,101 @@
 
 set -euo pipefail
 
-REMOTE="server"
-REMOTE_DIR="/volume1/docker/info-triage"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 PORT=8000
 
 if [[ ! -f .env ]]; then
-    echo "Missing .env with Telegram credentials" >&2
+    echo "Missing .env: copy .env.example to .env and fill it in" >&2
+    exit 1
+fi
+if [[ ! -f config.yaml ]]; then
+    echo "Missing config.yaml: copy config.example.yaml to config.yaml" >&2
     exit 1
 fi
 
-echo "==> Preparing deployment directory"
+# One setting: the real environment first, then .env. Read key by key and never
+# sourced, because .env also holds tokens, and a token is not shell-safe.
+env_value() {
+    local key="$1" value
+    if value="$(printenv "$key")"; then
+        printf '%s' "$value"
+        return
+    fi
+    value="$(grep -E "^${key}=" .env | tail -n 1 || true)"
+    value="${value#*=}"
+    value="${value%\"}"
+    value="${value#\"}"
+    value="${value%\'}"
+    value="${value#\'}"
+    printf '%s' "$value"
+}
 
-# Written out rather than brace-expanded: the Synology remote shell is busybox.
-ssh "$REMOTE" \
-    "mkdir -p '$REMOTE_DIR/data/staging/info' '$REMOTE_DIR/data/inbox/info' \
-              '$REMOTE_DIR/data/staging/job' '$REMOTE_DIR/data/inbox/job' \
-              '$REMOTE_DIR/data/staging/clip' '$REMOTE_DIR/data/inbox/clip' \
-              '$REMOTE_DIR/data/staging/lang' '$REMOTE_DIR/data/inbox/lang'"
+SERVER="$(env_value INFO_TRIAGE_SERVER)"
+SERVER_DIR="$(env_value INFO_TRIAGE_SERVER_DIR)"
+DEPLOY_COMMAND="$(env_value INFO_TRIAGE_DEPLOY_COMMAND)"
 
-echo "==> Copying files to NAS"
+if [[ -z "$SERVER" ]]; then
+    echo "==> No INFO_TRIAGE_SERVER set: building and starting the container on this machine"
 
-rsync -az --delete \
-    --exclude '.git/' \
-    --exclude '.env' \
-    --exclude 'data/' \
-    --exclude 'logs/' \
-    --exclude '.venv/' \
-    --exclude '__pycache__/' \
-    --exclude '.DS_Store' \
-    ./ "${REMOTE}:${REMOTE_DIR}/"
+    # Created here so that it belongs to this user and not to root, which is who
+    # Docker would create a missing bind mount as.
+    mkdir -p data
+    if [[ -n "$DEPLOY_COMMAND" ]]; then
+        bash -c "$DEPLOY_COMMAND"
+    else
+        docker compose up -d --build
+    fi
+    HOST="localhost"
+else
+    if [[ -z "$SERVER_DIR" ]]; then
+        echo "INFO_TRIAGE_SERVER_DIR is not set in .env: the project directory on $SERVER" >&2
+        exit 1
+    fi
 
-rsync -az .env "${REMOTE}:${REMOTE_DIR}/.env"
-ssh "$REMOTE" "chmod 600 '$REMOTE_DIR/.env'"
+    echo "==> Preparing deployment directory"
 
-echo "==> Building and restarting container"
+    ssh "$SERVER" "mkdir -p '$SERVER_DIR/data'"
 
-ssh "$REMOTE" \
-    'sudo -n /usr/local/sbin/deploy-container info-triage'
+    echo "==> Copying files to $SERVER"
+
+    # Never --delete-excluded: data/ and .env are excluded precisely so that the
+    # mirror cannot remove them from the server.
+    rsync -az --delete \
+        --exclude '.git/' \
+        --exclude '.env' \
+        --exclude 'data/' \
+        --exclude '.venv/' \
+        --exclude '__pycache__/' \
+        --exclude '.DS_Store' \
+        --exclude '.pytest_cache/' \
+        --exclude '.ruff_cache/' \
+        --exclude '.uv-cache/' \
+        --exclude '.ocr_models/' \
+        --exclude '.whisper_models/' \
+        --exclude '.bench_ocr/' \
+        --exclude '.bench_transcription/' \
+        --exclude 'data_for_analysis/' \
+        --exclude '*_output/' \
+        --exclude 'url_title_audit/' \
+        ./ "${SERVER}:${SERVER_DIR}/"
+
+    rsync -az .env "${SERVER}:${SERVER_DIR}/.env"
+    ssh "$SERVER" "chmod 600 '$SERVER_DIR/.env'"
+
+    echo "==> Building and restarting container"
+
+    ssh "$SERVER" "${DEPLOY_COMMAND:-cd '$SERVER_DIR' && docker compose up -d --build}"
+
+    # The address lives in ~/.ssh/config with the rest of the alias, when it is one.
+    HOST="$(ssh -G "$SERVER" | awk '$1 == "hostname" { print $2 }')"
+    HOST="${HOST:-$SERVER}"
+fi
 
 echo "==> Health check"
 
-# The NAS address lives in ~/.ssh/config with the rest of the "$REMOTE" alias.
-HOST="$(ssh -G "$REMOTE" | awk '$1 == "hostname" { print $2 }')"
-URL="http://${HOST:-$REMOTE}:${PORT}/health"
+URL="http://${HOST}:${PORT}/health"
 
 health_check_status=0
 health_check_output=$(curl --fail --silent --show-error \

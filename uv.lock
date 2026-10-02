@@ -779,7 +779,6 @@ dependencies = [
     { name = "faster-whisper" },
     { name = "huggingface-hub" },
     { name = "instaloader" },
-    { name = "jieba" },
     { name = "numpy" },
     { name = "onnxruntime" },
     { name = "opencv-python-headless" },
@@ -813,6 +812,7 @@ surya = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "jieba" },
     { name = "pytest" },
 ]
 
@@ -826,7 +826,6 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.2.1,<2" },
     { name = "huggingface-hub", specifier = ">=0.27,<2" },
     { name = "instaloader", specifier = ">=4.14.2" },
-    { name = "jieba", specifier = ">=0.42.1,<1" },
     { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mac-transcription'", specifier = ">=0.4.3,<1" },
     { name = "numpy", specifier = ">=2.1" },
     { name = "onnxruntime", specifier = ">=1.28.0" },
@@ -852,7 +851,10 @@ requires-dist = [
 provides-extras = ["surya", "neighbours", "mac-transcription"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.3" }]
+dev = [
+    { name = "jieba", specifier = ">=0.42.1,<1" },
+    { name = "pytest", specifier = ">=8.3" },
+]
 
 [[package]]
 name = "iniconfig"

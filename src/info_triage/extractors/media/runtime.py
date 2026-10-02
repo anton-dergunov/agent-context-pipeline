@@ -23,7 +23,6 @@ THREAD_ENV_VARS = (
 )
 
 THREAD_ENV = "INFO_TRIAGE_OCR_THREADS"
-LEGACY_THREAD_ENV = "INSTAGRAM_OCR_THREADS"
 
 _CGROUP_V2 = Path("/sys/fs/cgroup/cpu.max")
 _CGROUP_V1_QUOTA = Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
@@ -62,7 +61,7 @@ def resolve_threads(requested: int | None = None) -> int:
     if requested is not None and requested > 0:
         return requested
 
-    from_env = os.environ.get(THREAD_ENV) or os.environ.get(LEGACY_THREAD_ENV)
+    from_env = os.environ.get(THREAD_ENV)
     if from_env:
         try:
             value = int(from_env)

@@ -9,14 +9,17 @@ guarantee in [`overview.md`](overview.md#the-delivery-guarantee).
 
 ## Preprocessing by route
 
-Preprocessing is chosen at capture time by which bot the item was shared to.
+Preprocessing is chosen at capture time by which route the item was sent to, and each route's steps
+are whatever `config.yaml` lists for it. The routes `config.example.yaml` ships:
 
 | Route | Steps | Why |
 | --- | --- | --- |
 | `info` | `voice-transcription`, `text-cleaning`, `link-discovery`, `url-resolution`, `content-extraction`, `index-render` | The default route: the item is read later and every enrichment pays for itself there |
-| `job` | `link-discovery`, `index-render` | A downstream script already fetches and processes the posting. Discovery is offline and only records the URL so the index can name it |
+| `job` | `link-discovery`, `index-render` | For when something downstream already fetches and processes the posting. Discovery is offline and only records the URL so the index can name it |
 | `clip` | `link-discovery`, `index-render` | Downloading happens on the laptop. Nothing here transcribes or OCRs a video |
-| `lang` | `index-render` | A word and its context. There is no link to discover and the wording is the payload |
+
+A route that runs `index-render` alone suits captures with no link to discover and where the wording
+is the payload, such as a vocabulary list.
 
 On every route but `info` the captured text reaches the laptop byte for byte as it was sent: neither
 `link-discovery` nor `index-render` rewrites the body. The rest of this document describes `info`.

@@ -11,10 +11,12 @@ from __future__ import annotations
 import json
 
 import pytest
+from conftest import make_store
 
 from info_triage.processing import ProcessingCoordinator, ProcessingPipeline, ProcessingWorker
-from info_triage.storage import CaptureStore
 from info_triage.telegram_bot import requested_route
+
+ROUTES = ("info", "job", "clip", "lang")
 
 
 class RecordingStep:
@@ -72,7 +74,7 @@ def test_an_http_capture_and_a_telegram_capture_never_share_a_directory(store):
 
 
 def test_each_route_runs_only_its_own_steps(tmp_path):
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     info_step, job_step = RecordingStep("info-only"), RecordingStep("job-only")
     pipelines = {
         "info": ProcessingPipeline([info_step]),
@@ -94,7 +96,7 @@ def test_each_route_runs_only_its_own_steps(tmp_path):
 
 def test_an_unconfigured_route_delivers_the_item_rather_than_failing_it(tmp_path, caplog):
     """A configuration mistake must never withhold something that was captured."""
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     pipelines = {"info": ProcessingPipeline([RecordingStep("info-only")])}
     worker = ProcessingWorker(store, pipelines)
     store.capture("clip", 10, 1, "a reel", received_at="2026-08-09T10:00:00+00:00")
@@ -107,7 +109,7 @@ def test_an_unconfigured_route_delivers_the_item_rather_than_failing_it(tmp_path
 
 
 def test_a_route_with_no_steps_is_promoted_straight_into_its_inbox(tmp_path):
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     pipelines = {route: ProcessingPipeline([]) for route in store.routes}
     worker = ProcessingWorker(store, pipelines)
     coordinator = ProcessingCoordinator(store, pipelines, worker)
@@ -148,7 +150,13 @@ def hashtag_payload(text: str) -> dict:
     ],
 )
 def test_a_route_hashtag_is_read_from_the_entities(text, expected):
-    assert requested_route([hashtag_payload(text)]) == expected
+    assert requested_route([hashtag_payload(text)], ROUTES) == expected
+
+
+def test_a_hashtag_names_a_route_only_where_that_route_is_configured():
+    payload = hashtag_payload("#lang sobremesa")
+    assert requested_route([payload], ("info", "job")) is None
+    assert requested_route([hashtag_payload("#recipes pasta")], ("info", "recipes")) == "recipes"
 
 
 def test_a_hashtag_inside_a_url_is_not_a_routing_instruction():
@@ -159,7 +167,7 @@ def test_a_hashtag_inside_a_url_is_not_a_routing_instruction():
         "text": "https://example.com/a#clip",
         "entities": [{"type": "url", "offset": 0, "length": 26}],
     }
-    assert requested_route([payload]) is None
+    assert requested_route([payload], ROUTES) is None
 
 
 def test_a_hashtag_moves_the_item_and_renumbers_it_in_the_destination(store):
@@ -208,7 +216,7 @@ def test_an_edit_after_a_move_still_finds_the_item_on_the_original_bot(store):
 
 def test_an_interrupted_move_is_repaired_from_the_directory_on_disk(tmp_path):
     """metadata.json is written before the rename, so the directory is authority."""
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     store.capture("info", 10, 1, "a posting", received_at="2026-08-09T10:00:00+00:00")
 
     # Simulate a crash between the rename and the state write: move the directory
@@ -219,7 +227,7 @@ def test_an_interrupted_move_is_repaired_from_the_directory_on_disk(tmp_path):
     (staged / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     staged.rename(store.staging_for("job", "2026-08-09T10:00:00+00:00", 7))
 
-    recovered = CaptureStore(tmp_path)
+    recovered = make_store(tmp_path)
     item = recovered.get_item("info", 10, 1)
 
     assert (item["route"], item["local_id"], item["status"]) == ("job", 7, "received")
@@ -238,4 +246,4 @@ def test_a_database_from_before_routes_is_refused_rather_than_migrated(tmp_path)
     connection.close()
 
     with pytest.raises(RuntimeError, match="predates routes"):
-        CaptureStore(tmp_path)
+        make_store(tmp_path)

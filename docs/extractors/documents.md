@@ -62,7 +62,7 @@ pages, 14 PDF links, 20 arXiv papers, two examples per additional open provider,
 ResearchGate page. Run them sequentially with a one-second delay between requests:
 
 ```bash
-uv run url-extraction-corpus
+uv run python experiments/url-extraction-corpus/corpus.py
 ```
 
 Results land in the ignored `url_output/` with a `summary.json` of outcomes by route and stable

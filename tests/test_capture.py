@@ -5,11 +5,11 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from conftest import make_store
 from telegram import Message
 from telegram.ext import CallbackQueryHandler
 
 from info_triage.models import AttachmentSpec, DownloadedAttachment
-from info_triage.storage import CaptureStore
 from info_triage.telegram_bot import (
     _finalize_batch,
     _pending_batches,
@@ -164,9 +164,9 @@ class CaptureContentTests(unittest.TestCase):
 
 
 class CaptureStoreTests(unittest.TestCase):
-    def test_new_capture_defaults_to_other_without_a_category_revision(self):
+    def test_a_new_capture_is_revision_one_and_its_text_is_untouched(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             promote(
                 store,
                 store.capture(
@@ -179,16 +179,16 @@ class CaptureStoreTests(unittest.TestCase):
             )
             item = Path(temporary) / "inbox" / "info" / "2026-08-09_1"
             metadata = json.loads((item / "metadata.json").read_text())
-            self.assertEqual(metadata["category"], "Other")
             self.assertEqual(metadata["revision"], 1)
-            # The category lives in metadata.json and SQLite; index.md is the
-            # only per-item contract, so message.md carries no front matter.
+            self.assertNotIn("category", metadata)
+            # index.md is the only per-item contract, so message.md carries no
+            # front matter.
             self.assertEqual((item / "capture" / "message.md").read_text(), "plain")
             self.assertEqual((item / "capture" / "source.md").read_text(), "plain")
 
     def test_capture_artifacts_live_under_capture_beside_root_metadata(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             voice = AttachmentSpec(
                 "voice", "voice", "unique-voice", 3, "audio/ogg", None, ".ogg", 1
             )
@@ -222,7 +222,7 @@ class CaptureStoreTests(unittest.TestCase):
 
     def test_partial_attachment_update_preserves_other_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             forwarded = telegram_payload(
                 1,
                 100,
@@ -334,7 +334,7 @@ class CaptureStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
             payload = telegram_payload(1, 100, text="pending")
-            CaptureStore(data_dir).stage_pending_message(
+            make_store(data_dir).stage_pending_message(
                 "info",
                 10,
                 1,
@@ -345,13 +345,13 @@ class CaptureStoreTests(unittest.TestCase):
                 payload,
                 [],
             )
-            recovered = CaptureStore(data_dir)
+            recovered = make_store(data_dir)
             self.assertEqual(recovered.pending_chat_ids("info"), [10])
             self.assertEqual(recovered.pending_messages("info", 10)[0]["payload"], payload)
 
     def test_failed_finalization_keeps_pending_messages(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             payload = telegram_payload(
                 1,
                 100,
@@ -380,9 +380,9 @@ class CaptureStoreTests(unittest.TestCase):
                 asyncio.run(_finalize_batch(app, 10, None, store.pending_messages("info", 10)))
             self.assertEqual([row["message_id"] for row in store.pending_messages("info", 10)], [1])
 
-    def test_existing_category_update_still_preserves_attachments(self):
+    def test_an_edit_that_brings_no_attachments_keeps_the_ones_already_there(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             voice = AttachmentSpec(
                 "voice", "voice", "unique-voice", 3, "audio/ogg", None, ".ogg", 1
             )
@@ -408,7 +408,12 @@ class CaptureStoreTests(unittest.TestCase):
             self.assertEqual(
                 json.loads((item / "capture" / "payload.json").read_text())["message_id"], 1
             )
-            promote(store, store.categorize("info", 10, 1, "Life"))
+            promote(
+                store,
+                store.capture(
+                    "info", 10, 1, "voice note, edited", edited_at="2026-08-09T10:05:00+00:00"
+                ),
+            )
             self.assertEqual(
                 (item / "capture" / "attachments" / "01-voice.ogg").read_bytes(), b"ogg"
             )
@@ -466,9 +471,9 @@ class CaptureGroupingTests(unittest.TestCase):
             "## Segment 2 — text\n\nRead this later",
         )
 
-    def test_application_has_no_category_callback_handler(self):
+    def test_application_takes_its_grouping_settings_and_asks_no_follow_up_question(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             application = build_application(
                 "123:token",
                 20,

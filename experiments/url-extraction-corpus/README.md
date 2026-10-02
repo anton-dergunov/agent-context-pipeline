@@ -20,7 +20,7 @@ why `extraction` is a first-class field.
 - **Apparatus.** The shipped extractors, run sequentially with a one-second delay between requests:
 
   ```bash
-  uv run url-extraction-corpus
+  uv run python experiments/url-extraction-corpus/corpus.py
   ```
 
   It writes one directory per URL under the ignored `url_output/` and a `summary.json` beside them.

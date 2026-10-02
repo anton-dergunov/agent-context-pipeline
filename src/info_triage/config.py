@@ -9,11 +9,12 @@ from typing import Any
 
 import yaml
 
-#: Every route the daemon knows about. A route is a capture-time pipeline switch:
-#: one Telegram bot, one ordered step list, one `data/inbox/<route>/` tree.
-#: `info_triage/sync.py` keeps a matching copy so the laptop side stays
-#: independent of this module; the two must not drift.
-ROUTE_NAMES = ("info", "job", "clip", "lang")
+#: What a route may be called. A route is a capture-time pipeline switch: one
+#: ordered step list, one `data/inbox/<route>/` tree, and usually one Telegram bot.
+#: Its name is a directory, the first half of an item handle and a `#hashtag`, so
+#: it has to be valid as all three. `sync.py` keeps a copy of this pattern,
+#: because the laptop side may not import the daemon.
+ROUTE_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
 
 TRANSCRIPTION_BACKENDS = ("faster-whisper", "mlx")
 TRANSCRIPTION_MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
@@ -122,8 +123,9 @@ class RouteConfig:
     name: str
     #: Name of the environment variable holding this route's bot token. The token
     #: itself never enters config.yaml; naming the variable here keeps the binding
-    #: greppable and turns a typo into a load-time error.
-    token_env: str
+    #: greppable and turns a typo into a load-time error. None means the route has
+    #: no bot and is fed by `POST /capture` alone.
+    token_env: str | None
     steps: tuple[StepConfig, ...]
 
 
@@ -140,6 +142,11 @@ class AppConfig:
     youtube_extractor: YouTubeExtractorConfig
     instagram_extractor: InstagramExtractorConfig
     medium_extractor: MediumExtractorConfig
+
+    @property
+    def route_names(self) -> tuple[str, ...]:
+        """Every configured route, in declared order. The first is the default."""
+        return tuple(route.name for route in self.routes)
 
     def route(self, name: str) -> RouteConfig:
         for route in self.routes:
@@ -384,17 +391,22 @@ def _validate_step_order(steps: tuple[StepConfig, ...], context: str) -> None:
 
 
 def _parse_routes(value: Any, base_dir: Path) -> tuple[RouteConfig, ...]:
-    if not isinstance(value, list):
-        raise ConfigError("routes must be a list")
+    if not isinstance(value, list) or not value:
+        raise ConfigError("routes must be a list with at least one route")
     routes = []
     for index, entry in enumerate(value):
         context = f"routes[{index}]"
         route = _mapping(entry, context, {"name", "token_env", "steps"})
         name = _required(route, "name", context)
-        if name not in ROUTE_NAMES:
-            raise ConfigError(f"{context}.name must be one of: {', '.join(ROUTE_NAMES)}")
-        token_env = _required(route, "token_env", context)
-        if not isinstance(token_env, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", token_env):
+        if not isinstance(name, str) or not ROUTE_NAME.fullmatch(name):
+            raise ConfigError(
+                f"{context}.name must be a lower-case letter followed by up to 31 "
+                "lower-case letters, digits or underscores"
+            )
+        token_env = route.get("token_env")
+        if token_env is not None and (
+            not isinstance(token_env, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", token_env)
+        ):
             raise ConfigError(
                 f"{context}.token_env must be an upper-case environment variable name"
             )
@@ -402,9 +414,10 @@ def _parse_routes(value: Any, base_dir: Path) -> tuple[RouteConfig, ...]:
         routes.append(RouteConfig(name, token_env, steps))
 
     names = [route.name for route in routes]
-    if sorted(names) != sorted(ROUTE_NAMES):
-        raise ConfigError(f"routes must declare exactly: {', '.join(ROUTE_NAMES)}")
-    tokens = [route.token_env for route in routes]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise ConfigError(f"routes declares {', '.join(duplicates)} more than once")
+    tokens = [route.token_env for route in routes if route.token_env is not None]
     # Two routes on one token means two pollers on one bot. Telegram answers the
     # second getUpdates with a 409 and both routes then miss messages.
     if len(set(tokens)) != len(tokens):

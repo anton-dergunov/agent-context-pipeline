@@ -64,10 +64,7 @@ class SuryaOCR(OCREngine):
         # to this project unless the caller has selected another cache directory.
         cache = (
             model_cache_dir
-            or Path(
-                os.environ.get("INFO_TRIAGE_OCR_MODEL_DIR")
-                or os.environ.get("INSTAGRAM_OCR_MODEL_DIR", ".ocr_models")
-            ).resolve()
+            or Path(os.environ.get("INFO_TRIAGE_OCR_MODEL_DIR", ".ocr_models")).resolve()
         )
         cache.mkdir(parents=True, exist_ok=True)
         os.environ.setdefault("MODEL_CACHE_DIR", str(cache))

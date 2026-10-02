@@ -5,9 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from conftest import make_store
+
 from info_triage.capture_api import MAX_CAPTURE_FILE_BYTES, MAX_CAPTURE_REQUEST_BYTES
 from info_triage.models import ProcessingIssue, ProcessingProblem, ProcessingResult
-from info_triage.storage import CaptureStore
 from info_triage.web import WebHandler
 
 
@@ -24,7 +25,7 @@ class ImmediateCoordinator:
 class WebTests(unittest.TestCase):
     def test_health_and_dashboard(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
 
             class RecordingHandler(WebHandler):
                 def _send_text(self, content):
@@ -39,7 +40,7 @@ class WebTests(unittest.TestCase):
 
     def test_processor_dashboard_shows_totals_reasons_and_grep_keys(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             store.register_processors(
                 ("text-cleaning", "url-resolution", "voice-<transcription>")
             )
@@ -74,7 +75,7 @@ class WebTests(unittest.TestCase):
     def test_a_delivered_item_shows_the_problems_it_carried(self):
         """Items ship even when enrichment fails, so the dashboard has to say so."""
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             item = store.capture("info", 10, 1, "a note", received_at="2026-08-09T10:00:00+00:00")
             store.promote_if_current(
                 item,
@@ -146,7 +147,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_a_text_capture_lands_as_an_item_in_its_route(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             status, body = self.post(
                 store, {"route": "job", "source": "cli", "text": "https://example.com/posting"}
             )
@@ -164,9 +165,48 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
             self.assertEqual(payload["source"], "cli")
             self.assertEqual(payload["entities"], [])
 
+    def test_a_capture_that_names_no_route_goes_to_the_first_declared_one(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = make_store(Path(temporary))
+            status, body = self.post(store, {"text": "a thought"})
+
+            self.assertEqual(status, 201)
+            self.assertEqual(body["route"], store.routes[0])
+
+    def test_a_replacement_that_names_no_route_stays_where_it_is(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = make_store(Path(temporary))
+            _, created = self.post(store, {"route": "job", "text": "a posting"})
+            handle = f"job/{created['id']}"
+
+            status, body = self.post(store, {"id": handle, "text": "the posting, corrected"})
+
+            self.assertEqual(status, 200)
+            self.assertEqual((body["route"], body["id"]), ("job", created["id"]))
+
+    def test_the_routes_are_listed_for_a_client_that_holds_the_token(self):
+        """What a capture client asks instead of hard-coding the routes, and how it
+        checks its address and token without leaving a test item behind."""
+        with tempfile.TemporaryDirectory() as temporary:
+            store = make_store(Path(temporary))
+            handler = self.handler(store, b"")
+            handler.path = "/routes"
+            handler.do_GET()
+            self.assertEqual(handler.status, 200)
+            self.assertEqual(
+                json.loads(handler.wfile.getvalue()),
+                {"routes": list(store.routes), "default": store.routes[0]},
+            )
+
+            refused = self.handler(store, b"", token="wrong")
+            refused.path = "/routes"
+            refused.do_GET()
+            self.assertEqual(refused.status, 401)
+            self.assertEqual(store.status_counts()["ready"], 0)
+
     def test_an_attached_file_lands_beside_a_telegram_document(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             status, body = self.post(
                 store,
                 {
@@ -192,7 +232,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_a_wrong_bearer_of_the_same_length_is_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             for token in (None, "secret-tokeN", "", "wrong"):
                 status, body = self.post(
                     store, {"route": "info", "text": "x"}, token=token
@@ -202,7 +242,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_bad_requests_are_named_rather_than_guessed(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             for payload, status, message in (
                 ({"route": "invented", "text": "x"}, 400, "route must be one of"),
                 ({"route": "info", "text": "   "}, 400, "text is required"),
@@ -224,7 +264,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_an_oversized_or_unbounded_body_is_refused_before_it_is_read(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
 
             handler = self.handler(store, b"{}")
             handler.headers["Content-Length"] = str(MAX_CAPTURE_REQUEST_BYTES + 1)
@@ -242,7 +282,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_a_file_over_the_limit_is_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             oversized = base64.b64encode(b"x" * (MAX_CAPTURE_FILE_BYTES + 1)).decode("ascii")
             status, body = self.post(
                 store,
@@ -253,7 +293,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
 
     def test_only_capture_accepts_a_post(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             handler = self.handler(store, b"{}")
             handler.path = "/"
             handler.do_POST()
@@ -270,7 +310,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_replacement_rewrites_the_item_in_place(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(store, "job", "first text")
 
             status, second = self.post(
@@ -293,7 +333,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_replacement_drops_the_files_it_does_not_repeat(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(
                 store,
                 "info",
@@ -312,7 +352,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_replacement_discards_what_the_last_revision_generated(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(store, "info", "https://example.com/paper")
             item = Path(temporary) / "inbox" / "info" / first["id"]
             (item / "index.md").write_text("---\nkind: link\n---\n")
@@ -332,7 +372,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_replacement_may_move_the_item_to_another_route(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(store, "job", "a posting")
 
             status, moved = self.post(
@@ -355,7 +395,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_handle_that_names_nothing_is_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(store, "info", "a note")
             wrong_date = f"info/1999-01-01_{first['id'].split('_')[1]}"
             for handle, status, message in (
@@ -372,7 +412,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_new_capture_time_is_refused_because_the_handle_carries_it(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             first = self.capture(store, "info", "a note")
 
             status, body = self.post(
@@ -390,7 +430,7 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
     def test_a_telegram_capture_is_not_rewritable_over_http(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             # A real Telegram message still exists upstream, and editing it would
             # fight this rewrite over the same directory.
             item = store.capture("info", 4242, 17, "sent from a phone", route="info")

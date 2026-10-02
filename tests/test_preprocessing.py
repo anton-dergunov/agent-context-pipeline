@@ -2,7 +2,7 @@ import json
 import time
 
 import pytest
-from conftest import job_for
+from conftest import job_for, make_store
 
 from info_triage.extractors.media.transcription import TranscriptResult
 from info_triage.models import (
@@ -20,7 +20,6 @@ from info_triage.preprocessing import (
 )
 from info_triage.processing import ProcessingCoordinator, ProcessingPipeline, ProcessingWorker
 from info_triage.rendering import render_capture_payloads
-from info_triage.storage import CaptureStore
 from info_triage.utilities.url_resolution import LinkResolution
 
 
@@ -81,7 +80,7 @@ def result(status="complete", text="recognized text", error=None):
 
 
 def staged_job(tmp_path, payloads, attachments, content=""):
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     primary = min(payloads, key=lambda value: (value["date"], value["message_id"]))
     item = store.capture(
         "info",
@@ -296,7 +295,13 @@ def test_ready_item_is_not_backfilled_but_later_revision_is_processed(tmp_path):
     try:
         time.sleep(0.05)
         assert transcriber.calls == []
-        revised = store.categorize("info", 10, 1, "Life")
+        revised = store.capture(
+            "info",
+            10,
+            1,
+            render_capture_payloads([payload]),
+            edited_at="2026-08-09T10:05:00+00:00",
+        )
         coordinator.submit(revised)
         wait_for_status(store, 1, "ready")
     finally:
@@ -383,7 +388,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
         "## Segment 1 — text\n\n"
         "𝗨𝘀𝗲𝗳𝘂𝗹  link: https://t.co/example"
     )
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     item = store.capture(
         "info",
         10,
@@ -434,7 +439,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
 
 def test_unresolved_url_does_not_fail_delivery(tmp_path):
     source = "## Segment 1 — text\n\n𝗞𝗲𝗲𝗽 https://t.co/unavailable"
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     item = store.capture(
         "info",
         10,
@@ -527,7 +532,7 @@ def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
             },
         ],
     )
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     item = store.capture(
         "info",
         10,
@@ -733,7 +738,7 @@ def test_a_consent_interstitial_does_not_become_the_canonical_url(tmp_path):
     payload = telegram_payload(
         1, 100, text=video, entities=[{"type": "url", "offset": 0, "length": len(video)}]
     )
-    store = CaptureStore(tmp_path)
+    store = make_store(tmp_path)
     store.capture(
         "info",
         10,
@@ -743,7 +748,7 @@ def test_a_consent_interstitial_does_not_become_the_canonical_url(tmp_path):
         capture_payload=payload,
     )
     job = ProcessingJob(
-        "info", 10, 1, "info", 1, 1, "Other",
+        "info", 10, 1, "info", 1, 1,
         store.staging_for("info", "2026-08-09T10:00:00+00:00", 1),
     )
     result = ProcessingResult(message_markdown=render_capture_payloads([payload]))

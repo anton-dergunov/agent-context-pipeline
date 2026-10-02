@@ -16,11 +16,29 @@ from info_triage.models import CapturedItem, ProcessingJob
 from info_triage.storage import CaptureStore
 
 DEFAULT_ROUTE = "info"
+#: The routes the suites capture into. The daemon takes its routes from
+#: configuration, so the tests have to name some.
+ROUTES = ("info", "job", "clip", "lang")
+
+
+def make_store(data_dir: Path) -> CaptureStore:
+    return CaptureStore(data_dir, ROUTES)
+
+
+@pytest.fixture(autouse=True)
+def no_checkout_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the developer's own `.env` out of the test process.
+
+    The command-line entry points load it, and it holds real tokens and this
+    machine's server address.
+    """
+    monkeypatch.setattr("info_triage.sync.load_env_file", lambda: None)
+    monkeypatch.setattr("info_triage.capture_cli.load_env_file", lambda: None)
 
 
 @pytest.fixture
 def store(tmp_path: Path) -> CaptureStore:
-    return CaptureStore(tmp_path)
+    return make_store(tmp_path)
 
 
 def capture(
@@ -45,7 +63,6 @@ def job_for(item: CapturedItem, **overrides: Any) -> ProcessingJob:
         "route": item.route,
         "local_id": item.local_id,
         "revision": item.revision,
-        "category": item.category,
         "path": item.path,
     }
     fields.update(overrides)

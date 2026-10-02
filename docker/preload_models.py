@@ -1,6 +1,6 @@
 """Download the OCR and selected Whisper models at image build time.
 
-The container must not reach ModelScope on first run: the NAS may be offline,
+The container must not reach ModelScope on first run: the server may be offline,
 the CDN is slow from Europe, and a runtime download turns a scheduled job into a
 network dependency. Building the engine once forces every model it needs into
 the image.
@@ -20,11 +20,8 @@ from info_triage.extractors.media.transcription import (
     download_faster_whisper_model,
 )
 
-model_dir = Path(
-    os.environ.get("INFO_TRIAGE_OCR_MODEL_DIR")
-    or os.environ.get("INSTAGRAM_OCR_MODEL_DIR", "/app/.ocr_models")
-)
-scripts = tuple(os.environ.get("INSTAGRAM_OCR_SCRIPTS", ",".join(DEFAULT_SCRIPTS)).split(","))
+model_dir = Path(os.environ.get("INFO_TRIAGE_OCR_MODEL_DIR", "/app/.ocr_models"))
+scripts = tuple(os.environ.get("INFO_TRIAGE_OCR_SCRIPTS", ",".join(DEFAULT_SCRIPTS)).split(","))
 
 print(f"preloading RapidOCR models for scripts={scripts} into {model_dir}")
 engine = RapidOCREngine(scripts=scripts, threads=1, model_dir=model_dir)

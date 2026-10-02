@@ -59,17 +59,23 @@ processing:
   # for every route: it describes how a link list is read, not what a route is for.
   linklist_threshold: 8
 
-# A route is a capture-time pipeline switch. Which bot you shared to decides which
-# steps run and which inbox subdirectory the item lands in. All four must be
-# declared, each with its own bot token, and steps execute in exactly this order.
+# A route is a capture-time pipeline switch: its own inbox directory, its own
+# ordered steps, and usually its own Telegram bot. Which bot you shared to decides
+# which steps run. Declare as many as you need, under any lower-case name; the
+# first one is the default for a capture that names no route. Steps execute in
+# exactly this order, and removing a step disables it for that route.
+#
+# `token_env` names the variable in .env that holds the route's bot token. Leave
+# it out for a route with no bot: such a route is fed by POST /capture alone (the
+# browser extension, the command line), so the daemon runs without any bot at all.
 routes:
-  # The default route: things to think about, routed later into the plan repo.
-  # This is the only route that cleans, resolves, retrieves or transcribes.
+  # The default route: things to read and think about, filed later with an agent.
+  # This is the only route here that cleans, resolves, retrieves or transcribes.
   - name: info
     token_env: TELEGRAM_BOT_TOKEN_INFO
     steps:
       - name: voice-transcription
-        # The portable NAS backend. Changing the container model requires a rebuild.
+        # The portable CPU backend. Changing the container model requires a rebuild.
         backend: faster-whisper
         # Multilingual Whisper model size preloaded into the Docker image.
         model: small
@@ -127,9 +133,10 @@ routes:
         # 800 words quotes 12 of them whole (median 183, p90 681).
         media_lead_words: 800
 
-  # Job postings. A downstream script already fetches and processes the posting,
-  # so this route only records the link: discovery is offline and index-render
-  # needs it to fill `canonical_url`. The captured text is never transformed.
+  # Job postings. This route only records the link, for when something downstream
+  # already fetches and processes the posting: discovery is offline and
+  # index-render needs it to fill `canonical_url`. The captured text is never
+  # transformed.
   - name: job
     token_env: TELEGRAM_BOT_TOKEN_JOB
     steps:
@@ -138,7 +145,7 @@ routes:
         lead_words: 120
         media_lead_words: 800
 
-  # Tango and photography clips. Downloading happens on the laptop, so nothing
+  # Video clips to download later. Downloading happens on the laptop, so nothing
   # here retrieves, transcribes or OCRs; the URL is the payload.
   - name: clip
     token_env: TELEGRAM_BOT_TOKEN_CLIP
@@ -148,11 +155,12 @@ routes:
         lead_words: 120
         media_lead_words: 800
 
-  # Vocabulary: a word or phrase plus the context it was found in. There is no
-  # link to discover and the wording is the whole point, so nothing touches it.
-  - name: lang
-    token_env: TELEGRAM_BOT_TOKEN_LANG
-    steps:
-      - name: index-render
-        lead_words: 120
-        media_lead_words: 800
+  # A route that keeps the wording exactly as captured needs one step only, for
+  # instance a vocabulary list:
+  #
+  # - name: lang
+  #   token_env: TELEGRAM_BOT_TOKEN_LANG
+  #   steps:
+  #     - name: index-render
+  #       lead_words: 120
+  #       media_lead_words: 800

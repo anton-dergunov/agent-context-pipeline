@@ -1,8 +1,7 @@
 """Tests for multilingual transcription metrics."""
 
 import pytest
-
-from info_triage.extractors.instagram.transcription_metrics import (
+from transcription_metrics import (
     normalize_text,
     score_transcript,
     tokenize,

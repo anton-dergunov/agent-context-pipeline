@@ -1,6 +1,6 @@
 """Benchmark the Instagram video OCR pipeline and report cost per minute.
 
-Run the same command on every target machine (Mac, Synology NAS, Raspberry Pi)
+Run the same command on every target machine (a Mac, a NAS, a Raspberry Pi)
 and compare ``seconds_per_video_minute``. Results are appended to a JSON file so
 runs from different machines can sit side by side.
 """
@@ -17,7 +17,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import runtime
+from info_triage.extractors.media import runtime
 
 
 def peak_rss_mb() -> float:
@@ -40,7 +40,7 @@ def _video_duration(path: Path) -> float:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="instagram-ocr-bench",
+        prog="bench.py",
         description="Measure OCR throughput per minute of video on this machine.",
     )
     parser.add_argument(

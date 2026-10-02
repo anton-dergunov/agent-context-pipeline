@@ -33,6 +33,9 @@ class WebHandler(BaseHTTPRequestHandler):
         if request.path in _STATIC_FILES:
             self._send_static(*_STATIC_FILES[request.path])
             return
+        if request.path == "/routes":
+            self._send_routes()
+            return
         if request.path != "/":
             self.send_error(404)
             return
@@ -83,6 +86,17 @@ class WebHandler(BaseHTTPRequestHandler):
                 f"body is over the {MAX_CAPTURE_REQUEST_BYTES} byte limit", status=413
             )
         return self.rfile.read(int(length))
+
+    def _send_routes(self) -> None:
+        """Tell a capture client which routes exist, so none has to hard-code them.
+
+        Behind the same token as a capture: it is also how a client checks its
+        address and token without leaving a test item in the inbox.
+        """
+        if not self._authorized():
+            self._send_json(401, {"error": "a valid bearer token is required"})
+            return
+        self._send_json(200, {"routes": list(self.routes), "default": self.routes[0]})
 
     def _authorized(self) -> bool:
         scheme, _, presented = (self.headers.get("Authorization") or "").partition(" ")
@@ -187,7 +201,7 @@ class WebHandler(BaseHTTPRequestHandler):
     def _item_table(self, selected_status: str) -> tuple[str, list[str]]:
         heading = (
             "<tr><th>Route</th><th>ID</th><th>Created</th><th>Updated</th>"
-            "<th>Category</th><th>Rev</th><th>Message</th></tr>"
+            "<th>Rev</th><th>Message</th></tr>"
         )
 
         rows = []
@@ -209,13 +223,12 @@ class WebHandler(BaseHTTPRequestHandler):
                 f"<td>{html.escape(item_id)}</td>"
                 f"<td>{html.escape(self._display_time(item['created_at']))}</td>"
                 f"<td>{html.escape(self._display_time(item['updated_at']))}</td>"
-                f"<td>{html.escape(item['category'] or '—')}</td>"
                 f"<td>{item['revision']}</td>"
                 f"<td>{message}</td>"
                 "</tr>"
             )
         if not rows:
-            rows.append('<tr><td colspan="7" class="empty">No items</td></tr>')
+            rows.append('<tr><td colspan="6" class="empty">No items</td></tr>')
         return heading, rows
 
     @staticmethod

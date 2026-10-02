@@ -16,11 +16,11 @@ path in [`docs/extractors/youtube.md`](../../docs/extractors/youtube.md).
 segments. The downloaded media and per-frame OCR are not committed.
 
 **Apparatus.** `compare_ocr.py` scores candidates against already-stored results, and
-`instagram-ocr-bench` times a whole run on any machine:
+`experiments/video-ocr/bench.py` times a whole run on any machine:
 
 ```bash
 uv run python experiments/video-ocr/compare_ocr.py --root instagram_output sampling
-uv run instagram-ocr-bench --label "my machine"
+uv run python experiments/video-ocr/bench.py --label "my machine"
 ```
 
 `compare_ocr.py` reads the layout the corpus was stored in when it was measured, with `ocr/` and
@@ -268,7 +268,7 @@ Ranges are two separate runs of the identical configuration, not a tuning sweep.
 **14× faster on macOS.** The ONNX engine on the same machine is ~3× slower than
 Vision, which is the price of portability.
 
-Reproduce on any machine with `instagram-ocr-bench`.
+Reproduce on any machine with `experiments/video-ocr/bench.py`.
 
 ### Caveat: measure on a cool machine
 
@@ -311,6 +311,6 @@ A Dockerfile cannot set CPU or memory limits — those are runtime concerns
 Throughput on the NAS (R1600, 2 cores) and the Pi 4 is **not yet measured**.
 Scaling the 47 s/video-minute figure by a plausible 3–4× for the R1600 suggests
 roughly 2.5–3 minutes of wall clock per minute of video. Run
-`instagram-ocr-bench` on the NAS to replace this estimate. If it lands worse than
+`experiments/video-ocr/bench.py` on the NAS to replace this estimate. If it lands worse than
 hoped, the dials in order of preference are `--video-max-height 640`
 (1.4× faster, ~10 points of recall) and `--video-sample-fps 2` (measured 87.9%).

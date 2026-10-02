@@ -5,6 +5,8 @@ import time
 import unittest
 from pathlib import Path
 
+from conftest import make_store
+
 from info_triage.models import (
     GeneratedFile,
     ProcessingIssue,
@@ -15,8 +17,6 @@ from info_triage.processing import (
     ProcessingPipeline,
     ProcessingWorker,
 )
-from info_triage.rendering import render_capture_payloads
-from info_triage.storage import CaptureStore
 
 
 def wait_for_status(store, message_id, status, timeout=3):
@@ -50,7 +50,7 @@ class AppendStep:
 class ProcessingTests(unittest.TestCase):
     def test_no_steps_promotes_directly(self):
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             pipeline = ProcessingPipeline()
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -68,7 +68,7 @@ class ProcessingTests(unittest.TestCase):
     def test_worker_is_fifo_and_commits_processed_message(self):
         with tempfile.TemporaryDirectory() as temporary:
             calls = []
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             pipeline = ProcessingPipeline([AppendStep(calls)])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -120,7 +120,7 @@ class ProcessingTests(unittest.TestCase):
                 )
 
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             pipeline = ProcessingPipeline([GenerateStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -157,7 +157,7 @@ class ProcessingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             elsewhere = Path(temporary) / "elsewhere"
             elsewhere.mkdir()
-            store = CaptureStore(Path(temporary) / "data")
+            store = make_store(Path(temporary) / "data")
             pipeline = ProcessingPipeline([OutsideStep(elsewhere)])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -191,7 +191,7 @@ class ProcessingTests(unittest.TestCase):
                 super().run(job, result, workspace)
 
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             pipeline = ProcessingPipeline([SometimesFails(), AppendStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -248,7 +248,7 @@ class ProcessingTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
-            store = CaptureStore(data_dir)
+            store = make_store(data_dir)
             pipeline = ProcessingPipeline([MutateThenFail(), AppendStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -284,7 +284,7 @@ class ProcessingTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
-            store = CaptureStore(data_dir)
+            store = make_store(data_dir)
             pipeline = ProcessingPipeline([DeclaredFailure()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -326,7 +326,7 @@ class ProcessingTests(unittest.TestCase):
                     raise RuntimeError("test release timed out")
 
         with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
+            store = make_store(Path(temporary))
             pipeline = ProcessingPipeline([BlockingStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
@@ -366,98 +366,21 @@ class ProcessingTests(unittest.TestCase):
             self.assertEqual(stats["runs"], 2)
             self.assertEqual(stats["succeeded"], 2)
 
-    def test_category_change_supersedes_running_revision(self):
-        started = threading.Event()
-        release = threading.Event()
-
-        class BlockingStep(AppendStep):
-            name = "blocking-category"
-
-            def run(self, job, result, workspace):
-                if job.revision == 1:
-                    started.set()
-                    if not release.wait(3):
-                        raise RuntimeError("test release timed out")
-                result.message_markdown += f"\nrevision {job.revision}"
-
-        with tempfile.TemporaryDirectory() as temporary:
-            store = CaptureStore(Path(temporary))
-            pipeline = ProcessingPipeline([BlockingStep()])
-            worker = ProcessingWorker(store, {"info": pipeline})
-            coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
-            first = store.capture(
-                "info",
-                10, 1, "source", received_at="2026-08-09T10:00:00+00:00"
-            )
-            worker.start()
-            coordinator.submit(first)
-            self.assertTrue(started.wait(3))
-
-            categorized = store.categorize("info", 10, 1, "Life")
-            coordinator.submit(categorized)
-            release.set()
-            try:
-                item = wait_for_status(store, 1, "ready")
-            finally:
-                worker.stop()
-
-            self.assertEqual(item["revision"], 2)
-            self.assertEqual(item["category"], "Life")
-            message = (
-                Path(temporary) / "inbox" / "info" / "2026-08-09_1" / "capture" / "message.md"
-            ).read_text()
-            self.assertEqual(
-                message,
-                "source\nrevision 2",
-            )
-
-    def test_category_change_rebuilds_source_from_raw_telegram_payload(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            data_dir = Path(temporary)
-            store = CaptureStore(data_dir)
-            payload = {
-                "message_id": 1,
-                "date": 100,
-                "chat": {"id": 10, "type": "private"},
-                "text": "Raw Telegram text",
-            }
-            source = render_capture_payloads([payload])
-            first = store.capture(
-                "info",
-                10,
-                1,
-                source,
-                received_at="2026-08-09T10:00:00+00:00",
-                capture_payload=payload,
-            )
-            store.promote_if_current(first)
-
-            # The retained raw payload, not either derived Markdown file, owns
-            # source reconstruction for the next revision.
-            ready = data_dir / "inbox" / "info" / "2026-08-09_1"
-            (ready / "capture" / "source.md").write_text("stale transformed text")
-            (ready / "capture" / "message.md").write_text("stale transformed text")
-            categorized = store.categorize("info", 10, 1, "Life")
-            store.promote_if_current(categorized)
-
-            self.assertEqual((ready / "capture" / "source.md").read_text(), source)
-            self.assertEqual((ready / "capture" / "message.md").read_text(), source)
-
     def test_restart_returns_interrupted_processing_to_queue(self):
         with tempfile.TemporaryDirectory() as temporary:
             data_dir = Path(temporary)
-            store = CaptureStore(data_dir)
+            store = make_store(data_dir)
             store.capture("info", 10, 1, "plain", received_at="2026-08-09T10:00:00+00:00")
             self.assertIsNotNone(store.claim_next_received())
             self.assertEqual(store.get_item("info", 10, 1)["status"], "processing")
 
-            recovered = CaptureStore(data_dir)
+            recovered = make_store(data_dir)
             self.assertEqual(recovered.get_item("info", 10, 1)["status"], "received")
 
             interrupted = recovered.claim_next_received()
             self.assertIsNotNone(interrupted)
             interrupted.path.rename(data_dir / "inbox" / "info" / interrupted.path.name)
-            promoted = CaptureStore(data_dir)
+            promoted = make_store(data_dir)
             self.assertEqual(promoted.get_item("info", 10, 1)["status"], "ready")
 
 

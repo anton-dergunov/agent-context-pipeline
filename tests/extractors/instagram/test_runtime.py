@@ -17,12 +17,6 @@ def test_environment_is_used_when_no_request(monkeypatch):
     assert runtime.resolve_threads() == 5
 
 
-def test_legacy_instagram_environment_remains_supported(monkeypatch):
-    monkeypatch.delenv(runtime.THREAD_ENV, raising=False)
-    monkeypatch.setenv(runtime.LEGACY_THREAD_ENV, "6")
-    assert runtime.resolve_threads() == 6
-
-
 def test_invalid_environment_falls_through(monkeypatch):
     monkeypatch.setenv(runtime.THREAD_ENV, "not-a-number")
     monkeypatch.setattr(runtime, "cgroup_cpu_limit", lambda: 2.0)

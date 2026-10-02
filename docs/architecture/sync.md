@@ -4,6 +4,13 @@
 route's queue. It is a small Python program (`src/info_triage/sync.py`) that drives `ssh` and `rsync`,
 runs on the laptop, and never imports the daemon.
 
+Where the server is comes from the checkout's `.env`, the same values `deploy.sh` uses:
+`INFO_TRIAGE_SERVER` is the SSH destination and `INFO_TRIAGE_SERVER_DIR` the project directory
+there, whose `data/inbox/` is what gets synchronized. With `INFO_TRIAGE_SERVER` empty the daemon is
+taken to run on this machine: the same steps run with `rsync` between two local directories and a
+local shell in place of SSH. `INFO_TRIAGE_INBOX` moves the laptop inbox, and the state directory
+follows `XDG_STATE_HOME`.
+
 ```bash
 ./sync.sh                         # download, propagate removals, regenerate the views
 ./sync.sh --regenerate            # rebuild the views from the local items; no network
@@ -65,8 +72,11 @@ beside them, and its own numbering from 1. The views sit next to the items they 
 every path inside them a single segment. A route with nothing in it still gets both files: an absent
 `triage.org` cannot be told apart from a sync that never ran.
 
-`sync.py:ROUTES` is a copy of the daemon's route names, kept so the laptop side does not import the
-daemon. The two must not drift.
+The laptop side keeps no list of routes. Every directory in the server's inbox is a route, the
+daemon creates one for each route it is configured with, and the download brings them all over,
+empty ones included. A directory whose name could not be a route stops the sync, because that name
+is about to be joined into paths that are removed on the server. A folder the user made in the
+laptop inbox beside the queues is ignored.
 
 Both views are generated, overwritten on every sync, never edited by hand, and rendered together
 before either is written so they cannot disagree. Neither carries state.
@@ -169,8 +179,8 @@ and the queue is meant to be worked while it runs.
   writing. An item dropped in the meantime is logged and skipped, never recreated.
 - Collapsed duplicates are skipped: their block would land in an index whose section `triage.md`
   does not print.
-- Only `info` is annotated. The other routes are consumed by scripts that have nothing to do with
-  the plans.
+- One route is annotated: `info`, unless `INFO_TRIAGE_NEIGHBOUR_ROUTE` names another. The others are
+  consumed by scripts that have nothing to do with the notes.
 - It rewrites that route's `triage.md` alone at the end. `triage.org` renders from frontmatter, so
   the block would never appear in it, and the owner is reading it at the time.
 - `--regenerate` reuses the blocks already on disk, which keeps renumbering after a drop instant.
@@ -183,23 +193,20 @@ intended and should not be defeated.
 
 ### Settings
 
-The corpora and exclusions are laptop settings, read from `~/.config/info-triage/sync.toml` (under
-`$XDG_CONFIG_HOME` when that is set). They never go into `config.yaml`, which belongs to the daemon.
+The pass is off until two note directories are named. Like every other setting of the laptop side,
+they live in the checkout's `.env`:
 
-```toml
-[neighbours]
-org_root = "~/notes/org"
-obsidian_root = "~/notes/obsidian"
+```dotenv
+INFO_TRIAGE_ORG_ROOT=~/notes/org
+INFO_TRIAGE_OBSIDIAN_ROOT=~/notes/vault
 # Org files never searched. Replaces the default list (workspace.org, init.org).
-org_exclude = ["workspace.org", "init.org", "Inbox.org", "Unsorted.org"]
+INFO_TRIAGE_ORG_EXCLUDE=workspace.org,init.org,Inbox.org
 ```
 
-Each setting can be overridden for one run by `INFO_TRIAGE_ORG_ROOT`, `INFO_TRIAGE_OBSIDIAN_ROOT`
-and `INFO_TRIAGE_ORG_EXCLUDE` (comma-separated). An empty value turns a corpus off. Without the
-file, the roots default to `notes/org` and `notes/obsidian` in the Dropbox folder. A file with an
-unknown key, a wrong type or broken TOML is reported in one line and ignored, and the sync goes on
-with the defaults. A sync started from an editor inherits the editor's environment, so the file is
-the reliable place for these.
+They never go into `config.yaml`, which belongs to the daemon and rejects fields it does not know.
+A variable set in the real environment overrides the file for that run, and an empty value turns a
+corpus off. A sync started from an editor inherits the editor's environment and not the shell's,
+which is why the file is the reliable place for these.
 
 The pass needs an optional dependency set that stays off the server:
 

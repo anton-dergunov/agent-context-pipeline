@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .config import ROUTE_NAME
 from .models import AttachmentSpec, CapturedItem, DownloadedAttachment
 from .processing import ProcessingCoordinator
 from .storage import HTTP_CHAT_ID, CaptureStore, now_iso
@@ -31,7 +32,9 @@ MAX_CAPTURE_REQUEST_BYTES = 32 * 1024 * 1024
 MAX_FILES = 20
 # The handle a capture answers with: `<route>/<YYYY-MM-DD>_<local_id>`, which is
 # also what `info-triage-capture` prints and how the sync manifest names an item.
-ITEM_HANDLE = re.compile(r"^(?P<route>[a-z]+)/(?P<name>\d{4}-\d{2}-\d{2}_(?P<local_id>\d+))$")
+ITEM_HANDLE = re.compile(
+    rf"^(?P<route>{ROUTE_NAME.pattern})/(?P<name>\d{{4}}-\d{{2}}-\d{{2}}_(?P<local_id>\d+))$"
+)
 
 
 class CaptureError(Exception):
@@ -121,7 +124,12 @@ def parse_capture(body: bytes, routes: tuple[str, ...]) -> dict[str, Any]:
         raise CaptureError(f"unknown field(s): {', '.join(sorted(unknown))}")
 
     handle = None if value.get("id") is None else _handle(value["id"], routes)
-    route = _string(value.get("route"), "route")
+    if value.get("route") is None:
+        # Nothing was asked for, so nothing moves: a replacement stays in the route
+        # its handle names, and a new capture goes to the first declared route.
+        route = handle[0] if handle is not None else routes[0]
+    else:
+        route = _string(value["route"], "route")
     if route not in routes:
         raise CaptureError(f"route must be one of: {', '.join(routes)}")
     if handle is not None and value.get("captured_at") is not None:

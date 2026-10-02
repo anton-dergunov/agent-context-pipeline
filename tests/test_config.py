@@ -116,15 +116,39 @@ def test_shipped_config_has_expected_order_and_explicit_nas_model():
 
 
 def test_shipped_pass_through_routes_never_retrieve_or_transform():
-    """job, clip and lang record what arrived; only info enriches it."""
+    """job and clip record what arrived; only info enriches it."""
     config = load_config(REPOSITORY / "config.example.yaml")
 
-    assert [route.name for route in config.routes] == ["info", "job", "clip", "lang"]
+    assert config.route_names == ("info", "job", "clip")
     assert [step.name for step in config.route("job").steps] == ["link-discovery", "index-render"]
     assert [step.name for step in config.route("clip").steps] == ["link-discovery", "index-render"]
-    assert [step.name for step in config.route("lang").steps] == ["index-render"]
-    assert len({route.token_env for route in config.routes}) == 4
+    assert len({route.token_env for route in config.routes}) == 3
     assert config.capture_token_env == "INFO_TRIAGE_CAPTURE_TOKEN"
+
+
+def test_routes_are_whatever_the_configuration_declares(tmp_path):
+    """Any valid name is a route, and one without a token has no bot."""
+    path = tmp_path / "config.yaml"
+    text = config_text(steps=MINIMAL_STEPS.replace("      ", "    "))
+    text = text.replace("name: lang", "name: recipes_2").replace(
+        "    token_env: TELEGRAM_BOT_TOKEN_JOB\n", ""
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = load_config(path)
+
+    assert config.route_names == ("info", "job", "clip", "recipes_2")
+    assert config.route("job").token_env is None
+    assert config.route("info").token_env == "TELEGRAM_BOT_TOKEN_INFO"
+
+
+def test_a_configuration_without_routes_is_rejected(tmp_path):
+    path = tmp_path / "config.yaml"
+    text = config_text(steps=MINIMAL_STEPS.replace("      ", "    "))
+    path.write_text(text[: text.index("routes:")] + "routes: []\n", encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="at least one route"):
+        load_config(path)
 
 
 def test_custom_config_resolves_paths_relative_to_itself_and_ignores_old_env(tmp_path, monkeypatch):
@@ -268,8 +292,8 @@ def test_one_step_may_appear_once_per_route_but_on_every_route(tmp_path):
             ("token_env: TELEGRAM_BOT_TOKEN_JOB", "token_env: TELEGRAM_BOT_TOKEN_INFO"),
             "must not share a token_env",
         ),
-        (("name: lang", "name: info"), "routes must declare exactly"),
-        (("name: clip", "name: invented"), r"routes\[2\]\.name must be one of"),
+        (("name: lang", "name: info"), "routes declares info more than once"),
+        (("name: clip", "name: Not-A-Route"), r"routes\[2\]\.name must be a lower-case letter"),
         (
             ("token_env: TELEGRAM_BOT_TOKEN_CLIP", "token_env: not-an-env-var"),
             "must be an upper-case environment variable name",

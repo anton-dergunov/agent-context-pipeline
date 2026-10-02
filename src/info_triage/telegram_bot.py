@@ -16,7 +16,6 @@ from telegram.ext import (
     filters,
 )
 
-from .config import ROUTE_NAMES
 from .models import AttachmentSpec, DownloadedAttachment
 from .processing import ProcessingCoordinator
 from .rendering import entity_slice, message_content, payload_order, render_capture_payloads
@@ -220,8 +219,8 @@ def group_new_messages(
     return batches
 
 
-def requested_route(payloads: list[dict[str, Any]]) -> str | None:
-    """Return the route a `#route` hashtag asks for, or None.
+def requested_route(payloads: list[dict[str, Any]], routes: tuple[str, ...]) -> str | None:
+    """Return the configured route a `#route` hashtag asks for, or None.
 
     The correction path for having shared to the wrong bot: edit the message, add
     `#job`, and the item moves. Read out of Telegram's own `hashtag` entities
@@ -238,7 +237,7 @@ def requested_route(payloads: list[dict[str, Any]]) -> str | None:
                 if not isinstance(entity, dict) or entity.get("type") != "hashtag":
                     continue
                 tag = entity_slice(text, entity.get("offset"), entity.get("length"))
-                if tag and tag[1:].lower() in ROUTE_NAMES:
+                if tag and tag[1:].lower() in routes:
                     found.add(tag[1:].lower())
     # Two routes named at once says nothing about which was meant. Never guess.
     return found.pop() if len(found) == 1 else None
@@ -339,7 +338,7 @@ async def _finalize_batch(
         chat_id,
         item_message_id,
         render_capture_payloads(payloads),
-        route=requested_route(payloads) or current_route,
+        route=requested_route(payloads, store.routes) or current_route,
         edited_at=edited_at,
         received_at=received_at,
         capture_payload=capture_payload,
@@ -386,7 +385,7 @@ async def recover_pending_captures(application: Application) -> None:
     """Resume this bot's unfinished capture groups after a restart.
 
     Scoped to this route: a private chat's id is the user's own id and therefore
-    identical on all four bots, so an unscoped sweep would have every bot try to
+    identical on every bot, so an unscoped sweep would have every bot try to
     finalize the others' messages and download their files with the wrong token.
     """
     store: CaptureStore = application.bot_data["store"]

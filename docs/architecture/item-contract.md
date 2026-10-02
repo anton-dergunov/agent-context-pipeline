@@ -40,7 +40,7 @@ output stays readable by a person.
 ```text
 2026-08-11_100/
 ├── index.md                the contract; the only file the laptop side has to read
-├── metadata.json           identity, revision, category, attachment manifest
+├── metadata.json           identity, revision, attachment manifest
 ├── links.json              the ordered link table
 ├── capture/                provenance: what arrived and what the pipeline made of it
 │   ├── source.md           segments before any transformation

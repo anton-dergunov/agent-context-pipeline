@@ -21,10 +21,10 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from info_triage.extractors.media.transcription import download_faster_whisper_model
+from transcription_metrics import score_transcript, tokenize
 
-from .transcription_metrics import score_transcript, tokenize
-from .urls import load_inputs
+from info_triage.extractors.instagram.urls import load_inputs
+from info_triage.extractors.media.transcription import download_faster_whisper_model
 
 MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
 VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".webm"}
@@ -464,8 +464,7 @@ def main(argv: list[str] | None = None) -> int:
             completed = subprocess.run(
                 [
                     sys.executable,
-                    "-m",
-                    "info_triage.extractors.instagram.transcription_bench",
+                    str(Path(__file__).resolve()),
                     "--worker-spec",
                     str(spec_path),
                     "--worker-output",

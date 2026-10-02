@@ -14,9 +14,6 @@ from typing import Any, Protocol
 TRANSCRIPTION_THREAD_ENV = "INFO_TRIAGE_TRANSCRIPTION_THREADS"
 TRANSCRIPTION_BACKEND_ENV = "INFO_TRIAGE_TRANSCRIPTION_BACKEND"
 TRANSCRIPTION_MODEL_ENV = "INFO_TRIAGE_TRANSCRIPTION_MODEL"
-LEGACY_TRANSCRIPTION_THREAD_ENV = "INSTAGRAM_TRANSCRIPTION_THREADS"
-LEGACY_TRANSCRIPTION_BACKEND_ENV = "INSTAGRAM_TRANSCRIPTION_BACKEND"
-LEGACY_TRANSCRIPTION_MODEL_ENV = "INSTAGRAM_TRANSCRIPTION_MODEL"
 
 BACKEND_CHOICES = ("best", "faster-whisper", "mlx")
 MODEL_CHOICES = ("tiny", "base", "small", "medium", "large-v3", "turbo")
@@ -55,10 +52,6 @@ __all__ = [
     "resolve_transcription_threads",
     "write_transcript_outputs",
 ]
-
-
-def _environment_value(primary: str, legacy: str) -> str | None:
-    return os.environ.get(primary) or os.environ.get(legacy)
 
 
 @dataclass(slots=True)
@@ -129,7 +122,7 @@ def resolve_backend_and_model(
     default_backend, default_model = production_defaults()
     selected_backend = (
         backend
-        or _environment_value(TRANSCRIPTION_BACKEND_ENV, LEGACY_TRANSCRIPTION_BACKEND_ENV)
+        or os.environ.get(TRANSCRIPTION_BACKEND_ENV)
         or "best"
     )
     if selected_backend == "best":
@@ -139,7 +132,7 @@ def resolve_backend_and_model(
 
     selected_model = (
         model
-        or _environment_value(TRANSCRIPTION_MODEL_ENV, LEGACY_TRANSCRIPTION_MODEL_ENV)
+        or os.environ.get(TRANSCRIPTION_MODEL_ENV)
         or default_model
     )
     if selected_model not in MODEL_CHOICES:
@@ -157,7 +150,7 @@ def resolve_transcription_threads(requested: int | None = None) -> int:
         if requested < 1:
             raise ValueError("transcription threads must be positive")
         return requested
-    configured = _environment_value(TRANSCRIPTION_THREAD_ENV, LEGACY_TRANSCRIPTION_THREAD_ENV)
+    configured = os.environ.get(TRANSCRIPTION_THREAD_ENV)
     if configured:
         try:
             value = int(configured)

@@ -125,7 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model-cache-dir",
         type=_path,
-        default=_env_path("INSTAGRAM_OCR_MODEL_DIR", ".ocr_models"),
+        default=_env_path("INFO_TRIAGE_OCR_MODEL_DIR", ".ocr_models"),
     )
     parser.add_argument(
         "--image-ocr-engine",
@@ -149,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--threads",
         type=int,
-        help="inference threads; defaults to INSTAGRAM_OCR_THREADS, the cgroup CPU limit, then all CPUs",
+        help="inference threads; defaults to INFO_TRIAGE_OCR_THREADS, the cgroup CPU limit, then all CPUs",
     )
     parser.add_argument(
         "--transcription-backend",
@@ -168,12 +168,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--transcription-model-cache-dir",
         type=_path,
-        default=_env_path("INSTAGRAM_TRANSCRIPTION_MODEL_CACHE_DIR", ".whisper_models"),
+        default=_env_path("INFO_TRIAGE_TRANSCRIPTION_MODEL_CACHE_DIR", ".whisper_models"),
     )
     parser.add_argument(
         "--transcription-threads",
         type=int,
-        help="CPU helper threads; defaults to INSTAGRAM_TRANSCRIPTION_THREADS or 1",
+        help="CPU helper threads; defaults to INFO_TRIAGE_TRANSCRIPTION_THREADS or 1",
     )
     parser.add_argument(
         "--transcription-vad",

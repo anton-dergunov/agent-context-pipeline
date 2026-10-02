@@ -1,9 +1,15 @@
 services:
   info-triage:
-    build: .
+    build:
+      context: .
+      args:
+        APP_UID: ${INFO_TRIAGE_UID:-1000}
+        APP_GID: ${INFO_TRIAGE_GID:-1000}
     container_name: info-triage
     restart: unless-stopped
-    user: "1026:100"
+    # The user that owns ./data on the host, so that what the container writes
+    # there can be read, and removed, from outside it. Set both in .env.
+    user: "${INFO_TRIAGE_UID:-1000}:${INFO_TRIAGE_GID:-1000}"
 
     # CPU-heavy OCR/transcription libraries are pinned to one thread. Shares
     # lower their relative CPU priority without requiring a CFS quota.
@@ -15,8 +21,7 @@ services:
       - .env
 
     environment:
-      INSTAGRAM_OCR_THREADS: "1"
-      TZ: Europe/London
+      TZ: ${TZ:-UTC}
 
     volumes:
       - ./data:/app/data

@@ -78,24 +78,34 @@ HTTP server, which is threaded so that a slow upload cannot block the health che
 | `src/info_triage/sync.py`, `neighbours.py` | the laptop side; they never import the daemon |
 
 Daemon settings are read strictly from `config.yaml` (or the file named by `INFO_TRIAGE_CONFIG`):
-unknown fields and invalid values stop startup. `.env` holds only secrets: one bot token per route,
-the allowed Telegram user id, and the capture bearer token.
+unknown fields and invalid values stop startup. `.env` holds what differs between installations: the
+secrets (a bot token per route that has a bot, the allowed Telegram user id, the capture bearer
+token), where the server is, and the laptop's own settings. The daemon reads only the first group.
 
 ## Routes
 
-A route is a capture-time pipeline switch: one Telegram bot, one ordered step list, one
-`data/inbox/<route>/` tree and one laptop queue. Which bot a message is shared to decides all four,
-at no cost beyond the share itself.
+A route is a capture-time pipeline switch: one ordered step list, one `data/inbox/<route>/` tree,
+one laptop queue, and usually one Telegram bot. Which bot a message is shared to decides the other
+three, at no cost beyond the share itself.
+
+Routes are whatever `config.yaml` declares under `routes`: any number of them, each named with a
+lower-case letter followed by up to 31 lower-case letters, digits or underscores, because the name
+is at once a directory, the first half of an item handle and a hashtag. The first route declared is
+the default for a capture that names none. `config.example.yaml` ships three:
 
 | Route | For | Steps |
 |---|---|---|
 | `info` | things to think about and file later | all six |
 | `job` | job postings | `link-discovery`, `index-render` |
-| `clip` | clips to download on the laptop | `link-discovery`, `index-render` |
-| `lang` | vocabulary and phrases | `index-render` |
+| `clip` | video clips to download on the laptop | `link-discovery`, `index-render` |
 
-Only `info` cleans, resolves, retrieves, transcribes or OCRs. On the other three the captured text
-passes through untouched, because something downstream already processes it.
+Only `info` cleans, resolves, retrieves, transcribes or OCRs. On the other two the captured text
+passes through untouched, because something downstream already processes it. A route that only
+keeps the wording, such as a vocabulary list, needs `index-render` alone.
+
+A route's bot is optional. A route that declares no `token_env` is fed by `POST /capture` only, so
+the daemon runs with no Telegram bot at all when the browser extension or the command line is the
+only way in.
 
 An item carries three route fields, and they are not interchangeable:
 
@@ -104,15 +114,16 @@ An item carries three route fields, and they are not interchangeable:
 - `route` is where the item is filed. A hashtag can move it.
 - `local_id` is the number in the directory name. It is allocated per route and reallocated on a move.
 
-Editing a captured message to include `#job`, `#clip`, `#lang` or `#info` moves the item: its
+Editing a captured message to include a configured route's name as a hashtag, such as `#job`,
+moves the item: its
 directory is renamed under the destination route, its revision increases, and it runs that route's
 pipeline. Hashtags are read from Telegram's own `hashtag` entities, never from the raw text, so a
 `#clip` inside a URL fragment is not an instruction. Two different route hashtags at once change
 nothing. After a move, later edits still arrive on the original bot, so lookups go by `origin_route`.
 
-Every route declares its own token variable, and two routes may not share one: two pollers on one
-bot produce a conflict loop in which both silently miss messages. A missing or rejected token stops
-the daemon instead of leaving one route unpolled. A route with no configured pipeline delivers its
+Two routes may not share a token variable: two pollers on one bot produce a conflict loop in which
+both silently miss messages. A declared token that is missing or rejected stops the daemon instead
+of leaving one route unpolled. A route with no configured pipeline delivers its
 items unprocessed and logs loudly; a configuration mistake may not withhold a capture.
 
 In this codebase "route" has two other, unrelated meanings: `extractors/router.py:route_url()`
@@ -143,18 +154,19 @@ The transport-independent entry point, which makes Telegram one client of the sy
 
 ```text
 POST /capture   Authorization: Bearer <token>
-{route, source, text, captured_at?, files?, id?}
+{route?, source, text, captured_at?, files?, id?}
 → 201 {route, id, revision, status}
 ```
 
-One request is one item; the grouping window does not apply. `info-triage-capture` is the shipped
+One request is one item; the grouping window does not apply. A request that names no `route` goes
+to the first route declared, so a client never has to know which routes an installation defines. `info-triage-capture` is the shipped
 client and the Chrome extension in `extension/` is another.
 
 Passing back an `id` (the `<route>/<name>` handle a capture answered with) rewrites that item and
 answers `200`. It is a replacement, not a patch: the body is the item's whole new content, files it
 does not repeat are gone, and everything the previous revision generated is discarded before the
 pipeline runs again. `route` beside an `id` is the destination, so a replacement can re-file an item,
-which renumbers it. `captured_at` cannot change. Only HTTP captures are rewritable; a Telegram
+which renumbers it; left out, the item stays in the route its handle names. `captured_at` cannot change. Only HTTP captures are rewritable; a Telegram
 capture answers `409`, because its message still exists upstream and is edited there.
 
 An HTTP capture writes `capture/payload.json` in Telegram's own payload shape, so link discovery,
@@ -233,7 +245,7 @@ delivered, and the pipeline runs again. Unedited members stay as they were.
 
 | Table | Holds |
 |---|---|
-| `items` | one row per item: the three route fields, state, revision, category, timestamps, a short preview, the error, the running step, the problems it was delivered with |
+| `items` | one row per item: the three route fields, state, revision, timestamps, a short preview, the error, the running step, the problems it was delivered with |
 | `item_messages` | every constituent source message mapped to its item |
 | `pending_capture_messages` | raw payloads waiting out the grouping window, deleted once written to an item |
 | `route_sequences` | the per-route `local_id` counter, shared by every transport |
@@ -242,16 +254,16 @@ delivered, and the pipeline runs again. Unedited members stay as they were.
 Text, media and generated output stay on disk. The database is not synchronized to the laptop. The
 store refuses a database that predates routes instead of migrating it.
 
-Every new capture is assigned the category `Other`. The categories `ML`, `Career` and `Life` remain
-valid values from an earlier interface; nothing classifies an item automatically.
-
 ## HTTP
 
 - `GET /health` is a cheap check, used by the container health check and by `deploy.sh`.
 - `GET /` is a read-only dashboard over SQLite: one tab per item state with its count, and a
   Processors tab with lifetime outcome totals and reason keys that can be pasted into `grep -F`
-  against the run log. Item rows show route, id, timestamps, category, revision, a preview, the
+  against the run log. Item rows show route, id, timestamps, revision, a preview, the
   running or failed step and the problems the item carried. The page reloads every ten seconds.
+- `GET /routes` answers `{"routes": [...], "default": "<first route>"}` to a request carrying the
+  capture bearer token. It is how a capture client learns the routes instead of hard-coding them,
+  and how it checks its address and token without leaving a test item behind.
 - `POST /capture` is the only mutating endpoint.
 
 ## The laptop side

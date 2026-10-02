@@ -130,7 +130,7 @@ Useful controls:
 Run the same command on every target to get a directly comparable figure:
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv run instagram-ocr-bench --label "my machine"
+UV_CACHE_DIR=.uv-cache uv run python experiments/video-ocr/bench.py --label "my machine"
 ```
 
 It reports wall clock, peak memory, and **how many seconds one minute of video
@@ -159,8 +159,8 @@ preserved; the extractor never translates. Both backends record the detected
 language and its probability (unless the user explicitly fixes the language).
 
 All choices can be overridden through the CLI controls above or with
-`INSTAGRAM_TRANSCRIPTION_BACKEND`, `INSTAGRAM_TRANSCRIPTION_MODEL`, and
-`INSTAGRAM_TRANSCRIPTION_THREADS`. For example:
+`INFO_TRIAGE_TRANSCRIPTION_BACKEND`, `INFO_TRIAGE_TRANSCRIPTION_MODEL`, and
+`INFO_TRIAGE_TRANSCRIPTION_THREADS`. For example:
 
 ```bash
 # Explicitly use the normal Mac default.
@@ -172,7 +172,7 @@ UV_CACHE_DIR=.uv-cache uv run --extra mac-transcription instagram-extract \
 The evaluation suite and its metrics dependencies are installed by default:
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv run instagram-transcription-bench \
+UV_CACHE_DIR=.uv-cache uv run python experiments/transcription-models/transcription_bench.py \
   --telegram-audio /absolute/path/to/first.ogg \
   --telegram-audio /absolute/path/to/second.ogg
 ```

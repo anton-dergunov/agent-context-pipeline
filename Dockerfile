@@ -1,6 +1,6 @@
-# Portable model-ready image for the Synology NAS (linux/amd64) and other
-# Linux hosts. Surya and MLX remain installable project extras, but are not
-# included here because the production choices are RapidOCR and faster-whisper.
+# Portable model-ready image for any Linux host, amd64 or arm64. Surya and MLX
+# remain installable project extras, but are not included here because the
+# production choices are RapidOCR and faster-whisper.
 FROM denoland/deno:bin-2.8.1 AS deno_bin
 
 
@@ -47,11 +47,16 @@ ENV HF_HUB_OFFLINE=1 \
     VECLIB_MAXIMUM_THREADS=1 \
     PATH="/app/.venv/bin:$PATH"
 
-COPY --from=deno_bin /deno /usr/local/bin/deno
-COPY --from=builder --chown=1026:100 /app /app
-RUN mkdir -p /app/data && chown 1026:100 /app/data
+# The user the container runs as: whoever owns ./data on the host. Compose passes
+# INFO_TRIAGE_UID and INFO_TRIAGE_GID from .env here and to `user:`.
+ARG APP_UID=1000
+ARG APP_GID=1000
 
-USER 1026:100
+COPY --from=deno_bin /deno /usr/local/bin/deno
+COPY --from=builder --chown=${APP_UID}:${APP_GID} /app /app
+RUN mkdir -p /app/data && chown ${APP_UID}:${APP_GID} /app/data
+
+USER ${APP_UID}:${APP_GID}
 WORKDIR /app
 VOLUME ["/app/data"]
 

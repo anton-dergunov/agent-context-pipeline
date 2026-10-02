@@ -342,7 +342,6 @@ class ProcessingCoordinator:
             item.route,
             item.local_id,
             item.revision,
-            item.category,
             item.path,
         )
         pipeline = self.pipelines.get(item.route)

@@ -20,13 +20,13 @@ voice messages.
 
 **Apparatus and inputs.**
 
-- `instagram-transcription-bench` (`src/info_triage/extractors/instagram/transcription_bench.py`).
+- [`transcription_bench.py`](transcription_bench.py), with its metrics in [`transcription_metrics.py`](transcription_metrics.py).
 - [`fleurs_samples.tsv`](fleurs_samples.tsv): the 40 selected recordings with their reference
   transcripts. [`fleurs_source.json`](fleurs_source.json): the dataset, licence (CC-BY-4.0) and the
   selection rule. The audio itself is downloaded into an ignored cache and is not committed.
 
 ```bash
-uv run instagram-transcription-bench \
+uv run python experiments/transcription-models/transcription_bench.py \
   --telegram-audio /absolute/path/to/first.ogg \
   --telegram-audio /absolute/path/to/second.ogg
 ```

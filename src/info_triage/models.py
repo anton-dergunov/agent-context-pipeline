@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from .extraction import ExtractionRecord
 
-CATEGORIES = ("ML", "Career", "Life", "Other")
 
 
 @dataclass(frozen=True)
@@ -68,7 +67,6 @@ class CapturedItem:
     local_id: int
     revision: int
     status: str
-    category: str | None
     path: Path
     already_known: bool = False
 
@@ -81,7 +79,6 @@ class ProcessingJob:
     route: str
     local_id: int
     revision: int
-    category: str | None
     path: Path
 
 

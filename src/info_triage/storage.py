@@ -12,9 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .config import ROUTE_NAMES
 from .models import (
-    CATEGORIES,
     AttachmentSpec,
     CapturedItem,
     DownloadedAttachment,
@@ -22,7 +20,6 @@ from .models import (
     ProcessingJob,
     ProcessingResult,
 )
-from .rendering import render_capture_payloads
 
 logger = logging.getLogger("info_triage")
 STATUSES = ("received", "processing", "ready", "failed")
@@ -58,7 +55,7 @@ def atomic_write_bytes(path: Path, content: bytes) -> None:
 class CaptureStore:
     """Store captured content in files and operational state in SQLite."""
 
-    def __init__(self, data_dir: Path, routes: Iterable[str] = ROUTE_NAMES):
+    def __init__(self, data_dir: Path, routes: Iterable[str]):
         self.data_dir = data_dir
         self.routes = tuple(routes)
         self.staging_dir = data_dir / "staging"
@@ -107,7 +104,6 @@ class CaptureStore:
                     -- The <n> in the item directory name, allocated per route.
                     local_id INTEGER NOT NULL,
                     status TEXT NOT NULL,
-                    category TEXT,
                     revision INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
@@ -215,7 +211,7 @@ class CaptureStore:
     def _allocate_local_id(self, connection: sqlite3.Connection, route: str) -> int:
         """Claim the next item number for a route, for whichever transport asked.
 
-        One counter for all four bots and for HTTP: the directory name has to be
+        One counter for every bot and for HTTP: the directory name has to be
         unique within a route, and a Telegram message id is neither unique across
         bots nor available to an HTTP capture.
         """
@@ -281,7 +277,7 @@ class CaptureStore:
         with self._connect() as connection:
             return connection.execute(
                 """
-                SELECT route, local_id, message_id, status, category, revision,
+                SELECT route, local_id, message_id, status, revision,
                        created_at, updated_at, short_text, error, processing_step,
                        problems
                 FROM items
@@ -378,7 +374,6 @@ class CaptureStore:
         route: str,
         local_id: int,
         status: str,
-        category: str | None,
         revision: int,
         created_at: str,
         content: str,
@@ -390,15 +385,14 @@ class CaptureStore:
                 """
                 INSERT INTO items (
                     origin_route, chat_id, message_id, route, local_id, status,
-                    category, revision, created_at, updated_at, short_text, error,
+                    revision, created_at, updated_at, short_text, error,
                     processing_step
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(origin_route, chat_id, message_id) DO UPDATE SET
                     route = excluded.route,
                     local_id = excluded.local_id,
                     status = excluded.status,
-                    category = excluded.category,
                     revision = excluded.revision,
                     updated_at = excluded.updated_at,
                     short_text = excluded.short_text,
@@ -415,7 +409,6 @@ class CaptureStore:
                     route,
                     local_id,
                     status,
-                    category,
                     revision,
                     created_at,
                     now_iso(),
@@ -434,7 +427,6 @@ class CaptureStore:
         route: str,
         local_id: int,
         content: str,
-        category: str | None,
         revision: int,
         received_at: str,
         edited_at: str | None,
@@ -471,7 +463,6 @@ class CaptureStore:
             "local_id": local_id,
             "received_at": received_at,
             "edited_at": edited_at,
-            "category": category,
             "revision": revision,
             "media_group_id": media_group_id
             if media_group_id is not None
@@ -687,7 +678,6 @@ class CaptureStore:
         with self._lock:
             existing = self.get_item(origin_route, chat_id, message_id)
             already_known = existing is not None
-            category = existing["category"] if existing else "Other"
             revision = existing["revision"] if existing else 1
             if existing and (edited_at is not None or force_revision):
                 revision += 1
@@ -734,7 +724,6 @@ class CaptureStore:
                 target_route,
                 local_id,
                 content,
-                category,
                 revision,
                 created_at,
                 edited_at,
@@ -763,7 +752,6 @@ class CaptureStore:
                 target_route,
                 local_id,
                 "received",
-                category,
                 revision,
                 created_at,
                 content,
@@ -790,7 +778,6 @@ class CaptureStore:
                 local_id,
                 revision,
                 "received",
-                category,
                 staging_path,
                 already_known,
             )
@@ -810,96 +797,6 @@ class CaptureStore:
                 shutil.rmtree(entry)
             else:
                 entry.unlink()
-
-    def categorize(
-        self, origin_route: str, chat_id: int, message_id: int, category: str
-    ) -> CapturedItem:
-        if category not in CATEGORIES:
-            raise ValueError(f"Unknown category: {category}")
-
-        with self._lock:
-            item = self.get_item(origin_route, chat_id, message_id)
-            if item is None:
-                raise FileNotFoundError("Capture no longer exists")
-            current_path = self._path_for_row(item)
-            if not current_path.is_dir():
-                raise FileNotFoundError("Capture no longer exists")
-            route = item["route"]
-            local_id = item["local_id"]
-            if item["category"] == category:
-                return CapturedItem(
-                    origin_route,
-                    chat_id,
-                    message_id,
-                    route,
-                    local_id,
-                    item["revision"],
-                    item["status"],
-                    category,
-                    current_path,
-                    True,
-                )
-
-            staging_path = self.staging_for(route, item["created_at"], local_id)
-            inbox_path = self.inbox_for(route, item["created_at"], local_id)
-            if inbox_path.is_dir():
-                if staging_path.exists():
-                    raise RuntimeError(f"Both staging and inbox contain {inbox_path.name}")
-                inbox_path.rename(staging_path)
-            metadata = self._read_metadata(staging_path)
-            payload_path = staging_path / CAPTURE_DIR / PAYLOAD_NAME
-            if payload_path.is_file():
-                payload_value = json.loads(payload_path.read_text(encoding="utf-8"))
-                if isinstance(payload_value, dict) and isinstance(
-                    payload_value.get("messages"), list
-                ):
-                    payloads = payload_value["messages"]
-                elif isinstance(payload_value, list):
-                    payloads = payload_value
-                else:
-                    payloads = [payload_value]
-                content = render_capture_payloads(payloads)
-            else:
-                source_path = staging_path / CAPTURE_DIR / "source.md"
-                content = source_path.read_text(encoding="utf-8")
-            revision = item["revision"] + 1
-            self._write_item(
-                staging_path,
-                origin_route,
-                chat_id,
-                message_id,
-                route,
-                local_id,
-                content,
-                category,
-                revision,
-                item["created_at"],
-                metadata.get("edited_at"),
-            )
-            self._save_state(
-                origin_route,
-                chat_id,
-                message_id,
-                route,
-                local_id,
-                "received",
-                category,
-                revision,
-                item["created_at"],
-                content,
-            )
-            return CapturedItem(
-                origin_route,
-                chat_id,
-                message_id,
-                route,
-                local_id,
-                revision,
-                "received",
-                category,
-                staging_path,
-                True,
-            )
 
     def promote_if_current(
         self, item: CapturedItem | ProcessingJob, result: ProcessingResult | None = None
@@ -1022,7 +919,6 @@ class CaptureStore:
                 item["route"],
                 item["local_id"],
                 item["revision"],
-                item["category"],
                 self.staging_for(item["route"], item["created_at"], item["local_id"]),
             )
 
@@ -1112,7 +1008,7 @@ class CaptureStore:
         """Chats with unfinished captures on one bot.
 
         Route-scoped because a private chat's id is the user's own id and is
-        therefore identical on all four bots: unscoped, every bot would try to
+        therefore identical on every bot: unscoped, every bot would try to
         finalize every other bot's messages and download their files with the
         wrong token.
         """

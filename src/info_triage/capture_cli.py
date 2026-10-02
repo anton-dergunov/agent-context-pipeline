@@ -18,7 +18,6 @@ import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
-from .config import ROUTE_NAMES
 from .envfile import load_env_file
 
 DEFAULT_URL = "http://localhost:8000"
@@ -26,21 +25,8 @@ TOKEN_VARIABLE = "INFO_TRIAGE_CAPTURE_TOKEN"
 URL_VARIABLE = "INFO_TRIAGE_CAPTURE_URL"
 
 
-def resolve_route(route: str | None, item_id: str | None) -> str:
-    """Decide which route a request names, given what was and was not asked for.
-
-    A replacement that did not ask to move the item must not move it: a --route
-    defaulting to info would quietly re-file every clip item it corrected.
-    """
-    if route is not None:
-        return route
-    if item_id:
-        return item_id.split("/")[0]
-    return "info"
-
-
 def build_payload(
-    route: str,
+    route: str | None,
     text: str,
     files: Sequence[Path],
     source: str,
@@ -48,7 +34,6 @@ def build_payload(
     item_id: str | None = None,
 ) -> dict:
     payload = {
-        "route": route,
         "source": source,
         "text": text,
         "files": [
@@ -60,6 +45,11 @@ def build_payload(
             for path in files
         ],
     }
+    # Sent only when asked for. Left out, the server keeps a replaced item where
+    # it is and files a new one under its default route, so this client never has
+    # to know which routes an installation defines.
+    if route is not None:
+        payload["route"] = route
     if captured_at is not None:
         payload["captured_at"] = captured_at
     if item_id is not None:
@@ -77,8 +67,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--route",
         default=None,
-        choices=ROUTE_NAMES,
-        help="Which pipeline and inbox the item belongs to (default: info, or --id's route)",
+        help="Which pipeline and inbox the item belongs to (default: the server's first "
+        "route, or --id's route)",
     )
     parser.add_argument(
         "--id",
@@ -108,11 +98,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"{TOKEN_VARIABLE} is not set", file=sys.stderr)
         return 2
 
-    route = resolve_route(arguments.route, arguments.item_id)
     text = " ".join(arguments.text) if arguments.text else sys.stdin.read()
     try:
         payload = build_payload(
-            route,
+            arguments.route,
             text.strip(),
             arguments.files,
             arguments.source,

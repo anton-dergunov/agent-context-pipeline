@@ -13,7 +13,6 @@ from pathlib import Path
 from info_triage.sync import (
     DEFAULT_ORG_EXCLUDE,
     DIGEST_NAME,
-    NOTES_DIR,
     ORG_NAME,
     RemoteItem,
     SyncConfig,
@@ -35,6 +34,8 @@ from info_triage.sync import (
     synchronize,
     valid_item_name,
 )
+
+REPOSITORY = Path(__file__).resolve().parents[1]
 
 
 def index_text(name: str, captured_at: str, body: str = "> a note") -> str:
@@ -398,12 +399,7 @@ class SyncUnitTests(unittest.TestCase):
             # line saying nothing about what the item is.
             self.assertNotIn(":partial:", result)
 
-    def test_an_item_captured_before_headlines_falls_back_to_its_lead(self):
-        """Transitional: items already in the inbox have no `headline:` field.
-
-        Only the index is in reach here, so this is a weaker chain than
-        `index.py`'s on purpose — and the inbox drains daily.
-        """
+    def test_an_item_without_a_kind_gets_no_tag(self):
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
             write_item(
@@ -411,32 +407,8 @@ class SyncUnitTests(unittest.TestCase):
                 "2026-08-09_1",
                 received_at="2026-08-09T10:00:00+00:00",
                 index=(
-                    "---\nid: 2026-08-09_1\nintent: null\nkind: post\nextraction: ok\n---\n\n"
-                    "## Captured\n\n> [An account name • Instagram](https://example.com/x)\n\n"
-                    "## Lead\n\n> **On-screen text**\n>\n> Asia Odyssey Travel\n>\n"
-                    "> **Caption**\n>\n> Hidden right next to Chongqing.\n"
-                ),
-            )
-
-            result = render_org(_sorted_items(inbox / "info"))
-
-            # Not the first stream: on-screen text opens with the poster's own
-            # watermark, and OCR of burned-in subtitles names nothing.
-            self.assertIn(
-                "** 1 · [[file:2026-08-09_1/index.md]"
-                "[Hidden right next to Chongqing.]]  :post:\n",
-                result,
-            )
-
-    def test_an_item_with_only_a_captured_link_is_labelled_from_it(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            inbox = Path(temporary)
-            write_item(
-                inbox,
-                "2026-08-09_1",
-                received_at="2026-08-09T10:00:00+00:00",
-                index=(
-                    "---\nid: 2026-08-09_1\nintent: null\nextraction: none\n---\n\n"
+                    "---\nid: 2026-08-09_1\nintent: null\nextraction: none\n"
+                    'headline: "An account name • Instagram"\n---\n\n'
                     "## Captured\n\n> [An account name • Instagram](https://example.com/x)\n"
                 ),
             )
@@ -699,7 +671,7 @@ if __name__ == "__main__":
 
 
 class RegenerateTests(unittest.TestCase):
-    def test_regenerate_rewrites_both_views_without_touching_the_nas(self):
+    def test_regenerate_rewrites_both_views_without_touching_the_server(self):
         """Emacs runs this after a drop, and both views must renumber together.
 
         The numbers a routing request quotes come from `triage.org` and are
@@ -757,9 +729,12 @@ class RouteTests(unittest.TestCase):
         """Absent files cannot be told apart from a sync that never ran."""
         with tempfile.TemporaryDirectory() as temporary:
             inbox = Path(temporary)
+            # The download brings every route's directory over, items or not.
+            for route in ("info", "job"):
+                (inbox / route).mkdir()
             generate_inbox(inbox)
 
-            for route in ("info", "job", "clip", "lang"):
+            for route in ("info", "job"):
                 self.assertIn("0 items", (inbox / route / "triage.md").read_text())
                 self.assertIn("#+STARTUP:", (inbox / route / "triage.org").read_text())
 
@@ -774,14 +749,14 @@ class RouteTests(unittest.TestCase):
                 read_manifest(manifest)
 
     def test_a_re_routed_item_loses_its_copy_in_the_route_it_left(self):
-        """The NAS renamed it, so deletion_decision never sees the old name."""
+        """The server renamed it, so deletion_decision never sees the old name."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             remote, local, state = root / "remote", root / "inbox", root / "state"
             remote.mkdir()
             local.mkdir()
             state.mkdir()
-            # Delivered under info last time; the NAS now holds it under job.
+            # Delivered under info last time; the server now holds it under job.
             write_item(local, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             write_item(
                 remote, "2026-08-09_4", received_at="2026-08-09T10:00:00+00:00",
@@ -853,12 +828,67 @@ class RouteTests(unittest.TestCase):
                 ["/*/", "/*/*/", "/*/*/metadata.json"],
             )
 
-    def test_an_unknown_route_directory_on_the_nas_is_refused(self):
+    def test_a_directory_that_cannot_be_a_route_is_refused_on_the_server(self):
         with tempfile.TemporaryDirectory() as temporary:
             metadata = Path(temporary)
-            (metadata / "invented").mkdir()
-            with self.assertRaisesRegex(SyncError, "Unexpected NAS inbox route directory"):
+            (metadata / "Not A Route").mkdir()
+            with self.assertRaisesRegex(SyncError, "Unexpected inbox route directory"):
                 read_remote_items(metadata)
+
+    def test_a_route_this_program_has_never_heard_of_is_synchronized(self):
+        """Routes come from the server's configuration, not from a list kept here."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state = root / "remote", root / "local", root / "state"
+            write_item(
+                remote, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00", route="recipes"
+            )
+            synchronize(
+                SyncConfig("server", "/remote/inbox", local, state, annotate=False),
+                FakeSyncCommands(remote),
+            )
+            self.assertTrue((local / "recipes" / "2026-08-09_1").is_dir())
+            self.assertIn("2026-08-09_1", (local / "recipes" / DIGEST_NAME).read_text())
+            self.assertEqual((state / "delivered-items").read_text(), "recipes/2026-08-09_1\t1\n")
+
+    def test_a_folder_beside_the_queues_is_not_taken_for_a_route(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            inbox = Path(temporary)
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00")
+            (inbox / "Kept for later").mkdir()
+            generate_inbox(inbox)
+            self.assertTrue((inbox / "info" / ORG_NAME).is_file())
+            self.assertEqual(list((inbox / "Kept for later").iterdir()), [])
+
+
+@unittest.skipUnless(shutil.which("rsync"), "rsync is not installed")
+class SameMachineSyncTests(unittest.TestCase):
+    """No server configured: the daemon's inbox is a directory on this machine.
+
+    Run with the real `rsync` and a real shell, because the point is that the
+    commands built for SSH also work without it.
+    """
+
+    def test_items_arrive_and_a_local_removal_reaches_the_daemon_inbox(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state = root / "data" / "inbox", root / "local", root / "state"
+            write_item(remote, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00")
+            write_item(remote, "2026-08-10_2", received_at="2026-08-10T09:00:00+00:00")
+            (remote / "job").mkdir()
+            config = SyncConfig(None, str(remote), local, state, annotate=False)
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                synchronize(config)
+            self.assertTrue((local / "info" / "2026-08-09_1" / "index.md").is_file())
+            # An empty route still gets its two views.
+            self.assertTrue((local / "job" / ORG_NAME).is_file())
+
+            shutil.rmtree(local / "info" / "2026-08-09_1")
+            with contextlib.redirect_stdout(io.StringIO()):
+                synchronize(config)
+            self.assertFalse((remote / "info" / "2026-08-09_1").exists())
+            self.assertTrue((remote / "info" / "2026-08-10_2").is_dir())
 
 
 BLOCK = (
@@ -1097,78 +1127,67 @@ class NeighbourAnnotationTests(unittest.TestCase):
 
 
 class SettingsTests(unittest.TestCase):
-    """The laptop settings: defaults, then sync.toml, then the environment."""
+    """This machine's settings, read from the environment `.env` is loaded into."""
 
-    def settings(self, text=None):
-        """An environment whose XDG_CONFIG_HOME holds a sync.toml with TEXT, if any."""
-        directory = tempfile.TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        base = Path(directory.name)
-        if text is not None:
-            (base / "info-triage").mkdir()
-            (base / "info-triage" / "sync.toml").write_text(text, encoding="utf-8")
-        return {"XDG_CONFIG_HOME": str(base)}
+    def test_with_no_server_the_daemon_inbox_is_in_this_checkout(self):
+        config = default_config({})
+        self.assertIsNone(config.remote)
+        self.assertEqual(config.remote_inbox, str(REPOSITORY / "data/inbox"))
+        self.assertEqual(config.remote_location, config.remote_inbox)
+        self.assertEqual(config.remote_command("true"), ["sh", "-c", "true"])
+        self.assertEqual(config.local_inbox, Path.home() / "info-triage-inbox")
+        self.assertEqual(config.state_dir, Path.home() / ".local/state/info-triage")
 
-    def config(self, environ):
-        with contextlib.redirect_stderr(io.StringIO()) as errors:
-            config = default_config(environ)
-        return config, errors.getvalue()
-
-    def test_without_a_settings_file_the_defaults_apply(self):
-        config, errors = self.config(self.settings())
-        self.assertEqual(config.org_root, Path.home() / NOTES_DIR / "org")
-        self.assertEqual(config.obsidian_root, Path.home() / NOTES_DIR / "obsidian")
-        self.assertEqual(config.org_exclude, DEFAULT_ORG_EXCLUDE)
-        self.assertEqual(errors, "")
-
-    def test_the_settings_file_sets_the_roots_and_the_exclusions(self):
-        environ = self.settings(
-            "[neighbours]\n"
-            'org_root = "~/notes/org"\n'
-            'obsidian_root = "/srv/obsidian"\n'
-            'org_exclude = ["Inbox.org", "Unsorted.org"]\n'
+    def test_a_server_is_reached_over_ssh_in_its_project_directory(self):
+        config = default_config(
+            {"INFO_TRIAGE_SERVER": "box", "INFO_TRIAGE_SERVER_DIR": "/srv/info-triage/"}
         )
-        config, _ = self.config(environ)
+        self.assertEqual(config.remote_location, "box:/srv/info-triage/data/inbox")
+        self.assertEqual(config.remote_command("true"), ["ssh", "box", "true"])
+
+    def test_a_server_without_its_directory_is_an_error(self):
+        with self.assertRaisesRegex(SyncError, "INFO_TRIAGE_SERVER_DIR is not set"):
+            default_config({"INFO_TRIAGE_SERVER": "box"})
+
+    def test_the_inbox_and_the_state_directory_can_be_moved(self):
+        config = default_config({"INFO_TRIAGE_INBOX": "~/queue", "XDG_STATE_HOME": "/var/state"})
+        self.assertEqual(config.local_inbox, Path.home() / "queue")
+        self.assertEqual(config.state_dir, Path("/var/state/info-triage"))
+
+    def test_without_note_corpora_the_neighbour_pass_is_off(self):
+        config = default_config({})
+        self.assertIsNone(config.org_root)
+        self.assertIsNone(config.obsidian_root)
+        self.assertEqual(config.org_exclude, DEFAULT_ORG_EXCLUDE)
+        self.assertEqual(config.neighbour_route, "info")
+        self.assertIsNone(default_config({"INFO_TRIAGE_ORG_ROOT": ""}).org_root)
+
+    def test_the_neighbour_settings_are_read(self):
+        config = default_config(
+            {
+                "INFO_TRIAGE_ORG_ROOT": "~/notes/org",
+                "INFO_TRIAGE_OBSIDIAN_ROOT": "/srv/obsidian",
+                "INFO_TRIAGE_ORG_EXCLUDE": "Inbox.org, Someday.org,",
+                "INFO_TRIAGE_NEIGHBOUR_ROUTE": "reading",
+            }
+        )
         self.assertEqual(config.org_root, Path.home() / "notes/org")
         self.assertEqual(config.obsidian_root, Path("/srv/obsidian"))
         # Replaces the default list rather than adding to it.
-        self.assertEqual(config.org_exclude, ("Inbox.org", "Unsorted.org"))
-
-    def test_the_environment_overrides_the_settings_file(self):
-        environ = self.settings(
-            '[neighbours]\norg_root = "/from/file"\norg_exclude = ["Inbox.org"]\n'
-        )
-        environ |= {
-            "INFO_TRIAGE_ORG_ROOT": "/from/environment",
-            "INFO_TRIAGE_ORG_EXCLUDE": "Inbox.org, Someday.org,",
-        }
-        config, _ = self.config(environ)
-        self.assertEqual(config.org_root, Path("/from/environment"))
         self.assertEqual(config.org_exclude, ("Inbox.org", "Someday.org"))
-
-    def test_an_empty_value_turns_a_corpus_off(self):
-        environ = self.settings('[neighbours]\nobsidian_root = ""\n')
-        self.assertIsNone(self.config(environ)[0].obsidian_root)
-        environ = self.settings() | {"INFO_TRIAGE_ORG_ROOT": ""}
-        self.assertIsNone(self.config(environ)[0].org_root)
+        self.assertEqual(config.neighbour_route, "reading")
 
     def test_an_empty_exclusion_list_searches_every_file(self):
-        environ = self.settings() | {"INFO_TRIAGE_ORG_EXCLUDE": ""}
-        self.assertEqual(self.config(environ)[0].org_exclude, ())
+        self.assertEqual(default_config({"INFO_TRIAGE_ORG_EXCLUDE": ""}).org_exclude, ())
 
-    def test_a_bad_settings_file_is_reported_and_ignored(self):
-        for text in (
-            "[neighbours]\nvault_root = '/old/name'\n",
-            "[remote]\nhost = 'server'\n",
-            "[neighbours]\norg_exclude = 'Inbox.org'\n",
-            "[neighbours]\norg_root = 3\n",
-            "not toml at all = = =\n",
+    def test_a_missing_server_directory_fails_the_run_instead_of_guessing(self):
+        with (
+            unittest.mock.patch.dict("os.environ", {"INFO_TRIAGE_SERVER": "box"}, clear=True),
+            unittest.mock.patch("info_triage.sync.load_env_file"),
+            contextlib.redirect_stderr(io.StringIO()) as errors,
         ):
-            with self.subTest(text=text):
-                config, errors = self.config(self.settings(text))
-                self.assertIn("Ignoring the settings in", errors)
-                self.assertEqual(config.org_exclude, DEFAULT_ORG_EXCLUDE)
-                self.assertEqual(config.org_root, Path.home() / NOTES_DIR / "org")
+            self.assertEqual(main([]), 1)
+        self.assertIn("INFO_TRIAGE_SERVER_DIR", errors.getvalue())
 
 
 class NeighbourQueryTests(unittest.TestCase):

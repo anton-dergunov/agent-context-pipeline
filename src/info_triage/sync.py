@@ -1,4 +1,4 @@
-"""Revision-aware NAS synchronization and consolidated inbox generation."""
+"""Revision-aware synchronization of the server's inbox, and the views generated from it."""
 
 from __future__ import annotations
 
@@ -12,42 +12,38 @@ import subprocess
 import sys
 import tempfile
 import time
-import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from info_triage.envfile import load_env_file, project_root
+
 ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
-#: Mirrors config.ROUTE_NAMES. Declared here for the same reason CAPTURE_DIR is:
-#: the laptop side is a separate program from the daemon and must not import it.
-#: Each route is its own queue, with its own two views and its own numbering.
-ROUTES = ("info", "job", "clip", "lang")
-#: The one route triaged by hand and handed to `/route`, and so the only one whose
-#: items are annotated with their possible neighbours. `job`, `clip` and `lang` are
-#: consumed by other scripts, which have nothing to do with the plans.
-NEIGHBOUR_ROUTE = "info"
+#: Mirrors config.ROUTE_NAME. Declared here for the same reason CAPTURE_DIR is: the
+#: laptop side is a separate program from the daemon and must not import it. Which
+#: routes exist is not declared here at all: every directory in the server's inbox
+#: is a route, and each is its own queue with its own two views and numbering.
+ROUTE_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
 #: Words of an item's Lead that reach its neighbour query. Measured; see
 #: `docs/architecture/related-notes.md`.
 NEIGHBOUR_LEAD_WORDS = 120
-#: Where the two corpora live, unless the settings file or the environment says
-#: otherwise.
-NOTES_DIR = "Library/CloudStorage/Dropbox/notes"
-#: The laptop's own settings, under `$XDG_CONFIG_HOME` (`~/.config` by default). The
-#: daemon's `config.yaml` is not read here: the two are separate programs, and that
-#: file rejects fields it does not know.
-SETTINGS_FILE = "info-triage/sync.toml"
-#: What each key of the settings file's `[neighbours]` table may be overridden by. An
-#: environment variable wins even when empty, which is how a corpus is turned off for
-#: one run.
-NEIGHBOUR_SETTINGS = {
-    "org_root": "INFO_TRIAGE_ORG_ROOT",
-    "obsidian_root": "INFO_TRIAGE_OBSIDIAN_ROOT",
-    "org_exclude": "INFO_TRIAGE_ORG_EXCLUDE",
-}
+#: The settings this program reads, all from the checkout's `.env` or the real
+#: environment, which wins. The daemon's `config.yaml` is not read here: the two are
+#: separate programs, and that file rejects fields it does not know.
+SERVER_VARIABLE = "INFO_TRIAGE_SERVER"
+SERVER_DIR_VARIABLE = "INFO_TRIAGE_SERVER_DIR"
+INBOX_VARIABLE = "INFO_TRIAGE_INBOX"
+ORG_ROOT_VARIABLE = "INFO_TRIAGE_ORG_ROOT"
+OBSIDIAN_ROOT_VARIABLE = "INFO_TRIAGE_OBSIDIAN_ROOT"
+ORG_EXCLUDE_VARIABLE = "INFO_TRIAGE_ORG_EXCLUDE"
+NEIGHBOUR_ROUTE_VARIABLE = "INFO_TRIAGE_NEIGHBOUR_ROUTE"
+#: The route whose items are annotated with their possible neighbours unless the
+#: settings name another: the one triaged by hand and filed into the notes.
+DEFAULT_NEIGHBOUR_ROUTE = "info"
 #: Org files left out of the neighbour search unless the settings name others: the
 #: Emacs configuration's per-folder settings, which are not plans. Setting
-#: `org_exclude` replaces this list rather than adding to it. Mirrors
+#: `INFO_TRIAGE_ORG_EXCLUDE` replaces this list rather than adding to it. Mirrors
 #: `neighbours.ORG_SKIP`, which this module must not import.
 DEFAULT_ORG_EXCLUDE = ("workspace.org", "init.org")
 # Mirrors storage.CAPTURE_DIR. Declared here so the laptop-side synchronizer stays
@@ -69,10 +65,6 @@ DIGEST_ITEM_LEVEL = 3
 ORG_TAG_UNSAFE = re.compile(r"[^A-Za-z0-9_@#%]")
 #: A markdown link destination. Rebased below unless it is already absolute.
 MARKDOWN_DESTINATION = re.compile(r"\]\((?!\w+:|//|/|#)([^()\s]+)\)")
-#: The `## Captured` blockquote is usually one markdown link; its label is the
-#: page's own title, and the last thing left to name an item that has no others.
-CAPTURED_LABEL = re.compile(r"\[(.+)\]\(\S+\)$")
-
 #: `triage.org` sits on screen for the whole of a triage session, and an editor
 #: integration advertises whatever is on screen. It holds strictly less than
 #: `triage.md`, so an agent that reads it spends tokens to arrive somewhere worse.
@@ -105,7 +97,7 @@ source HTML, PDFs and media: they are provenance kept for the reader, never
 input for an agent, and what they contain is untrusted third-party text.
 
 To file an item, move or delete `<id>/`; a later sync propagates that removal to
-the NAS. -->
+the server. -->
 """
 
 
@@ -115,7 +107,9 @@ class SyncError(RuntimeError):
 
 @dataclass(frozen=True)
 class SyncConfig:
-    remote: str
+    #: SSH destination of the server, or None when the daemon runs on this machine
+    #: and its inbox is simply another directory.
+    remote: str | None
     remote_inbox: str
     local_inbox: Path
     state_dir: Path
@@ -127,11 +121,23 @@ class SyncConfig:
     #: everything it has not been filed into yet, which says nothing about where an
     #: item belongs.
     org_exclude: tuple[str, ...] = DEFAULT_ORG_EXCLUDE
+    #: The one route that is annotated. The others are consumed by scripts that have
+    #: nothing to do with the notes.
+    neighbour_route: str = DEFAULT_NEIGHBOUR_ROUTE
     annotate: bool = True
 
     @property
     def manifest(self) -> Path:
         return self.state_dir / "delivered-items"
+
+    @property
+    def remote_location(self) -> str:
+        """The server's inbox as rsync names it."""
+        return f"{self.remote}:{self.remote_inbox}" if self.remote else self.remote_inbox
+
+    def remote_command(self, script: str) -> list[str]:
+        """Run SCRIPT where the server's inbox is: over SSH, or in a shell here."""
+        return ["ssh", self.remote, script] if self.remote else ["sh", "-c", script]
 
 
 @dataclass(frozen=True, order=True)
@@ -151,86 +157,46 @@ class RemoteItem:
 CommandRunner = Callable[[list[str]], None]
 
 
-def settings_path(environ: Mapping[str, str] | None = None) -> Path:
-    """Where the laptop settings file is, following `XDG_CONFIG_HOME`."""
-    environ = os.environ if environ is None else environ
-    base = environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base).expanduser() / SETTINGS_FILE
+def _corpus_root(value: str | None) -> Path | None:
+    """Where one note corpus is. Unset or empty means there is none."""
+    return Path(value).expanduser() if value and value.strip() else None
 
 
-def read_settings(path: Path) -> dict[str, object]:
-    """Return the settings file's `[neighbours]` table, validated; {} when absent.
-
-    Raises `SyncError` for a key or section it does not know and for a value of the
-    wrong type, and `tomllib.TOMLDecodeError` for a file that is not TOML.
-    """
-    if not path.is_file():
-        return {}
-    with path.open("rb") as handle:
-        data = tomllib.load(handle)
-    unknown = set(data) - {"neighbours"}
-    if unknown:
-        raise SyncError(f"{path}: unknown section(s): {', '.join(sorted(unknown))}")
-    table = data.get("neighbours", {})
-    if not isinstance(table, dict):
-        raise SyncError(f"{path}: [neighbours] must be a table")
-    unknown = set(table) - set(NEIGHBOUR_SETTINGS)
-    if unknown:
-        raise SyncError(f"{path}: unknown setting(s): {', '.join(sorted(unknown))}")
-    for key in ("org_root", "obsidian_root"):
-        if key in table and not isinstance(table[key], str):
-            raise SyncError(f"{path}: neighbours.{key} must be a string")
-    exclude = table.get("org_exclude", [])
-    if not isinstance(exclude, list) or not all(isinstance(name, str) for name in exclude):
-        raise SyncError(f"{path}: neighbours.org_exclude must be a list of file names")
-    return table
-
-
-def _corpus_root(value: object | None, default: Path) -> Path | None:
-    """Where one note corpus is. Unset means the default; empty turns it off."""
-    if value is None:
-        return default
-    text = str(value)
-    return Path(text).expanduser() if text.strip() else None
-
-
-def _org_exclude(value: object | None) -> tuple[str, ...]:
-    """File names from a list, or from a comma-separated string (the environment)."""
+def _org_exclude(value: str | None) -> tuple[str, ...]:
+    """File names from a comma-separated setting, or the default list when unset."""
     if value is None:
         return DEFAULT_ORG_EXCLUDE
-    names = value.split(",") if isinstance(value, str) else value
-    return tuple(name.strip() for name in names if name.strip())
+    return tuple(name.strip() for name in value.split(",") if name.strip())
 
 
 def default_config(environ: Mapping[str, str] | None = None) -> SyncConfig:
-    """The laptop's configuration: built-in defaults, then the settings file, then
-    the environment, each overriding the one before.
+    """This machine's configuration, from the environment `.env` was loaded into.
 
-    A settings file that cannot be read or does not validate is reported and ignored
-    rather than failing the sync: it only feeds the neighbour pass, which is
-    enrichment and may never withhold a delivery.
+    With no `INFO_TRIAGE_SERVER` the daemon is taken to run on this machine, out of
+    this checkout unless `INFO_TRIAGE_SERVER_DIR` names another directory.
     """
     environ = os.environ if environ is None else environ
     home = Path.home()
-    path = settings_path(environ)
-    try:
-        settings = read_settings(path)
-    except (SyncError, OSError, tomllib.TOMLDecodeError) as error:
-        print(f"Ignoring the settings in {path}: {error}", file=sys.stderr)
-        settings = {}
-
-    def setting(key: str) -> object | None:
-        variable = NEIGHBOUR_SETTINGS[key]
-        return environ[variable] if variable in environ else settings.get(key)
-
+    server = environ.get(SERVER_VARIABLE, "").strip() or None
+    server_dir = environ.get(SERVER_DIR_VARIABLE, "").strip()
+    if server is None:
+        server_dir = str(Path(server_dir).expanduser()) if server_dir else str(project_root())
+    elif not server_dir:
+        raise SyncError(
+            f"{SERVER_DIR_VARIABLE} is not set: it is the project directory on "
+            f"{server}, the one that holds data/"
+        )
+    state_home = environ.get("XDG_STATE_HOME") or str(home / ".local/state")
+    neighbour_route = environ.get(NEIGHBOUR_ROUTE_VARIABLE, "").strip()
     return SyncConfig(
-        remote="server",
-        remote_inbox="/volume1/docker/info-triage/data/inbox",
-        local_inbox=home / "info-triage-inbox",
-        state_dir=home / ".local/state/info-triage",
-        org_root=_corpus_root(setting("org_root"), home / NOTES_DIR / "org"),
-        obsidian_root=_corpus_root(setting("obsidian_root"), home / NOTES_DIR / "obsidian"),
-        org_exclude=_org_exclude(setting("org_exclude")),
+        remote=server,
+        remote_inbox=f"{server_dir.rstrip('/')}/data/inbox",
+        local_inbox=Path(environ.get(INBOX_VARIABLE) or home / "info-triage-inbox").expanduser(),
+        state_dir=Path(state_home).expanduser() / "info-triage",
+        org_root=_corpus_root(environ.get(ORG_ROOT_VARIABLE)),
+        obsidian_root=_corpus_root(environ.get(OBSIDIAN_ROOT_VARIABLE)),
+        org_exclude=_org_exclude(environ.get(ORG_EXCLUDE_VARIABLE)),
+        neighbour_route=neighbour_route or DEFAULT_NEIGHBOUR_ROUTE,
     )
 
 
@@ -242,47 +208,67 @@ def valid_item_name(name: str) -> bool:
     return bool(ITEM_NAME.fullmatch(name))
 
 
+def valid_route_name(name: str) -> bool:
+    return bool(ROUTE_NAME.fullmatch(name))
+
+
+def route_directories(inbox: Path, *, strict: bool = True) -> list[str]:
+    """The routes an inbox holds: its directories, hidden ones aside.
+
+    STRICT raises on a directory that cannot be a route, and is for the server's
+    listing: those names are about to be joined into paths that are removed there,
+    so a surprise stops the run. The laptop's own inbox is read leniently instead,
+    because a folder the user made beside the queues is not a route and not an error.
+    """
+    routes = []
+    for path in sorted(inbox.iterdir()):
+        if not path.is_dir() or path.name.startswith("."):
+            continue
+        if not valid_route_name(path.name):
+            if strict:
+                raise SyncError(f"Unexpected inbox route directory: {path.name}")
+            continue
+        routes.append(path.name)
+    return routes
+
+
 def valid_manifest_key(key: str) -> bool:
     route, separator, name = key.partition("/")
-    return bool(separator) and route in ROUTES and valid_item_name(name)
+    return bool(separator) and valid_route_name(route) and valid_item_name(name)
 
 
 def _require_integer(value: object, field: str, item: str, *, default: int | None = None) -> int:
     if value is None and default is not None:
         return default
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise SyncError(f"Invalid {field} for NAS item {item}: {value!r}")
+        raise SyncError(f"Invalid {field} for server item {item}: {value!r}")
     return value
 
 
 def read_remote_items(metadata_dir: Path) -> list[RemoteItem]:
-    """Read the revision of every NAS item from the metadata-only mirror.
+    """Read the revision of every server item from the metadata-only mirror.
 
     Only metadata.json is transferred here, so the item layout cannot be checked
     at this point; _local_item() enforces it after the full download.
     """
     items = []
-    for route_path in sorted(metadata_dir.iterdir()):
-        if not route_path.is_dir():
-            continue
-        route = route_path.name
-        if route not in ROUTES:
-            raise SyncError(f"Unexpected NAS inbox route directory: {route}")
+    for route in route_directories(metadata_dir):
+        route_path = metadata_dir / route
         for item_path in sorted(route_path.iterdir()):
             if not item_path.is_dir():
                 continue
             name = f"{route}/{item_path.name}"
             if not valid_item_name(item_path.name):
-                raise SyncError(f"Unexpected NAS inbox directory: {name}")
+                raise SyncError(f"Unexpected server inbox directory: {name}")
             metadata_path = item_path / "metadata.json"
             if not metadata_path.is_file():
-                raise SyncError(f"Missing metadata.json for NAS item: {name}")
+                raise SyncError(f"Missing metadata.json for server item: {name}")
             try:
                 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as error:
-                raise SyncError(f"Invalid metadata.json for NAS item {name}: {error}") from error
+                raise SyncError(f"Invalid metadata.json for server item {name}: {error}") from error
             if not isinstance(metadata, dict):
-                raise SyncError(f"Invalid metadata.json for NAS item {name}: expected an object")
+                raise SyncError(f"Invalid metadata.json for server item {name}: expected an object")
             revision = _require_integer(metadata.get("revision"), "revision", name, default=1)
             # The field that names the directory is the one worth validating.
             local_id = _require_integer(metadata.get("local_id"), "local_id", name)
@@ -673,62 +659,6 @@ def _quoted_lines(lines: Sequence[str]) -> Iterator[str]:
             yield text
 
 
-def _lead_openings(index: str) -> list[tuple[str, str]]:
-    """Return each labelled stream of the Lead paired with its opening line.
-
-    A short-form item's Lead is several streams under `**On-screen text**`-style
-    labels; a paper's or an article's is one unlabelled quote. Both come back
-    here, the unlabelled one under an empty label.
-    """
-    openings: list[tuple[str, str]] = []
-    label = ""
-    for text in _quoted_lines(_index_section(index, "Lead")):
-        if text.startswith("**") and text.endswith("**"):
-            label = text.strip("*").strip()
-        elif not any(seen == label for seen, _ in openings):
-            openings.append((label, text))
-    return openings
-
-
-def _lead_rank(label: str) -> int:
-    """Order the Lead's streams the way `index.py`'s `_HEADLINE_STREAMS` does.
-
-    An unlabelled Lead is the item's own prose and ranks first. Among the
-    labelled ones the caption leads, because it is the only stream a person
-    wrote on purpose — item 2026-08-16_165 opens its on-screen text with the
-    poster's watermark, and taking the first stream named the item "Asia
-    Odyssey Travel" while its caption said what the post was actually about.
-    """
-    name = label.lower()
-    order = ("", "caption", "forwarded", "description", "on-screen text", "spoken audio")
-    for position, known in enumerate(order):
-        if name == known or (known and name.startswith(f"{known} (")):
-            return position
-    return len(order)
-
-
-def _legacy_headline(index: str) -> str:
-    """Name an item captured before `index.md` carried a `headline:` field.
-
-    Only what the index itself holds is in reach — `sync.py` reads no other file
-    (`docs/architecture/item-contract.md`: the index is the one file the laptop side
-    has to read), and by here the caption and the transcript are two directories
-    down. So this is a weaker chain than `index.py`'s on purpose, and it is
-    transitional: the inbox drains daily, and every item captured from now on
-    arrives with a headline.
-    """
-    openings = sorted(
-        ((position, label, text) for position, (label, text) in enumerate(_lead_openings(index))),
-        key=lambda entry: (_lead_rank(entry[1]), entry[0]),
-    )
-    for _, _, text in openings:
-        return text
-    for line in _quoted_lines(_index_section(index, "Captured")):
-        label = CAPTURED_LABEL.match(line)
-        return label.group(1) if label else line
-    return ""
-
-
 def _org_link(target: str, label: str) -> str:
     """Return an Org link, or the label alone when TARGET cannot be one.
 
@@ -821,7 +751,7 @@ def render_org(items: list[tuple[datetime, str, str]]) -> str:
         intent = fields.get("intent", "")
         if intent == "null":
             intent = ""
-        label = fields.get("title") or fields.get("headline") or _legacy_headline(index) or intent
+        label = fields.get("title") or fields.get("headline") or intent
         title = _org_link_description(_org_text(label, limit=80)) or "(untitled)"
         # The title is the link, so the index needs no separate one. Falling back
         # to the bare title keeps an item named even if the link cannot be made.
@@ -852,12 +782,14 @@ def generate_inbox(local_inbox: Path) -> None:
     """Rebuild both views for every route.
 
     Each route is a self-contained queue: its own two files, its own 1..N. A route
-    with nothing in it still gets both, because an absent `triage.org` cannot be
-    told apart from a sync that did not run.
+    is a directory of the inbox: the download brings one over for every route the
+    server has, empty ones included, so a route with nothing in it still gets both
+    files. An absent `triage.org` could not be told apart from a sync that did not
+    run.
     """
-    for route in ROUTES:
+    local_inbox.mkdir(parents=True, exist_ok=True)
+    for route in route_directories(local_inbox, strict=False):
         route_dir = local_inbox / route
-        route_dir.mkdir(parents=True, exist_ok=True)
         # Both views are rendered before either is written, so a failure in one
         # cannot leave the two disagreeing about what is in the inbox.
         items = _sorted_items(route_dir)
@@ -927,12 +859,12 @@ def _write_blocks(route_dir: Path, blocks: dict[str, str], apply_block: Callable
     for name in sorted(blocks):
         index_path = route_dir / name / INDEX_NAME
         if not (route_dir / name).is_dir() or not index_path.is_file():
-            print(f"Item is no longer here, leaving it: {NEIGHBOUR_ROUTE}/{name}")
+            print(f"Item is no longer here, leaving it: {route_dir.name}/{name}")
             continue
         try:
             index = index_path.read_text(encoding="utf-8")
         except OSError as error:
-            print(f"Could not re-read {NEIGHBOUR_ROUTE}/{name}: {error}")
+            print(f"Could not re-read {route_dir.name}/{name}: {error}")
             continue
         atomic_write_text(index_path, apply_block(index, blocks[name]))
         written += 1
@@ -940,7 +872,7 @@ def _write_blocks(route_dir: Path, blocks: dict[str, str], apply_block: Callable
 
 
 def annotate_inbox(config: SyncConfig) -> None:
-    """Add each `info` item's possible-neighbours section, once the queue is usable.
+    """Add each item's possible-neighbours section on one route, once the queue is usable.
 
     This deliberately runs last, after both views are on disk and the items have been
     announced as ready. It costs about a minute, and it is for the agent rather than
@@ -950,7 +882,7 @@ def annotate_inbox(config: SyncConfig) -> None:
 
     Enrichment, like everything after capture: nothing here may fail a sync.
     """
-    route_dir = config.local_inbox / NEIGHBOUR_ROUTE
+    route_dir = config.local_inbox / config.neighbour_route
     if not config.annotate or not route_dir.is_dir():
         return
     if config.org_root is None or config.obsidian_root is None:
@@ -987,7 +919,7 @@ def annotate_inbox(config: SyncConfig) -> None:
         try:
             index = (item / INDEX_NAME).read_text(encoding="utf-8")
         except OSError as error:
-            print(f"Could not read {NEIGHBOUR_ROUTE}/{item.name}: {error}")
+            print(f"Could not read {route_dir.name}/{item.name}: {error}")
             continue
         queries.append((item.name, neighbour_query(index)))
     if not queries:
@@ -1026,10 +958,10 @@ def annotate_inbox(config: SyncConfig) -> None:
 def _remove_stale_local_items(
     config: SyncConfig, remote_items: list[RemoteItem], delivered: dict[str, int]
 ) -> None:
-    """Drop laptop copies of items the NAS no longer has under that name.
+    """Drop laptop copies of items the server no longer has under that name.
 
     A hashtag edit moves an item between routes by renaming its directory on the
-    NAS, so the old copy is gone before this runs and `deletion_decision` never
+    server, so the old copy is gone before this runs and `deletion_decision` never
     sees it. The download is deliberately without `--delete` — that is what makes
     deleting an item locally mean "processed" — so without this pass the old copy
     would stay in its former route's views forever.
@@ -1040,14 +972,14 @@ def _remove_stale_local_items(
     remote_keys = {item.key for item in remote_items}
     if delivered and not remote_keys:
         raise SyncError(
-            "The NAS inbox listed no items while items are recorded as delivered.\n"
+            "The server inbox listed no items while items are recorded as delivered.\n"
             "Refusing to remove local copies because the listing may have failed."
         )
     stale = sorted(
         key for key in set(delivered) - remote_keys if (config.local_inbox / key).is_dir()
     )
     if stale:
-        print("==> Removing local copies the NAS no longer has")
+        print("==> Removing local copies the server no longer has")
     for key in stale:
         shutil.rmtree(config.local_inbox / key)
         delivered.pop(key, None)
@@ -1072,8 +1004,8 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
         remote_metadata = Path(temporary) / "remote-metadata"
         remote_metadata.mkdir()
 
-        print("==> Reading NAS item revisions")
-        command_runner(["ssh", config.remote, f"test -d {shlex.quote(config.remote_inbox)}"])
+        print("==> Reading server item revisions")
+        command_runner(config.remote_command(f"test -d {shlex.quote(config.remote_inbox)}"))
         command_runner(
             [
                 "rsync",
@@ -1089,7 +1021,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
                 "/*/*/metadata.json",
                 "--exclude",
                 "*",
-                f"{config.remote}:{config.remote_inbox}/",
+                f"{config.remote_location}/",
                 f"{remote_metadata}/",
             ]
         )
@@ -1102,7 +1034,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
             decision = deletion_decision(item, delivered, config.local_inbox)
             if decision == "delete":
                 remote_path = f"{config.remote_inbox}/{item.key}"
-                command_runner(["ssh", config.remote, f"rm -rf -- {shlex.quote(remote_path)}"])
+                command_runner(config.remote_command(f"rm -rf -- {shlex.quote(remote_path)}"))
                 print(f"Removed processed item: {item.key} revision {item.revision}")
             elif decision == "restore":
                 print(f"Restoring updated item: {item.key} revision {item.revision}")
@@ -1114,7 +1046,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
             [
                 "rsync",
                 "-azc",
-                f"{config.remote}:{config.remote_inbox}/",
+                f"{config.remote_location}/",
                 f"{config.local_inbox}/",
             ]
         )
@@ -1134,14 +1066,14 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sync.sh",
-        description="Synchronize the NAS inbox onto this machine and regenerate its views.",
+        description="Synchronize the server's inbox onto this machine and regenerate its views.",
     )
     parser.add_argument(
         "--regenerate",
         action="store_true",
         help=(
             "Rewrite triage.md and triage.org from the item directories already here, "
-            "without touching the NAS. Run this after removing an item locally: both "
+            "without touching the server. Run this after removing an item locally: both "
             "views renumber together, so the numbers you quote to /route still agree."
         ),
     )
@@ -1166,8 +1098,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     arguments = parser.parse_args(argv)
-    config = default_config()
+    load_env_file()
     try:
+        config = default_config()
         if arguments.regenerate:
             generate_inbox(config.local_inbox)
             print(f"==> Regenerated {DIGEST_NAME} and {ORG_NAME} in {config.local_inbox}")

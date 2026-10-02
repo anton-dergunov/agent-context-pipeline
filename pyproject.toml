@@ -1,7 +1,8 @@
 [project]
 name = "info-triage"
 version = "0.1.0"
-description = "Self-hosted Telegram capture and local content extraction utilities"
+description = "Self-hosted capture, content extraction and an agent-ready inbox"
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
@@ -13,7 +14,6 @@ dependencies = [
     "faster-whisper>=1.2.1,<2",
     "huggingface-hub>=0.27,<2",
     "instaloader>=4.14.2",
-    "jieba>=0.42.1,<1",
     "numpy>=2.1",
     "onnxruntime>=1.28.0",
     "opencv-python-headless>=4.10",
@@ -40,13 +40,13 @@ surya = [
     "transformers>=4.56.1,<5",
 ]
 # The cross-encoder that ranks an item's possible neighbours runs on the laptop, in
-# sync.py, and has no business on the NAS: the Docker image installs no extras. Without
+# sync.py, and has no business on the server: the Docker image installs no extras. Without
 # it the sync still delivers every item and prints one line saying the section is off.
 neighbours = [
     "sentence-transformers>=5,<6",
     "torch>=2.4",
 ]
-# MLX executes Whisper on the Apple Silicon GPU and cannot run on the NAS.
+# MLX executes Whisper on the Apple Silicon GPU and cannot run in the Linux container.
 mac-transcription = [
     "mlx-whisper>=0.4.3,<1; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
@@ -56,18 +56,17 @@ info-triage-capture = "info_triage.capture_cli:main"
 info-triage-clean-text = "info_triage.utilities.text_cleaning:main"
 info-triage-resolve-urls = "info_triage.utilities.url_resolution:main"
 instagram-extract = "info_triage.extractors.instagram.cli:main"
-instagram-ocr-bench = "info_triage.extractors.instagram.bench:main"
-instagram-transcription-bench = "info_triage.extractors.instagram.transcription_bench:main"
 linkedin-extract = "info_triage.extractors.linkedin.cli:main"
 medium-extract = "info_triage.extractors.medium.cli:main"
 medium-html-to-markdown = "info_triage.extractors.medium.postprocess:main"
 research-extract = "info_triage.extractors.research.cli:main"
 url-extract = "info_triage.extractors.routing_cli:main"
-url-extraction-corpus = "info_triage.extractors.corpus:main"
 youtube-extract = "info_triage.extractors.youtube.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.3"]
+# jieba segments Mandarin for the transcription benchmark in experiments/; nothing
+# the application runs needs it, so it stays out of the Docker image.
+dev = ["pytest>=8.3", "jieba>=0.42.1,<1"]
 
 [tool.uv]
 # rapidocr declares the GUI OpenCV distribution even though this application
