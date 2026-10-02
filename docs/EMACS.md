@@ -89,7 +89,7 @@ the queue, and a Claude Code session beside it to drive `/route`.
 
 The Emacs half lives in the user's own configuration rather than here, because
 it needs that configuration's window management, and because half of it is
-generally useful. In the `productivity-system` repository, see
+generally useful. In the `agentic-org-planner` repository, see
 `docs/Info-triage.org`, `lisp/ps-info-triage.el`, `lisp/ps-open.el` and
 `lisp/ps-nav.el`. Two settings point it here:
 
