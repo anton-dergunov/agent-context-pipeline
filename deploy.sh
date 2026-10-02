@@ -98,18 +98,20 @@ echo "==> Health check"
 
 URL="http://${HOST}:${PORT}/health"
 
+# Silent while it retries: a container that is still starting resets connections
+# for a few seconds, and those are not errors worth printing above a success.
 health_check_status=0
-health_check_output=$(curl --fail --silent --show-error \
+health_check_output=$(curl --fail --silent \
     --connect-timeout 2 \
     --max-time 5 \
     --retry 60 \
     --retry-all-errors \
     --retry-delay 1 \
     --retry-max-time 60 \
-    "$URL" 2>&1) || health_check_status=$?
+    "$URL") || health_check_status=$?
 
 if [[ "$health_check_status" -ne 0 ]]; then
-    printf '%s\n' "$health_check_output" >&2
+    echo "The server did not answer at $URL within a minute" >&2
     exit "$health_check_status"
 fi
 

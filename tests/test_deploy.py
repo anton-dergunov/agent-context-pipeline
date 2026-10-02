@@ -30,7 +30,6 @@ CURL = [
     "curl",
     "--fail",
     "--silent",
-    "--show-error",
     "--connect-timeout",
     "2",
     "--max-time",
@@ -187,6 +186,7 @@ class DeployScriptTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 23)
         self.assertEqual(self.commands(root)[-1][0], "curl")
+        self.assertIn("did not answer at http://server.test:8000/health", result.stderr)
         self.assertNotIn("Deployment complete", result.stdout)
 
 
