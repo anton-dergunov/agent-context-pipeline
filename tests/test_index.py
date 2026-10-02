@@ -323,7 +323,9 @@ def test_the_links_list_prefers_the_resolved_title_then_the_authors_label():
         link(4, status="duplicate", duplicate_of=1),
     ]
     rendered = index([payload(1, 100, text="…")], body(("text", "x")), links)
-    assert "1. [Throughput vs Latency — AWS](https://example.com/1) — document · resolved" in rendered
+    assert (
+        "1. [Throughput vs Latency — AWS](https://example.com/1) — document · resolved" in rendered
+    )
     assert (
         "2. [CAP Theorem](https://example.com/2) — document · unresolved (title-not-found)"
         in rendered

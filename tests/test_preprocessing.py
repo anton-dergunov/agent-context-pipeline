@@ -384,10 +384,7 @@ class FakeResolver:
 
 
 def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
-    source = (
-        "## Segment 1 — text\n\n"
-        "𝗨𝘀𝗲𝗳𝘂𝗹  link: https://t.co/example"
-    )
+    source = "## Segment 1 — text\n\n𝗨𝘀𝗲𝗳𝘂𝗹  link: https://t.co/example"
     store = make_store(tmp_path)
     item = store.capture(
         "info",
@@ -397,11 +394,7 @@ def test_cleaning_then_url_resolution_preserves_materialized_source(tmp_path):
         received_at="2026-08-09T10:00:00+00:00",
     )
     resolver = FakeResolver(
-        {
-            "https://t.co/example": (
-                "https://example.com/article?utm_source=social&id=7"
-            )
-        }
+        {"https://t.co/example": ("https://example.com/article?utm_source=social&id=7")}
     )
     pipeline = ProcessingPipeline(
         [
@@ -447,6 +440,7 @@ def test_unresolved_url_does_not_fail_delivery(tmp_path):
         source,
         received_at="2026-08-09T10:00:00+00:00",
     )
+
     class FailingResolver(FakeResolver):
         def resolve_link(self, url):
             self.failures.append((url, "offline"))
@@ -569,13 +563,18 @@ def test_hidden_hyperlinks_survive_capture_and_reach_the_link_table(tmp_path):
     ready = tmp_path / "inbox" / "info" / "2026-08-09_1"
     # The destinations Telegram hides from message text are in the body itself,
     # both before and after transformation, and are not re-titled by resolution.
-    assert "https://poloclub.github.io/diffusion-explainer/" in (
-        ready / "capture" / "source.md"
-    ).read_text()
-    assert (ready / "capture" / "message.md").read_text().endswith(
-        "## Segment 1 — text\n\n"
-        "[Diffusion explainer](https://poloclub.github.io/diffusion-explainer/)\n"
-        "[Github](https://github.com/poloclub/diffusion-explainer)"
+    assert (
+        "https://poloclub.github.io/diffusion-explainer/"
+        in (ready / "capture" / "source.md").read_text()
+    )
+    assert (
+        (ready / "capture" / "message.md")
+        .read_text()
+        .endswith(
+            "## Segment 1 — text\n\n"
+            "[Diffusion explainer](https://poloclub.github.io/diffusion-explainer/)\n"
+            "[Github](https://github.com/poloclub/diffusion-explainer)"
+        )
     )
     links = json.loads((ready / "links.json").read_text())["links"]
     assert [(entry["n"], entry["canonical"], entry["status"]) for entry in links] == [
@@ -594,9 +593,7 @@ def test_resolution_updates_the_table_and_reroutes_expanded_shorteners(tmp_path)
 
     # The shortener hid a paper, so both the handler and the rank discovery could
     # only guess offline are corrected here.
-    assert [
-        (entry.canonical, entry.handler, entry.priority, entry.status) for entry in table
-    ] == [
+    assert [(entry.canonical, entry.handler, entry.priority, entry.status) for entry in table] == [
         ("https://arxiv.org/abs/2305.03509", "research", 1, "resolved"),
         ("https://example.com/x", "document", 4, "resolved"),
     ]
@@ -748,7 +745,12 @@ def test_a_consent_interstitial_does_not_become_the_canonical_url(tmp_path):
         capture_payload=payload,
     )
     job = ProcessingJob(
-        "info", 10, 1, "info", 1, 1,
+        "info",
+        10,
+        1,
+        "info",
+        1,
+        1,
         store.staging_for("info", "2026-08-09T10:00:00+00:00", 1),
     )
     result = ProcessingResult(message_markdown=render_capture_payloads([payload]))

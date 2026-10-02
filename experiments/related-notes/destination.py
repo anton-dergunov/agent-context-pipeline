@@ -4,6 +4,7 @@ Reranks the item against the 32 file charters — the prose that states what eac
 is for. That is exactly the text `/route`'s destination step reads, so this asks the
 same question against the same evidence, just without an agent turn.
 """
+
 import json
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from eval3 import short
 from items import all_items
 
 HERE = Path(__file__).parent
-units = [json.loads(l) for l in (HERE / "units.jsonl").open()]
+units = [json.loads(ln) for ln in (HERE / "units.jsonl").open()]
 charters = [u for u in units if u["kind"] == "org-charter"]
 
 

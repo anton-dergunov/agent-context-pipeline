@@ -69,9 +69,7 @@ def read_capture_payloads(job: ProcessingJob) -> list[dict[str, Any]]:
         payloads = value.get("messages", [value])
     else:
         payloads = value
-    if not isinstance(payloads, list) or not all(
-        isinstance(payload, dict) for payload in payloads
-    ):
+    if not isinstance(payloads, list) or not all(isinstance(payload, dict) for payload in payloads):
         raise ValueError(f"{PAYLOAD_NAME} does not contain message payloads")
     return payloads
 
@@ -133,9 +131,7 @@ class VoiceTranscriptionStep:
 
     def _get_transcriber(self) -> Transcriber:
         if self._transcriber is None:
-            backend, model_name = resolve_backend_and_model(
-                self.backend, self.model_name
-            )
+            backend, model_name = resolve_backend_and_model(self.backend, self.model_name)
             self._transcriber = make_transcriber(
                 backend,
                 model_name,

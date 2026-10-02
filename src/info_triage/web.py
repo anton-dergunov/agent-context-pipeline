@@ -150,8 +150,8 @@ class WebHandler(BaseHTTPRequestHandler):
             heading, rows = self._processor_table()
             log_hint = (
                 '<p class="log-hint">Failure details: '
-                '<code>data/logs/processor-runs.jsonl</code>. Copy a log key and use '
-                '<code>grep -F</code>.</p>'
+                "<code>data/logs/processor-runs.jsonl</code>. Copy a log key and use "
+                "<code>grep -F</code>.</p>"
             )
         else:
             heading, rows = self._item_table(selected_view)
@@ -210,10 +210,7 @@ class WebHandler(BaseHTTPRequestHandler):
             item_id = self.store.item_name(item["created_at"], item["local_id"])
             message = html.escape(item["short_text"] or "")
             if item["processing_step"]:
-                message += (
-                    '<div class="detail">Step: '
-                    f"{html.escape(item['processing_step'])}</div>"
-                )
+                message += f'<div class="detail">Step: {html.escape(item["processing_step"])}</div>'
             if item["error"]:
                 message += f'<div class="error">{html.escape(item["error"])}</div>'
             message += self._problem_details(item["problems"])
@@ -285,9 +282,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         if not rows:
-            rows.append(
-                '<tr><td colspan="6" class="empty">No processors configured</td></tr>'
-            )
+            rows.append('<tr><td colspan="6" class="empty">No processors configured</td></tr>')
         return heading, rows
 
     @staticmethod

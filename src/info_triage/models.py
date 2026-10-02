@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from .extraction import ExtractionRecord
 
 
-
 @dataclass(frozen=True)
 class AttachmentSpec:
     kind: str

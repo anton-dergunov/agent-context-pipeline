@@ -131,19 +131,13 @@ class CaptureContentTests(unittest.TestCase):
         )
         self.assertEqual(
             capture_content(
-                message(
-                    {"voice": {"file_id": "v", "file_unique_id": "uv", "duration": 1}}
-                )
+                message({"voice": {"file_id": "v", "file_unique_id": "uv", "duration": 1}})
             ),
             "",
         )
+        self.assertIsNone(capture_content(message({"dice": {"emoji": "🎲", "value": 6}})))
         self.assertIsNone(
-            capture_content(message({"dice": {"emoji": "🎲", "value": 6}}))
-        )
-        self.assertIsNone(
-            capture_content(
-                message({"contact": {"phone_number": "1", "first_name": "Nope"}})
-            )
+            capture_content(message({"contact": {"phone_number": "1", "first_name": "Nope"}}))
         )
 
     def test_location_is_readable_markdown(self):
@@ -458,8 +452,7 @@ class CaptureGroupingTests(unittest.TestCase):
         )
         self.assertEqual(
             render_capture_payloads([note, forwarded]),
-            "## Segment 1 — text\n\nMy note\n\n"
-            "## Segment 2 — forwarded text\n\nShared post",
+            "## Segment 1 — text\n\nMy note\n\n## Segment 2 — forwarded text\n\nShared post",
         )
 
     def test_unmarked_url_and_note_remain_chronological(self):
@@ -467,8 +460,7 @@ class CaptureGroupingTests(unittest.TestCase):
         note = telegram_payload(2, 100, text="Read this later")
         self.assertEqual(
             render_capture_payloads([url, note]),
-            "## Segment 1 — text\n\nhttps://example.com\n\n"
-            "## Segment 2 — text\n\nRead this later",
+            "## Segment 1 — text\n\nhttps://example.com\n\n## Segment 2 — text\n\nRead this later",
         )
 
     def test_application_takes_its_grouping_settings_and_asks_no_follow_up_question(self):
@@ -483,18 +475,10 @@ class CaptureGroupingTests(unittest.TestCase):
                 grouping_max_gap_seconds=1.5,
                 grouping_settle_seconds=2.5,
             )
-            self.assertEqual(
-                application.bot_data["capture_group_max_gap_seconds"], 1.5
-            )
-            self.assertEqual(
-                application.bot_data["capture_group_settle_seconds"], 2.5
-            )
-            handlers = [
-                handler for values in application.handlers.values() for handler in values
-            ]
-            self.assertFalse(
-                any(isinstance(handler, CallbackQueryHandler) for handler in handlers)
-            )
+            self.assertEqual(application.bot_data["capture_group_max_gap_seconds"], 1.5)
+            self.assertEqual(application.bot_data["capture_group_settle_seconds"], 2.5)
+            handlers = [handler for values in application.handlers.values() for handler in values]
+            self.assertFalse(any(isinstance(handler, CallbackQueryHandler) for handler in handlers))
 
 
 if __name__ == "__main__":

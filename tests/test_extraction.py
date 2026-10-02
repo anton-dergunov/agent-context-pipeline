@@ -70,9 +70,7 @@ def run_step(tmp_path, links, *, extractor, **kwargs):
     result = ProcessingResult(message_markdown="body", links=list(links))
     workspace = tmp_path / "ws"
     workspace.mkdir(exist_ok=True)
-    outcome = step.run(
-        ProcessingJob("info", 1, 1, "info", 1, 1, tmp_path), result, workspace
-    )
+    outcome = step.run(ProcessingJob("info", 1, 1, "info", 1, 1, tmp_path), result, workspace)
     return result, outcome
 
 

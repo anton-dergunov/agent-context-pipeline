@@ -390,8 +390,7 @@ class SyncUnitTests(unittest.TestCase):
             result = render_org(_sorted_items(inbox / "info"))
 
             self.assertIn(
-                "** 1 · [[file:2026-08-09_1/index.md]"
-                "[Why the trees wear coloured tags]]  :post:\n",
+                "** 1 · [[file:2026-08-09_1/index.md][Why the trees wear coloured tags]]  :post:\n",
                 result,
             )
             # The extraction status is carried by the item's own frontmatter and
@@ -470,8 +469,7 @@ class SyncUnitTests(unittest.TestCase):
             # The title is now a link description, so a `]` in it would close the
             # description early and leave the rest of the heading as loose text.
             self.assertIn(
-                "** 1 · [[file:2026-08-09_1/index.md]"
-                "[( (not a link)) and a ragged title]]\n",
+                "** 1 · [[file:2026-08-09_1/index.md][( (not a link)) and a ragged title]]\n",
                 result,
             )
             self.assertEqual(result.count("\n* "), 1)
@@ -686,10 +684,15 @@ class RegenerateTests(unittest.TestCase):
             generate_inbox(inbox)
             shutil.rmtree(inbox / "info" / "2026-08-09_1")
 
-            with unittest.mock.patch(
-                "info_triage.sync.default_config",
-                return_value=SyncConfig("server", "/remote/inbox", inbox, Path(temporary) / "state"),
-            ), unittest.mock.patch("info_triage.sync.run_command") as runner:
+            with (
+                unittest.mock.patch(
+                    "info_triage.sync.default_config",
+                    return_value=SyncConfig(
+                        "server", "/remote/inbox", inbox, Path(temporary) / "state"
+                    ),
+                ),
+                unittest.mock.patch("info_triage.sync.run_command") as runner,
+            ):
                 self.assertEqual(main(["--regenerate"]), 0)
 
             runner.assert_not_called()
@@ -708,9 +711,7 @@ class RouteTests(unittest.TestCase):
             inbox = Path(temporary)
             write_item(inbox, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             write_item(inbox, "2026-08-10_2", received_at="2026-08-10T10:00:00+00:00")
-            write_item(
-                inbox, "2026-08-09_1", received_at="2026-08-09T11:00:00+00:00", route="job"
-            )
+            write_item(inbox, "2026-08-09_1", received_at="2026-08-09T11:00:00+00:00", route="job")
 
             generate_inbox(inbox)
 
@@ -759,18 +760,21 @@ class RouteTests(unittest.TestCase):
             # Delivered under info last time; the server now holds it under job.
             write_item(local, "2026-08-09_1", received_at="2026-08-09T10:00:00+00:00")
             write_item(
-                remote, "2026-08-09_4", received_at="2026-08-09T10:00:00+00:00",
-                revision=2, route="job",
+                remote,
+                "2026-08-09_4",
+                received_at="2026-08-09T10:00:00+00:00",
+                revision=2,
+                route="job",
             )
             (state / "delivered-items").write_text("info/2026-08-09_1\t1\n", encoding="utf-8")
 
-            synchronize(SyncConfig("server", "/remote/inbox", local, state), FakeSyncCommands(remote))
+            synchronize(
+                SyncConfig("server", "/remote/inbox", local, state), FakeSyncCommands(remote)
+            )
 
             self.assertFalse((local / "info" / "2026-08-09_1").exists())
             self.assertTrue((local / "job" / "2026-08-09_4").is_dir())
-            self.assertEqual(
-                (state / "delivered-items").read_text(), "job/2026-08-09_4\t2\n"
-            )
+            self.assertEqual((state / "delivered-items").read_text(), "job/2026-08-09_4\t2\n")
             self.assertNotIn("2026-08-09_1", (local / "info" / "triage.md").read_text())
 
     def test_an_item_the_laptop_deleted_is_not_removed_a_second_time(self):
@@ -820,7 +824,8 @@ class RouteTests(unittest.TestCase):
             synchronize(SyncConfig("server", "/remote/inbox", local, state), commands)
 
             metadata_pass = next(
-                command for command in commands.commands
+                command
+                for command in commands.commands
                 if command[0] == "rsync" and "--include" in command
             )
             self.assertEqual(
@@ -1077,7 +1082,12 @@ class NeighbourAnnotationTests(unittest.TestCase):
             write_item(inbox, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00", route="job")
             neighbours = FakeNeighbours(blocks={"2026-08-09_1": BLOCK})
             config = SyncConfig(
-                "server", "/remote/inbox", inbox, root / "state", org_root=corpus, obsidian_root=corpus
+                "server",
+                "/remote/inbox",
+                inbox,
+                root / "state",
+                org_root=corpus,
+                obsidian_root=corpus,
             )
             with (
                 unittest.mock.patch("info_triage.sync._neighbours_module", return_value=neighbours),
@@ -1211,7 +1221,6 @@ class NeighbourQueryTests(unittest.TestCase):
     def test_an_item_with_no_lead_falls_back_to_what_was_captured(self):
         index = "---\nid: x\nintent: null\n---\n\n## Captured\n\n> [A page](https://e.com)\n"
         self.assertEqual(neighbour_query(index), "[A page](https://e.com)")
-
 
 
 class DuplicateCaptureTests(unittest.TestCase):

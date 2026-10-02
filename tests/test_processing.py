@@ -27,9 +27,7 @@ def wait_for_status(store, message_id, status, timeout=3):
             return item
         time.sleep(0.01)
     current = store.get_item("info", 10, message_id)
-    raise AssertionError(
-        f"item {message_id} did not reach {status}; current={dict(current or {})}"
-    )
+    raise AssertionError(f"item {message_id} did not reach {status}; current={dict(current or {})}")
 
 
 class AppendStep:
@@ -55,10 +53,7 @@ class ProcessingTests(unittest.TestCase):
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
 
-            item = store.capture(
-                "info",
-                10, 1, "plain", received_at="2026-08-09T10:00:00+00:00"
-            )
+            item = store.capture("info", 10, 1, "plain", received_at="2026-08-09T10:00:00+00:00")
             self.assertEqual(store.get_item("info", 10, 1)["status"], "received")
             coordinator.submit(item)
 
@@ -72,14 +67,8 @@ class ProcessingTests(unittest.TestCase):
             pipeline = ProcessingPipeline([AppendStep(calls)])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
-            first = store.capture(
-                "info",
-                10, 1, "first", received_at="2026-08-09T10:00:00+00:00"
-            )
-            second = store.capture(
-                "info",
-                10, 2, "second", received_at="2026-08-09T10:00:01+00:00"
-            )
+            first = store.capture("info", 10, 1, "first", received_at="2026-08-09T10:00:00+00:00")
+            second = store.capture("info", 10, 2, "second", received_at="2026-08-09T10:00:01+00:00")
             coordinator.submit(first)
             coordinator.submit(second)
             worker.start()
@@ -99,9 +88,9 @@ class ProcessingTests(unittest.TestCase):
             )
             records = [
                 json.loads(line)
-                for line in (
-                    Path(temporary) / "logs" / "processor-runs.jsonl"
-                ).read_text().splitlines()
+                for line in (Path(temporary) / "logs" / "processor-runs.jsonl")
+                .read_text()
+                .splitlines()
             ]
             self.assertEqual([record["outcome"] for record in records], ["succeeded"] * 2)
             self.assertNotIn("processor_input", records[0])
@@ -115,19 +104,14 @@ class ProcessingTests(unittest.TestCase):
             def run(self, job, result, workspace):
                 generated = workspace / "ocr.txt"
                 generated.write_text("recognized text")
-                result.generated_files.append(
-                    GeneratedFile(Path("generated/ocr.txt"), generated)
-                )
+                result.generated_files.append(GeneratedFile(Path("generated/ocr.txt"), generated))
 
         with tempfile.TemporaryDirectory() as temporary:
             store = make_store(Path(temporary))
             pipeline = ProcessingPipeline([GenerateStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
-            item = store.capture(
-                "info",
-                10, 1, "image", received_at="2026-08-09T10:00:00+00:00"
-            )
+            item = store.capture("info", 10, 1, "image", received_at="2026-08-09T10:00:00+00:00")
             worker.start()
             coordinator.submit(item)
             try:
@@ -161,10 +145,7 @@ class ProcessingTests(unittest.TestCase):
             pipeline = ProcessingPipeline([OutsideStep(elsewhere)])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
-            item = store.capture(
-                "info",
-                10, 1, "image", received_at="2026-08-09T10:00:00+00:00"
-            )
+            item = store.capture("info", 10, 1, "image", received_at="2026-08-09T10:00:00+00:00")
             worker.start()
             coordinator.submit(item)
             try:
@@ -252,10 +233,7 @@ class ProcessingTests(unittest.TestCase):
             pipeline = ProcessingPipeline([MutateThenFail(), AppendStep()])
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
-            item = store.capture(
-                "info",
-                10, 1, "original", received_at="2026-08-09T10:00:00+00:00"
-            )
+            item = store.capture("info", 10, 1, "original", received_at="2026-08-09T10:00:00+00:00")
             worker.start()
             coordinator.submit(item)
             try:
@@ -289,10 +267,7 @@ class ProcessingTests(unittest.TestCase):
             worker = ProcessingWorker(store, {"info": pipeline})
             coordinator = ProcessingCoordinator(store, {"info": pipeline}, worker)
             source = "first line\nsecond line 世界"
-            item = store.capture(
-                "info",
-                10, 1, source, received_at="2026-08-09T10:00:00+00:00"
-            )
+            item = store.capture("info", 10, 1, source, received_at="2026-08-09T10:00:00+00:00")
             worker.start()
             coordinator.submit(item)
             try:

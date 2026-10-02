@@ -181,6 +181,7 @@ class CaptureStore:
                 )
                 """
             )
+
     @staticmethod
     def item_name(created_at: str, local_id: int) -> str:
         created_date = datetime.fromisoformat(created_at).date().isoformat()
@@ -525,9 +526,7 @@ class CaptureStore:
                 record["download_status"] = "unavailable"
                 record["warning"] = attachment.warning
             else:
-                filename = (
-                    f"{next_index:02d}-{attachment.spec.kind}{attachment.spec.extension}"
-                )
+                filename = f"{next_index:02d}-{attachment.spec.kind}{attachment.spec.extension}"
                 next_index += 1
                 atomic_write_bytes(temporary_dir / filename, attachment.data)
                 record["path"] = f"{CAPTURE_DIR}/attachments/{filename}"
@@ -591,9 +590,7 @@ class CaptureStore:
             for item in rows:
                 key = (item["origin_route"], item["chat_id"], item["message_id"])
                 inbox_path = self.inbox_for(item["route"], item["created_at"], item["local_id"])
-                staging_path = self.staging_for(
-                    item["route"], item["created_at"], item["local_id"]
-                )
+                staging_path = self.staging_for(item["route"], item["created_at"], item["local_id"])
                 if not staging_path.is_dir() and not inbox_path.is_dir():
                     moved = self._find_moved_item(item)
                     if moved is not None:
@@ -941,9 +938,7 @@ class CaptureStore:
             )
             return updated.rowcount == 1
 
-    def fail_if_current(
-        self, job: ProcessingJob, error: str, processing_step: str | None
-    ) -> bool:
+    def fail_if_current(self, job: ProcessingJob, error: str, processing_step: str | None) -> bool:
         with self._connect() as connection:
             updated = connection.execute(
                 """
@@ -1044,8 +1039,7 @@ class CaptureStore:
                 "content": row["content"],
                 "payload": json.loads(row["raw_json"]),
                 "specs": [
-                    AttachmentSpec.from_dict(value)
-                    for value in json.loads(row["attachments_json"])
+                    AttachmentSpec.from_dict(value) for value in json.loads(row["attachments_json"])
                 ],
             }
             for row in rows

@@ -162,9 +162,7 @@ class ProcessingWorker:
         if self._thread:
             self._thread.join(timeout)
             if self._thread.is_alive():
-                logger.warning(
-                    "Processing worker did not stop within %.1f seconds", timeout
-                )
+                logger.warning("Processing worker did not stop within %.1f seconds", timeout)
 
     def _run(self) -> None:
         while not self._stop_event.is_set():
@@ -314,9 +312,7 @@ class ProcessingWorker:
                 self.store.promote_if_current(job, result)
         except Exception as error:
             if self.store.fail_if_current(job, str(error), current_step):
-                logger.exception(
-                    "Processing failed for item %s/%s", job.route, job.path.name
-                )
+                logger.exception("Processing failed for item %s/%s", job.route, job.path.name)
 
 
 class ProcessingCoordinator:

@@ -1,22 +1,24 @@
 """How does retrieval hold up as the vault grows? Subsample the vault to several
 sizes, keep the Org plans fixed, and watch the gold answer's rank."""
+
 import json
 import random
+
 import numpy as np
-from search import BM25, tokenize
-from items import all_items
 from ablate import GOLD
+from items import all_items
+from search import BM25, tokenize
 
 VAULT_GOLD = {
- "s7-ab-peeking": "Statistics/Peeking and Sequential Testing.md",
- "s4-soy-protein": "Nutrition/Macronutrients.md",
- "2026-08-18_13": "ML & AI/Concepts/Detecting machine-generated text.md",
- "2026-08-18_12": "ML & AI/Concepts/Recommendation systems.md",
- "s2-chopin-fingering": "Piano/Piano technique.md",
- "s5-darienzo": "Tango/My favourite tango music organized in tandas.md",
+    "s7-ab-peeking": "Statistics/Peeking and Sequential Testing.md",
+    "s4-soy-protein": "Nutrition/Macronutrients.md",
+    "2026-08-18_13": "ML & AI/Concepts/Detecting machine-generated text.md",
+    "2026-08-18_12": "ML & AI/Concepts/Recommendation systems.md",
+    "s2-chopin-fingering": "Piano/Piano technique.md",
+    "s5-darienzo": "Tango/My favourite tango music organized in tandas.md",
 }
 
-units = [json.loads(l) for l in open("units.jsonl")]
+units = [json.loads(ln) for ln in open("units.jsonl")]
 org = [u for u in units if u["source"] == "org"]
 vault = [u for u in units if u["source"] == "vault"]
 queries = {it["id"]: it["query"] for it in all_items()}
@@ -61,7 +63,7 @@ def run(frac, seed=0):
 
 def summarise(rs):
     ok = [r for r in rs if r]
-    return f"hit@5={sum(1 for r in ok if r<=5)}/{len(rs)} hit@40={sum(1 for r in ok if r<=40)}/{len(rs)} median={sorted(ok)[len(ok)//2] if ok else '-'}"
+    return f"hit@5={sum(1 for r in ok if r <= 5)}/{len(rs)} hit@40={sum(1 for r in ok if r <= 40)}/{len(rs)} median={sorted(ok)[len(ok) // 2] if ok else '-'}"
 
 
 print(f"\n{'vault frac':>10} {'corpus':>8}  {'ORG-side gold':<38} {'VAULT-side gold'}")

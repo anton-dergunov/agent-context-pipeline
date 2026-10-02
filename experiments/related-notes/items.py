@@ -1,5 +1,5 @@
 """Test queries: the 12 real inbox items plus 10 synthetic ones spanning the user's breadth."""
-import json
+
 import re
 from pathlib import Path
 
@@ -34,38 +34,68 @@ def item_query(d: Path, lead_words: int = 120) -> dict:
 
 
 SYNTHETIC = [
-    ("s1-zone-system", "photography",
-     "Understanding the Zone System for digital exposure. A guide to previsualising tonal "
-     "range, metering for the shadows and placing highlights, and how Ansel Adams' system "
-     "translates to raw files and modern histogram-based exposure."),
-    ("s2-chopin-fingering", "piano",
-     "How to practise a Chopin nocturne: fingering choices, voicing the melody over the "
-     "accompaniment, and pedalling. Slow practice strategies for the left-hand arpeggios."),
-    ("s3-hsk-anki", "chinese",
-     "Building an Anki deck for HSK 4 vocabulary. Spaced repetition scheduling, sentence "
-     "cards versus word cards, and how many new characters per day is sustainable."),
-    ("s4-soy-protein", "nutrition",
-     "How much soy is too much on a vegan diet? Reviewing the evidence on isoflavones, "
-     "daily protein targets, and which plant staples cover the amino acid profile."),
-    ("s5-darienzo", "tango",
-     "Dancing to Juan D'Arienzo: tango musicality, marking the strong beat, and how the "
-     "orchestra's rhythmic style changes which figures actually fit the music."),
-    ("s6-feed-ranking-interview", "ml-interview",
-     "System design interview: design a news feed ranking system. Candidate generation, "
-     "a two-tower retrieval model, feature stores, online serving latency, and how to "
-     "evaluate the ranker with A/B tests."),
-    ("s7-ab-peeking", "statistics",
-     "Why you should not peek at A/B test results. Repeated significance testing inflates "
-     "the false positive rate; sequential testing and always-valid p-values fix it."),
-    ("s8-rust-ownership", "programming",
-     "The Rust ownership model explained: moves, borrows, lifetimes, and why the borrow "
-     "checker rejects code that looks correct. Worked examples with vectors and structs."),
-    ("s9-vespa-restoration", "OUT-OF-SCOPE",
-     "Restoring a 1960s Vespa scooter engine: sourcing piston rings, decarbonising the "
-     "cylinder head, and rebuilding the two-stroke gearbox on a workbench at home."),
-    ("s10-beekeeping", "OUT-OF-SCOPE",
-     "Beekeeping for beginners: choosing between a Langstroth and a top-bar hive, "
-     "installing your first package of bees, and treating for varroa mites in autumn."),
+    (
+        "s1-zone-system",
+        "photography",
+        "Understanding the Zone System for digital exposure. A guide to previsualising tonal "
+        "range, metering for the shadows and placing highlights, and how Ansel Adams' system "
+        "translates to raw files and modern histogram-based exposure.",
+    ),
+    (
+        "s2-chopin-fingering",
+        "piano",
+        "How to practise a Chopin nocturne: fingering choices, voicing the melody over the "
+        "accompaniment, and pedalling. Slow practice strategies for the left-hand arpeggios.",
+    ),
+    (
+        "s3-hsk-anki",
+        "chinese",
+        "Building an Anki deck for HSK 4 vocabulary. Spaced repetition scheduling, sentence "
+        "cards versus word cards, and how many new characters per day is sustainable.",
+    ),
+    (
+        "s4-soy-protein",
+        "nutrition",
+        "How much soy is too much on a vegan diet? Reviewing the evidence on isoflavones, "
+        "daily protein targets, and which plant staples cover the amino acid profile.",
+    ),
+    (
+        "s5-darienzo",
+        "tango",
+        "Dancing to Juan D'Arienzo: tango musicality, marking the strong beat, and how the "
+        "orchestra's rhythmic style changes which figures actually fit the music.",
+    ),
+    (
+        "s6-feed-ranking-interview",
+        "ml-interview",
+        "System design interview: design a news feed ranking system. Candidate generation, "
+        "a two-tower retrieval model, feature stores, online serving latency, and how to "
+        "evaluate the ranker with A/B tests.",
+    ),
+    (
+        "s7-ab-peeking",
+        "statistics",
+        "Why you should not peek at A/B test results. Repeated significance testing inflates "
+        "the false positive rate; sequential testing and always-valid p-values fix it.",
+    ),
+    (
+        "s8-rust-ownership",
+        "programming",
+        "The Rust ownership model explained: moves, borrows, lifetimes, and why the borrow "
+        "checker rejects code that looks correct. Worked examples with vectors and structs.",
+    ),
+    (
+        "s9-vespa-restoration",
+        "OUT-OF-SCOPE",
+        "Restoring a 1960s Vespa scooter engine: sourcing piston rings, decarbonising the "
+        "cylinder head, and rebuilding the two-stroke gearbox on a workbench at home.",
+    ),
+    (
+        "s10-beekeeping",
+        "OUT-OF-SCOPE",
+        "Beekeeping for beginners: choosing between a Langstroth and a top-bar hive, "
+        "installing your first package of bees, and treating for varroa mites in autumn.",
+    ),
 ]
 
 

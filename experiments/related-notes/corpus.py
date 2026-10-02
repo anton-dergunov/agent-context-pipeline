@@ -1,10 +1,11 @@
 """Build retrieval units from the Org plan repo and the Obsidian vault."""
+
 from __future__ import annotations
 
 import json
 import os
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 # The same variables and defaults `src/info_triage/sync.py` reads.
@@ -13,8 +14,16 @@ ORG_ROOT = Path(os.environ.get("INFO_TRIAGE_ORG_ROOT") or NOTES / "org").expandu
 VAULT_ROOT = Path(os.environ.get("INFO_TRIAGE_OBSIDIAN_ROOT") or NOTES / "obsidian").expanduser()
 
 ORG_SKIP = {"workspace.org", "init.org"}
-VAULT_SKIP_DIRS = {".git", ".obsidian", ".smart-env", ".trash", "image", "scripts",
-                   "Templates", "Bases"}
+VAULT_SKIP_DIRS = {
+    ".git",
+    ".obsidian",
+    ".smart-env",
+    ".trash",
+    "image",
+    "scripts",
+    "Templates",
+    "Bases",
+}
 
 KEYWORDS = {"TODO", "NEXT", "MAYB", "WAIT", "DONE", "STARTED", "INPR", "HOLD", "CANCELLED"}
 HEADING = re.compile(r"^(\*+)\s+(.*)$")
@@ -24,14 +33,14 @@ MD_H = re.compile(r"^(#{1,6})\s+(.*)$")
 
 @dataclass
 class Unit:
-    kind: str          # org-task | org-section | org-charter | vault-section
-    source: str        # "org" | "vault"
-    file: str          # repo-relative path
-    line: int          # 1-indexed start line
-    path: str          # human breadcrumb
+    kind: str  # org-task | org-section | org-charter | vault-section
+    source: str  # "org" | "vault"
+    file: str  # repo-relative path
+    line: int  # 1-indexed start line
+    path: str  # human breadcrumb
     title: str
     keyword: str | None
-    text: str          # what gets embedded / indexed
+    text: str  # what gets embedded / indexed
     words: int
 
 
@@ -47,17 +56,36 @@ def parse_org(path: Path, rel: str) -> list[Unit]:
     units: list[Unit] = []
 
     # charter: everything before the first heading
-    first = next((i for i, l in enumerate(lines) if HEADING.match(l)), len(lines))
-    charter_lines = [l for l in lines[:first] if l.strip()]
-    subtitle = next((l.split(":", 1)[1].strip() for l in charter_lines
-                     if l.upper().startswith("#+SUBTITLE:")), "")
-    title = next((l.split(":", 1)[1].strip() for l in charter_lines
-                  if l.upper().startswith("#+TITLE:")), rel)
-    prose = " ".join(l for l in charter_lines if not l.startswith("#+"))
+    first = next((i for i, ln in enumerate(lines) if HEADING.match(ln)), len(lines))
+    charter_lines = [ln for ln in lines[:first] if ln.strip()]
+    subtitle = next(
+        (
+            ln.split(":", 1)[1].strip()
+            for ln in charter_lines
+            if ln.upper().startswith("#+SUBTITLE:")
+        ),
+        "",
+    )
+    title = next(
+        (ln.split(":", 1)[1].strip() for ln in charter_lines if ln.upper().startswith("#+TITLE:")),
+        rel,
+    )
+    prose = " ".join(ln for ln in charter_lines if not ln.startswith("#+"))
     if prose or subtitle:
         body = f"{subtitle}. {prose}".strip()
-        units.append(Unit("org-charter", "org", rel, 1, rel, title, None,
-                          f"{title}. {body}", len(body.split())))
+        units.append(
+            Unit(
+                "org-charter",
+                "org",
+                rel,
+                1,
+                rel,
+                title,
+                None,
+                f"{title}. {body}",
+                len(body.split()),
+            )
+        )
 
     # headings
     stack: list[str] = []
@@ -69,14 +97,28 @@ def parse_org(path: Path, rel: str) -> list[Unit]:
             return
         raw = "\n".join(body).strip()
         # drop org drawers / scheduling noise from the embedded text
-        keep = [l for l in raw.splitlines()
-                if not re.match(r"^\s*(SCHEDULED:|DEADLINE:|CLOSED:|:PROPERTIES:|:END:|:[A-Z_]+:)", l)]
-        btext = " ".join(l.strip() for l in keep).strip()
+        keep = [
+            ln
+            for ln in raw.splitlines()
+            if not re.match(r"^\s*(SCHEDULED:|DEADLINE:|CLOSED:|:PROPERTIES:|:END:|:[A-Z_]+:)", ln)
+        ]
+        btext = " ".join(ln.strip() for ln in keep).strip()
         crumb = " > ".join([rel] + cur["anc"])
         kind = "org-task" if cur["kw"] else "org-section"
         text = f"{crumb} > {cur['title']}. {btext}".strip()
-        units.append(Unit(kind, "org", rel, cur["line"], crumb, cur["title"],
-                          cur["kw"], text, len(btext.split())))
+        units.append(
+            Unit(
+                kind,
+                "org",
+                rel,
+                cur["line"],
+                crumb,
+                cur["title"],
+                cur["kw"],
+                text,
+                len(btext.split()),
+            )
+        )
 
     for i, line in enumerate(lines[first:], start=first + 1):
         m = HEADING.match(line)
@@ -94,7 +136,7 @@ def parse_org(path: Path, rel: str) -> list[Unit]:
             rest = parts[1] if len(parts) > 1 else ""
         rest = re.sub(r"^\[#[A-C]\]\s*", "", rest)
         htitle, _ = _strip_tags(rest)
-        del stack[level - 1:]
+        del stack[level - 1 :]
         cur = {"line": i, "title": htitle, "kw": kw, "anc": list(stack)}
         stack.append(htitle)
         body = []
@@ -111,16 +153,19 @@ def parse_vault(path: Path, rel: str, max_words: int = 280) -> list[Unit]:
 
     # sections split on any ## / ### heading
     marks = [(0, note)]
-    for i, l in enumerate(lines):
-        m = MD_H.match(l)
+    for i, ln in enumerate(lines):
+        m = MD_H.match(ln)
         if m and len(m.group(1)) <= 3:
             marks.append((i, m.group(2).strip()))
     marks.append((len(lines), ""))
 
     for (start, heading), (end, _) in zip(marks, marks[1:]):
         seg = lines[start:end]
-        body = " ".join(l.strip() for l in seg
-                        if l.strip() and not MD_H.match(l) and not l.startswith("---"))
+        body = " ".join(
+            ln.strip()
+            for ln in seg
+            if ln.strip() and not MD_H.match(ln) and not ln.startswith("---")
+        )
         if not body:
             continue
         crumb = f"{folder}/{note}" + (f" > {heading}" if heading != note else "")
@@ -128,18 +173,32 @@ def parse_vault(path: Path, rel: str, max_words: int = 280) -> list[Unit]:
         # window very long sections so a chunk stays inside the encoder's context.
         # each window keeps the line it actually starts on, so two chunks of one
         # section never collapse onto the same citation
-        body_lines = [j for j, l in enumerate(seg)
-                      if l.strip() and not MD_H.match(l) and not l.startswith("---")]
+        body_lines = [
+            j
+            for j, ln in enumerate(seg)
+            if ln.strip() and not MD_H.match(ln) and not ln.startswith("---")
+        ]
         seen = 0
         starts = []
         for j in body_lines:
             starts.append((seen, start + j + 1))
             seen += len(seg[j].split())
         for w0 in range(0, len(words), max_words):
-            chunk = " ".join(words[w0: w0 + max_words])
+            chunk = " ".join(words[w0 : w0 + max_words])
             line = next((ln for c, ln in reversed(starts) if c <= w0), start + 1)
-            units.append(Unit("vault-section", "vault", rel, line, crumb, heading,
-                              None, f"{crumb}. {chunk}", len(chunk.split())))
+            units.append(
+                Unit(
+                    "vault-section",
+                    "vault",
+                    rel,
+                    line,
+                    crumb,
+                    heading,
+                    None,
+                    f"{crumb}. {chunk}",
+                    len(chunk.split()),
+                )
+            )
     return units
 
 
@@ -163,6 +222,7 @@ if __name__ == "__main__":
         for u in us:
             fh.write(json.dumps(asdict(u)) + "\n")
     from collections import Counter
+
     print(f"{len(us)} units -> {out}")
     print(Counter(u.kind for u in us))
     print("median words", sorted(u.words for u in us)[len(us) // 2])

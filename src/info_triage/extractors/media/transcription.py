@@ -120,21 +120,13 @@ def resolve_backend_and_model(
 ) -> tuple[str, str]:
     """Apply CLI, environment, then platform defaults in that order."""
     default_backend, default_model = production_defaults()
-    selected_backend = (
-        backend
-        or os.environ.get(TRANSCRIPTION_BACKEND_ENV)
-        or "best"
-    )
+    selected_backend = backend or os.environ.get(TRANSCRIPTION_BACKEND_ENV) or "best"
     if selected_backend == "best":
         selected_backend = default_backend
     if selected_backend not in BACKEND_CHOICES[1:]:
         raise ValueError(f"unsupported transcription backend: {selected_backend}")
 
-    selected_model = (
-        model
-        or os.environ.get(TRANSCRIPTION_MODEL_ENV)
-        or default_model
-    )
+    selected_model = model or os.environ.get(TRANSCRIPTION_MODEL_ENV) or default_model
     if selected_model not in MODEL_CHOICES:
         raise ValueError(f"unsupported transcription model: {selected_model}")
     if selected_backend == "mlx" and not (

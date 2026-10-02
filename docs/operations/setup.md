@@ -256,7 +256,8 @@ disabled, so changing the model means rebuilding the image.
 
 ```bash
 uv run pytest
-uvx ruff check .
+uv run ruff check .
+uv run ruff format --check .
 bash -n deploy.sh run.sh sync.sh
 docker compose config --quiet
 ```

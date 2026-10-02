@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -37,13 +37,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
 
-      # experiments/ holds measurement scripts that are not held to the application's lint.
-      # ruff format --check is left out until the files that predate line-length = 100 are
-      # reformatted.
+      # ruff is pinned in the dev group, so a new release cannot fail a commit that did not
+      # change; Dependabot bumps it in a PR of its own.
+      - name: Install ruff
+        run: uv sync --locked --only-group dev --no-install-project
+
       - name: Lint
-        run: uvx ruff check src tests
+        run: uv run --no-sync ruff check .
+
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check .
 
       - name: Check the shell scripts parse
         run: bash -n deploy.sh run.sh sync.sh

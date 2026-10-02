@@ -21,11 +21,7 @@ if [ "$command_name" = "ssh" ] && [ "${1:-}" = "-G" ]; then
 fi
 """
 SECRET = "TELEGRAM_BOT_TOKEN_INFO=never-print-this"
-REMOTE_ENV = (
-    f"{SECRET}\n"
-    "INFO_TRIAGE_SERVER=box\n"
-    "INFO_TRIAGE_SERVER_DIR=/srv/info-triage\n"
-)
+REMOTE_ENV = f"{SECRET}\nINFO_TRIAGE_SERVER=box\nINFO_TRIAGE_SERVER_DIR=/srv/info-triage\n"
 CURL = [
     "curl",
     "--fail",

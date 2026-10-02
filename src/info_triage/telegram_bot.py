@@ -99,9 +99,7 @@ def attachment_specs_from_payload(payload: dict[str, Any]) -> list[AttachmentSpe
             file_size=value.get("file_size"),
             mime_type=value.get("mime_type"),
             original_name=value.get("file_name"),
-            extension=_extension_for(
-                kind, value.get("mime_type"), value.get("file_name")
-            ),
+            extension=_extension_for(kind, value.get("mime_type"), value.get("file_name")),
             source_message_id=message_id,
         )
         for kind, value in candidates
@@ -113,9 +111,7 @@ def capture_content(message: Message) -> str | None:
     return message_content(message)
 
 
-async def download_attachments(
-    bot, specs: list[AttachmentSpec]
-) -> list[DownloadedAttachment]:
+async def download_attachments(bot, specs: list[AttachmentSpec]) -> list[DownloadedAttachment]:
     attachments = []
     for spec in specs:
         if spec.file_size is not None and spec.file_size > MAX_DOWNLOAD_BYTES:
@@ -132,20 +128,14 @@ async def download_attachments(
             try:
                 telegram_file = await bot.get_file(spec.file_id)
                 attachments.append(
-                    DownloadedAttachment(
-                        spec, bytes(await telegram_file.download_as_bytearray())
-                    )
+                    DownloadedAttachment(spec, bytes(await telegram_file.download_as_bytearray()))
                 )
                 break
             except TelegramError as error:
                 if attempt == 2:
-                    logger.warning(
-                        "Could not download Telegram %s: %s", spec.kind, error
-                    )
+                    logger.warning("Could not download Telegram %s: %s", spec.kind, error)
                     attachments.append(
-                        DownloadedAttachment(
-                            spec, None, f"Could not download {spec.kind}: {error}"
-                        )
+                        DownloadedAttachment(spec, None, f"Could not download {spec.kind}: {error}")
                     )
                 else:
                     await asyncio.sleep(2**attempt)
@@ -204,11 +194,7 @@ def group_new_messages(
     current: list[dict[str, Any]] = []
     previous_end = None
     for unit in _logical_units(rows):
-        gap = (
-            (unit["start"] - previous_end).total_seconds()
-            if previous_end is not None
-            else None
-        )
+        gap = (unit["start"] - previous_end).total_seconds() if previous_end is not None else None
         if current and gap is not None and gap > max_gap_seconds:
             batches.append(current)
             current = []
@@ -258,21 +244,15 @@ def _pending_batches(
         else:
             existing.setdefault(item["message_id"], []).append(row)
     batches = [(message_id, rows) for message_id, rows in existing.items()]
-    batches.extend(
-        (None, rows) for rows in group_new_messages(new_rows, max_gap_seconds)
-    )
+    batches.extend((None, rows) for rows in group_new_messages(new_rows, max_gap_seconds))
     return sorted(
         batches,
-        key=lambda value: min(
-            datetime.fromisoformat(row["received_at"]) for row in value[1]
-        ),
+        key=lambda value: min(datetime.fromisoformat(row["received_at"]) for row in value[1]),
     )
 
 
 def schedule_capture_finalization(application: Application, chat_id: int) -> None:
-    tasks: dict[int, asyncio.Task] = application.bot_data.setdefault(
-        "capture_group_tasks", {}
-    )
+    tasks: dict[int, asyncio.Task] = application.bot_data.setdefault("capture_group_tasks", {})
     task = tasks.get(chat_id)
     if task and not task.done():
         task.cancel()
@@ -328,9 +308,7 @@ async def _finalize_batch(
 
     specs = [spec for row in rows for spec in row["specs"]]
     attachments = await download_attachments(application.bot, specs)
-    edited_at = max(
-        (row["edited_at"] for row in rows if row["edited_at"]), default=None
-    )
+    edited_at = max((row["edited_at"] for row in rows if row["edited_at"]), default=None)
     capture_payload = payloads[0] if len(payloads) == 1 else {"messages": payloads}
     current_route = existing_bundle["item"]["route"] if existing_bundle else origin_route
     item = store.capture(
@@ -354,9 +332,7 @@ async def _finalize_batch(
 async def finalize_pending_chat(application: Application, chat_id: int) -> None:
     try:
         await asyncio.sleep(
-            application.bot_data.get(
-                "capture_group_settle_seconds", CAPTURE_GROUP_SETTLE_SECONDS
-            )
+            application.bot_data.get("capture_group_settle_seconds", CAPTURE_GROUP_SETTLE_SECONDS)
         )
         store: CaptureStore = application.bot_data["store"]
         max_gap_seconds = application.bot_data.get(
@@ -436,15 +412,11 @@ async def handle_message(
             await message.reply_text("Could not save this item. Check the server log.")
 
 
-async def handle_new_message(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def handle_new_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await handle_message(update, context, is_edit=False)
 
 
-async def handle_edited_message(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def handle_edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await handle_message(update, context, is_edit=True)
 
 
@@ -474,9 +446,7 @@ def build_application(
     application.bot_data["capture_group_max_gap_seconds"] = grouping_max_gap_seconds
     application.bot_data["capture_group_settle_seconds"] = grouping_settle_seconds
     application.add_handler(
-        MessageHandler(
-            filters.UpdateType.MESSAGE & ~filters.COMMAND, handle_new_message
-        )
+        MessageHandler(filters.UpdateType.MESSAGE & ~filters.COMMAND, handle_new_message)
     )
     application.add_handler(
         MessageHandler(

@@ -1,4 +1,5 @@
 """Short rerank query + a sweep of the abstain threshold."""
+
 import json
 import re
 import time
@@ -34,4 +35,4 @@ if __name__ == "__main__":
             for h in r[lab]:
                 print(f"  {lab:5s} ce={h['ce']:6.3f} {h['file']}:{h['line']} | {h['title'][:64]}")
     Path("results4.json").write_text(json.dumps(rows, indent=1))
-    print(f"\n{len(items)} queries, {time.time()-t0:.0f}s")
+    print(f"\n{len(items)} queries, {time.time() - t0:.0f}s")

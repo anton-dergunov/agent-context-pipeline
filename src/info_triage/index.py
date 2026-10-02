@@ -507,9 +507,7 @@ def _names_nothing(line: str) -> bool:
     but the link it shared, names no subject — and the address fallback at the
     end of the chain renders a bare URL far better than this would.
     """
-    return all(
-        word.startswith(("#", "@", "http://", "https://", "www.")) for word in line.split()
-    )
+    return all(word.startswith(("#", "@", "http://", "https://", "www.")) for word in line.split())
 
 
 def _headline_line(text: str) -> str:

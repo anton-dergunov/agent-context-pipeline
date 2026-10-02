@@ -41,9 +41,7 @@ class WebTests(unittest.TestCase):
     def test_processor_dashboard_shows_totals_reasons_and_grep_keys(self):
         with tempfile.TemporaryDirectory() as temporary:
             store = make_store(Path(temporary))
-            store.register_processors(
-                ("text-cleaning", "url-resolution", "voice-<transcription>")
-            )
+            store.register_processors(("text-cleaning", "url-resolution", "voice-<transcription>"))
             store.record_processor_run("text-cleaning", "succeeded", ())
             store.record_processor_run(
                 "url-resolution",
@@ -70,7 +68,6 @@ class WebTests(unittest.TestCase):
                 if row["processor"] == "voice-<transcription>"
             )
             self.assertEqual(zero_row["runs"], 0)
-
 
     def test_a_delivered_item_shows_the_problems_it_carried(self):
         """Items ship even when enrichment fails, so the dashboard has to say so."""
@@ -234,9 +231,7 @@ class CaptureEndpointTests(CaptureRequests, unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             store = make_store(Path(temporary))
             for token in (None, "secret-tokeN", "", "wrong"):
-                status, body = self.post(
-                    store, {"route": "info", "text": "x"}, token=token
-                )
+                status, body = self.post(store, {"route": "info", "text": "x"}, token=token)
                 self.assertEqual(status, 401, token)
                 self.assertNotIn("secret-token", json.dumps(body))
 

@@ -1,4 +1,5 @@
 """Hybrid BM25 + dense retrieval over the plan/vault units, fused with RRF."""
+
 from __future__ import annotations
 
 import json
@@ -10,13 +11,15 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).parent
-STOP = set("""a an the and or but if then than that this these those of in on at to for from by
+STOP = set(
+    """a an the and or but if then than that this these those of in on at to for from by
 with without as is are was were be been being it its it's he she they them their there here
 what which who whom how why when where all any both each few more most other some such no nor
 not only own same so too very can will just don should now about into over under again further
 i you your my we our us me him her his do does did doing have has had having would could may
 might must shall me one two also new use used using make makes made get gets got like via per
-you're we're isn't doesn't""".split())
+you're we're isn't doesn't""".split()
+)
 TOKEN = re.compile(r"[a-z0-9][a-z0-9+.#_-]*")
 
 
@@ -34,8 +37,9 @@ class BM25:
         for i, d in enumerate(docs):
             for term, tf in Counter(d).items():
                 self.post[term].append((i, tf))
-        self.idf = {t: math.log(1 + (self.N - len(p) + 0.5) / (len(p) + 0.5))
-                    for t, p in self.post.items()}
+        self.idf = {
+            t: math.log(1 + (self.N - len(p) + 0.5) / (len(p) + 0.5)) for t, p in self.post.items()
+        }
 
     def score(self, query: list[str]) -> np.ndarray:
         s = np.zeros(self.N, dtype=np.float32)
@@ -53,7 +57,7 @@ class BM25:
 
 class Index:
     def __init__(self):
-        self.units = [json.loads(l) for l in (HERE / "units.jsonl").open()]
+        self.units = [json.loads(ln) for ln in (HERE / "units.jsonl").open()]
         self.vecs = np.load(HERE / "vecs.npy")
         self.bm25 = BM25([tokenize(u["text"]) for u in self.units])
         self._embedder = None
@@ -61,11 +65,13 @@ class Index:
     def embedder(self):
         if self._embedder is None:
             from embed import load
+
             self._embedder = load()
         return self._embedder
 
     def encode_query(self, query: str):
         import embed
+
         return embed.encode_queries(self.embedder(), [query])[0]
 
     def candidates(self, query: str, pool: int = 60, rrf_k: int = 60) -> list[dict]:
@@ -79,12 +85,26 @@ class Index:
         for r, i in enumerate(np.argsort(-lex)[:pool]):
             if lex[i] > 0:
                 rr[int(i)] += 1.0 / (rrf_k + r + 1)
-        return [{**self.units[i], "dense": round(float(dense[i]), 3),
-                 "bm25": round(float(lex[i]), 2), "fused": round(f, 5)}
-                for i, f in sorted(rr.items(), key=lambda kv: -kv[1])]
+        return [
+            {
+                **self.units[i],
+                "dense": round(float(dense[i]), 3),
+                "bm25": round(float(lex[i]), 2),
+                "fused": round(f, 5),
+            }
+            for i, f in sorted(rr.items(), key=lambda kv: -kv[1])
+        ]
 
-    def related(self, query: str, k: int = 3, pool: int = 50, min_score: float = 0.0,
-                per_file: int = 1, device: str = "cpu", rerank_query: str | None = None) -> dict:
+    def related(
+        self,
+        query: str,
+        k: int = 3,
+        pool: int = 50,
+        min_score: float = 0.0,
+        per_file: int = 1,
+        device: str = "cpu",
+        rerank_query: str | None = None,
+    ) -> dict:
         """Stage 2: cross-encoder rerank, then an absolute-score abstain gate.
 
         Recall uses the long query — title, intent and lead together. Reranking uses
@@ -92,11 +112,13 @@ class Index:
         candidate, which destroys exactly the ordering the rerank exists to produce.
         """
         import rerank
+
         cands = self.candidates(query, pool=pool)[:pool]
         if not cands:
             return {"plans": [], "vault": [], "destination": None}
-        scores = rerank.score(rerank_query or query,
-                              [c["text"][:1800] for c in cands], device=device)
+        scores = rerank.score(
+            rerank_query or query, [c["text"][:1800] for c in cands], device=device
+        )
         for c, s in zip(cands, scores):
             c["ce"] = round(float(s), 2)
         cands.sort(key=lambda c: -c["ce"])
@@ -108,22 +130,32 @@ class Index:
                 continue
             bucket = "plans" if c["source"] == "org" else "vault"
             if c["kind"] == "org-charter":
-                continue           # a charter is a destination signal, not a duplicate
+                continue  # a charter is a destination signal, not a duplicate
             if seen[c["file"]] >= per_file or len(out[bucket]) >= k:
                 continue
             seen[c["file"]] += 1
             out[bucket].append(c)
         # destination: the plan file whose charter or best task scored highest
-        best = max((c for c in cands if c["source"] == "org"),
-                   key=lambda c: c["ce"], default=None)
-        out["destination"] = ({"file": best["file"], "ce": best["ce"]}
-                              if best is not None and best["ce"] >= min_score else None)
+        best = max((c for c in cands if c["source"] == "org"), key=lambda c: c["ce"], default=None)
+        out["destination"] = (
+            {"file": best["file"], "ce": best["ce"]}
+            if best is not None and best["ce"] >= min_score
+            else None
+        )
         out["top_ce"] = round(float(max(c["ce"] for c in cands)), 2)
         return out
 
-    def search(self, query: str, k: int = 5, pool: int = 60, rrf_k: int = 60,
-               min_dense: float = 0.62, min_bm25_ratio: float = 0.25,
-               per_file: int = 2, per_source: int | None = None) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        pool: int = 60,
+        rrf_k: int = 60,
+        min_dense: float = 0.62,
+        min_bm25_ratio: float = 0.25,
+        per_file: int = 2,
+        per_source: int | None = None,
+    ) -> list[dict]:
         qvec = self.encode_query(query)
         dense = self.vecs @ qvec
         lex = self.bm25.score(tokenize(query))
@@ -149,8 +181,14 @@ class Index:
             if seen_file[u["file"]] >= per_file:
                 continue
             seen_file[u["file"]] += 1
-            out.append({**u, "dense": round(float(dense[i]), 3),
-                        "bm25": round(float(lex[i]), 2), "fused": round(fused, 5)})
+            out.append(
+                {
+                    **u,
+                    "dense": round(float(dense[i]), 3),
+                    "bm25": round(float(lex[i]), 2),
+                    "fused": round(fused, 5),
+                }
+            )
             if len(out) == k:
                 break
         return out
