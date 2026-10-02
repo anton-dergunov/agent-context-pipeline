@@ -16,8 +16,10 @@ Everything is driven from one checkout on the laptop. When the server is a diffe
 ## 1. Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) with Compose, on the machine that runs the server.
-- [uv](https://docs.astral.sh/uv/) and `rsync` on the laptop. Python 3.12 to 3.14; uv fetches one if
-  needed.
+- [uv](https://docs.astral.sh/uv/) and `rsync` on the laptop. The checkout asks for Python 3.13, and
+  uv fetches it if needed. 3.12 works too. 3.14 also works, but there Pillow is compiled during
+  install and needs the JPEG and zlib development headers (`brew install jpeg`, or
+  `libjpeg-dev zlib1g-dev`).
 - For a separate server: SSH access to it with a key, and `rsync` on it.
 
 ## 2. The two local files

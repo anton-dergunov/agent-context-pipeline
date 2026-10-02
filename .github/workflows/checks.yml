@@ -15,8 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.12 is what the Docker image runs; 3.14 is the laptop's, from .python-version.
-        python: ["3.12", "3.14"]
+        # 3.12 is what the Docker image runs; 3.13 is the laptop's, from .python-version.
+        python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7
 
@@ -24,12 +24,6 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
-
-      # pillow is held below 11 by surya-ocr, and 10.x publishes no wheels for 3.14, so there
-      # it is compiled from source and needs the JPEG and zlib headers.
-      - name: Install pillow's build dependencies
-        if: matrix.python == '3.14'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev
 
       # No extras: the image installs none, and the tests do not need torch or surya.
       - name: Install

@@ -1,6 +1,5 @@
 .env
 /config.yaml
-.python-version
 /data/
 .venv/
 __pycache__/
