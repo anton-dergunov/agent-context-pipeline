@@ -32,7 +32,8 @@ must stay untouched, so info-triage's HTTPS mapping uses a different port,
 ## One-time root setup on the NAS
 
 `tailscale serve` requires root (it writes to `tailscaled`'s local state).
-Following the same least-privilege pattern `docs/SYNOLOGY_SETUP.md` uses for
+Following the same least-privilege pattern
+[`synology-deployment.md`](synology-deployment.md#6-the-restricted-deployment-command) uses for
 `deploy-container` — a narrowly scoped, single-purpose root wrapper plus a
 matching sudoers rule — rather than granting `deploy` broad Tailscale control
 (`tailscale up --operator=...` would also permit `tailscale funnel`, which

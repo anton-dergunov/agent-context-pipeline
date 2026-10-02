@@ -1,6 +1,6 @@
 .env
 .python-version
-data/
+/data/
 .venv/
 __pycache__/
 *.pyc

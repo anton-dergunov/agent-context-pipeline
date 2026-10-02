@@ -1,1168 +1,275 @@
-# Info Triage — Simplified System Design
+# Architecture overview
 
-## 1. Purpose
+A small self-hosted system that captures what its owner comes across during the day, enriches it on
+an always-on server, and delivers it to a laptop as an inbox a coding agent can work through.
 
-Info Triage is a small self-hosted system for capturing information through Telegram, processing it on an always-running server, and making the processed items available on a laptop for manual review.
+> **Capture quickly → process on the server → synchronize to the laptop → decide later**
 
-The intended workflow is:
+It is not a task manager, a knowledge base or a read-later service. Its job ends when an item is in
+the laptop inbox with everything worth knowing about it already retrieved. The Python package and its
+commands keep the project's original name, `info-triage`.
 
-> **Capture quickly → process automatically on the server → synchronize to laptop → process manually**
+The stated failure mode for this project is generalizing it into a platform. Implementations stay
+direct, and a framework, service or abstraction is added only when a concrete requirement needs it.
 
-The system should remain deliberately simple.
+## The delivery guarantee
 
-It is not intended to become a task manager, knowledge base, read-later system, or general workflow engine. Its role is only to capture incoming information, enrich it where useful, and place it into a local inbox.
+**Nothing captured is ever withheld because preprocessing went wrong.** Everything after capture —
+transcription, cleaning, link discovery, resolution, extraction, index rendering — is enrichment. If
+something was sent and never reaches the laptop, no amount of successful enrichment compensates for
+it. Reading the raw source is an acceptable outcome; losing it is not.
 
----
+- A processing step never fails an item. A declared `partial` or `failed` outcome and an unexpected
+  exception are treated alike: recorded, rolled back if they changed the result, and the pipeline
+  continues with the next step. `ProcessingWorker._process` is where this is enforced.
+- A step that hands over an unusable generated file (missing, outside its workspace, or an unsafe
+  path inside the item) costs that step's output, never the item.
+- A failure is reported in three places: `data/logs/processor-runs.jsonl` with the exception type and
+  traceback, the dashboard, and the item's own `index.md` under `## Problems`.
+- Only two failures stop an item, because they leave nothing to deliver: its capture text cannot be
+  read, or the commit into the inbox fails. Both keep the item in `data/staging/` as `failed`.
+- When in doubt, the item ships with a field omitted and a problem recorded. A value is never guessed
+  to fill a gap, and an item is never held back to get a better one.
 
-## 2. High-Level Architecture
-
-```text
-Telegram
-   │
-   ▼
-Server
-   │
-   ├── Telegram capture
-   │     sequential download and durable staging
-   │
-   ├── one processing worker
-   │     at most one item at a time
-   │
-   ├── SQLite
-   │     small processing-state database
-   │
-   ├── staging/
-   │     newly received / processing / failed items
-   │
-   └── inbox/
-         finished items
-            │
-            │ bidirectional synchronization
-            ▼
-Laptop inbox/
-   ├── generated triage.md
-   │     consolidated read-only view
-   ├── generated triage.org
-   │     Emacs navigation over the same items
-   │
-   └── self-contained item directories
-            │
-            ▼
-      Manual processing
-   │
-   ▼
-Item removed from laptop inbox
-   │
-   ▼
-Deletion synchronized back to server
-```
-
-The server runs continuously.
-
-The laptop may be offline for long periods. It synchronizes when convenient.
-
-`app.py` is the only runtime entry point. It wires together small modules for
-shared models, storage, processing, Telegram handling, and the web dashboard.
-The Telegram event loop, one processing-worker thread, and one single-threaded
-HTTP server are the only long-lived execution paths.
-
-Non-secret daemon settings are loaded strictly from `config.yaml`, or from the
-path named by `INFO_TRIAGE_CONFIG`. Relative paths are resolved beside that
-file. `.env` contains only the bot token, authorized user ID, and optional
-configuration path. Standalone extractor CLI settings and low-level container
-runtime controls remain independent.
-
----
-
-# 3. Capture
-
-Telegram is the initial capture mechanism.
-
-The user can send or share:
-
-- plain text
-- URLs
-- forwarded Telegram messages
-- articles
-- job advertisements
-- Instagram or other social-media links
-- images
-- videos, animations, voice notes, audio notes, and video notes
-- documents
-- screenshots
-- locations and venues
-- arbitrary notes
-
-The Telegram bot should make capture as frictionless as possible.
-
-The bot does not ask for classification or send a success dialog. Every new item
-is assigned `Other` and continues to processing automatically. Capture failures
-may still produce an error reply.
-
-Messages are first written to a durable pending table. The
-`telegram.grouping` values in `config.yaml` control the maximum gap and settling
-delay. Consecutive logical messages are combined while each Telegram timestamp
-gap is at most the configured maximum. A media group counts as one logical
-message, and the longer quiet settling period prevents boundary races. Pending
-captures are resumed after restart.
-
----
-
-# 4. Item Identity
-
-Telegram provides a `message_id`.
-
-A Telegram message is identified by:
+## Components
 
 ```text
-(chat_id, message_id)
+Telegram bots (one per route)        POST /capture (CLI, browser extension, scripts)
+            │                                   │
+            └──────────────┬────────────────────┘
+                           ▼
+Server ── app.py
+   ├── capture            durable staging in data/staging/<route>/
+   ├── one worker thread  runs the route's ordered steps, one item at a time
+   ├── SQLite             item state, source-to-item mapping, processor counters
+   ├── HTTP server        GET /health, GET / (dashboard), POST /capture
+   └── data/inbox/<route>/   finished items
+                           │
+                           │  sync.sh  (rsync over SSH, driven from the laptop)
+                           ▼
+Laptop ── ~/info-triage-inbox/<route>/
+   ├── item directories, each with its index.md
+   ├── triage.md          the items' indexes, concatenated: what the agent reads
+   └── triage.org         navigation for a person in Emacs
+                           │
+                           ▼
+   Review with the agent; removing an item's directory marks it processed,
+   and the next sync removes it from the server.
 ```
 
-because `message_id` is unique within a chat rather than globally.
+`app.py` is the only runtime entry point and only wires things together. The long-lived execution
+paths are one asyncio event loop that polls every route's bot, one processing-worker thread, and the
+HTTP server, which is threaded so that a slow upload cannot block the health check.
 
-No additional deduplication system is required.
+| Module | Holds |
+|---|---|
+| `info_triage/telegram_bot.py` | Telegram capture, grouping, edits, route hashtags |
+| `info_triage/capture_api.py`, `capture_cli.py` | the `POST /capture` contract and its shipped client |
+| `info_triage/storage.py` | SQLite and the item directories |
+| `info_triage/processing.py` | the worker, the step loop and telemetry |
+| `info_triage/preprocessing.py` | the configured steps |
+| `info_triage/rendering.py` | Telegram payload to segments |
+| `info_triage/links.py` | offline link discovery, canonicalization, ranking |
+| `info_triage/extraction.py` | the extraction cache and handler dispatch |
+| `info_triage/index.py` | intent detection and the `index.md` contract |
+| `info_triage/extractors/` | the content extractors, also usable standalone |
+| `info_triage/utilities/` | text cleaning, URL resolution, Markdown helpers |
+| `info_triage/web.py` | health check, dashboard, capture endpoint |
+| `info_triage/sync.py`, `neighbours.py` | the laptop side; they never import the daemon |
 
-The same `(chat_id, message_id)` should always refer to the same captured item.
-When nearby messages are grouped, the earliest message is the item identity and
-every constituent identity maps to it. The chat ID remains in SQLite and
-metadata, but this single-chat deployment does not need it in the human-facing
-directory name.
+Daemon settings are read strictly from `config.yaml` (or the file named by `INFO_TRIAGE_CONFIG`):
+unknown fields and invalid values stop startup. `.env` holds only secrets: one bot token per route,
+the allowed Telegram user id, and the capture bearer token.
 
----
+## Routes
 
-# 5. Filesystem Layout
+A route is a capture-time pipeline switch: one Telegram bot, one ordered step list, one
+`data/inbox/<route>/` tree and one laptop queue. Which bot a message is shared to decides all four,
+at no cost beyond the share itself.
 
-The server needs only two main directories:
+| Route | For | Steps |
+|---|---|---|
+| `info` | things to think about and file later | all six |
+| `job` | job postings | `link-discovery`, `index-render` |
+| `clip` | clips to download on the laptop | `link-discovery`, `index-render` |
+| `lang` | vocabulary and phrases | `index-render` |
+
+Only `info` cleans, resolves, retrieves, transcribes or OCRs. On the other three the captured text
+passes through untouched, because something downstream already processes it.
+
+An item carries three route fields, and they are not interchangeable:
+
+- `origin_route` is the bot that owns the Telegram message. It is part of the primary key and never
+  changes.
+- `route` is where the item is filed. A hashtag can move it.
+- `local_id` is the number in the directory name. It is allocated per route and reallocated on a move.
+
+Editing a captured message to include `#job`, `#clip`, `#lang` or `#info` moves the item: its
+directory is renamed under the destination route, its revision increases, and it runs that route's
+pipeline. Hashtags are read from Telegram's own `hashtag` entities, never from the raw text, so a
+`#clip` inside a URL fragment is not an instruction. Two different route hashtags at once change
+nothing. After a move, later edits still arrive on the original bot, so lookups go by `origin_route`.
+
+Every route declares its own token variable, and two routes may not share one: two pollers on one
+bot produce a conflict loop in which both silently miss messages. A missing or rejected token stops
+the daemon instead of leaving one route unpolled. A route with no configured pipeline delivers its
+items unprocessed and logs loudly; a configuration mistake may not withhold a capture.
+
+In this codebase "route" has two other, unrelated meanings: `extractors/router.py:route_url()`
+decides which extractor handles a URL, and the `/route` skill is the laptop-side act of filing an
+item.
+
+## Capture
+
+### Telegram
+
+The bots accept text, links, forwards, documents, photos, video, animations, voice and audio notes,
+video notes, locations and venues. They ignore stickers, contacts, polls, payments, games, dice and
+service events. A successful capture is silent; only a capture failure produces a reply.
+
+Sharing a link and then typing a comment produces two Telegram messages, so messages are first
+written to a durable pending table and grouped: consecutive messages whose timestamps are at most
+`max_gap_seconds` (3) apart become one item once `settle_seconds` (4) have passed without another. A
+media album counts as one message. Pending captures survive a restart.
+
+Media is stored as supplied. The hosted Bot API limits downloads to 20 MiB; a larger file is recorded
+in the item's metadata with a warning and cannot be copied. Forwarding provenance is taken only from
+Telegram's explicit `forward_origin`. The application never guesses which message is the owner's own
+commentary.
+
+### `POST /capture`
+
+The transport-independent entry point, which makes Telegram one client of the system:
 
 ```text
-data/
-├── staging/
-└── inbox/
+POST /capture   Authorization: Bearer <token>
+{route, source, text, captured_at?, files?, id?}
+→ 201 {route, id, revision, status}
 ```
 
-Each captured item is represented by one self-contained directory.
-
-For example:
-
-```text
-staging/
-└── info/
-    └── 2026-08-08_18492/
-        ├── index.md
-        ├── metadata.json
-        ├── links.json
-        ├── capture/
-        │   ├── source.md
-        │   ├── message.md
-        │   ├── payload.json
-        │   └── attachments/
-        │       └── 01-photo.jpg
-        └── extracted/
-            └── 01-research-arxiv-2410.04840/
-                ├── content.md
-                ├── metadata.json
-                ├── status.json
-                └── raw/
-                    ├── paper.html
-                    └── paper.pdf
-```
-
-`staging/` and `inbox/` each hold one directory per route, and an item's number
-counts that route's arrivals. Two routes may therefore both hold a
-`2026-08-08_1`; the route is part of the item's name everywhere outside its own
-directory.
-
-`index.md` and `metadata.json` stay at the item root. `index.md` is the item's
-own account of itself and the only file the laptop side has to read;
-`metadata.json` is the item's identity, and synchronization reads every item's
-revision through a metadata-only transfer. Everything captured is
-provenance and lives under `capture/`; everything retrieved from the links the
-item carries lives under `extracted/`, one directory per source. Paths recorded
-inside `metadata.json` are relative to the item root.
-
-The layout is deliberately shaped like a small source tree, because that is a
-shape a code-trained reader already knows how to navigate: read the contract
-first, open a body when a decision needs it, never open the build output.
-`capture/` and every `raw/` directory are that build output — provenance kept so
-the user can inspect what was retrieved, never input for the routing side.
-
-The directory name is based on the Telegram creation date and message ID:
-
-```text
-YYYY-MM-DD_<message_id>
-```
-
-The date is Telegram's UTC message creation date.
-
-The important property is that the directory name remains stable if the Telegram message is edited later.
-
----
-
-# 6. `capture/source.md` and `capture/message.md`
-
-Every ready item contains both Markdown files, side by side under `capture/`.
-`source.md` is the materialized text checkpoint after source-to-text work such
-as voice transcription but before cleaning or URL resolution. `message.md` is the
-processed body. Neither carries front matter: the item's fields belong to
-`index.md`, and duplicating them would create a second source of truth. Both
-files are provenance — a faithful record of what arrived and what the pipeline
-made of it — and neither is what the laptop reads.
-
-Every retained Telegram message is an explicit ordered segment. For example:
-
-```markdown
-## Segment 1 — text
-
-This article looks useful for the ranking project:
-https://example.com/article
-```
-
-The segment kind records known structure such as `text`, `caption`, `voice`, or
-`location`. Explicit Telegram forwarding provenance adds `forwarded`; the
-application does not infer personal commentary from text length or URLs.
-
-The configured pipeline materializes `source.md`, cleans text, discovers the
-item's links, resolves them, and then renders `message.md`. It does not
-summarize the content. Each revision is reconstructed from retained Telegram
-data rather than a previously processed Markdown file.
-
-A Telegram message is plain text plus a list of entities, and the text alone
-drops the destination of every hyperlinked phrase. Segments therefore render
-`text_link` entities back as ordinary Markdown links, so no link is lost between
-Telegram and the item.
-
-Cleaning deliberately precedes the link work: zero-width characters and
-homoglyphs can attach themselves to a URL and hide it from discovery. Discovery
-itself is offline — it collects, unwraps, canonicalizes and ranks every distinct
-target into `links.json` — and URL resolution is the single network stage, which
-resolves that table within a per-item budget and rewrites the readable body.
-Link destinations and titles inserted by resolution are therefore not cleaned
-afterwards, and a second cleaning pass is not the answer.
-
-The complete original Telegram payload remains in `capture/payload.json`, and
-downloaded source media remains in `capture/attachments/`.
-
-For a location or venue, the segment contains a small readable location block
-with coordinates and a maps link. A voice transcript is the body of its `voice`
-segment.
-
----
-
-# 6a. `index.md`
-
-`index.md` is the item's contract. It is written by the last processing step and
-is the only per-item file the laptop side reads: nothing else in the item has to
-be opened to decide what the item is and what should happen to it.
-
-```markdown
----
-id: 2026-08-11_100
-captured_at: 2026-08-11T14:33:28Z
-origin: instagram
-via: "@ai_machinelearning_big_data (forwarded channel)"
-intent: "Interesting thought to ponder upon"
-kind: post
-title: "A reel worth watching"
-published: 2026-08-10
-canonical_url: https://www.instagram.com/reel/DbW0FoHI1OO/
-extraction: ok
-sources: 1
----
-
-## Captured
-
-> Interesting thought to ponder upon
-
-## Sources
-
-1. `extracted/01-instagram-DbW0FoHI1OO/` — A reel worth watching · 2026-08-10 —
-   complete · `content.md` 340 words
-
-## Lead
-
-> [the caption, on-screen text and spoken audio, cut at 120 words] …
-
-## Links
-
-1. [A reel worth watching](https://www.instagram.com/reel/DbW0FoHI1OO/) — instagram · resolved
-```
-
-The frontmatter is the machine-readable part and is authoritative. A field is
-present only when it is actually known — an absent field is information, and an
-invented one would be trusted and act on the reader. `intent` in particular is
-quoted verbatim, never rewritten and never guessed: it is detected from three
-positional heuristics over the segments and left empty whenever they disagree.
-
-`## Captured` holds the user's own words and nothing else. `## Links` is the
-resolved link table, rendered as a list rather than a Markdown table: a table is
-as wide as its widest row, these rows carry page titles, and in a half-width
-editor window the columns cannot fit — a reader that hides link markup makes it
-worse still by pinning each separator to its source column. A list re-flows at
-whatever width it is given, and costs the routing agent fewer tokens besides. Segments do not appear here at all — how many Telegram
-messages carried an item is a transport detail that belongs in
-`capture/message.md`.
-
-`## Sources` lists what was retrieved, and prints each body's **word count**.
-That count is the single most important affordance in the file: it turns opening
-a body into a costed choice rather than a blind one. `## Lead` quotes the
-top-priority source — a paper's complete abstract, otherwise the forwarded
-material itself, otherwise the opening ~120 words of `content.md`, cut at a
-paragraph boundary and marked with `…`.
-
-Nothing here is summarized, and no language model runs anywhere in this path. A
-truncated lead is visibly a fragment, so a reader who needs more knows to open
-the body; a summary would look complete and quietly stop them. It would also
-destroy exactly what source-quality judgement depends on — whether the author
-shows their working — and the idiosyncratic detail that makes one artifact
-different from a neighbouring one.
-
-The file is Markdown rather than Org because extracted web text has to be
-embeddable without escaping.
-
----
-
-# 7. `metadata.json`
-
-A small `metadata.json` can preserve useful source information that belongs with the exported item.
-
-For example:
-
-```json
-{
-  "chat_id": 123456,
-  "message_id": 18492,
-  "received_at": "2026-08-08T20:31:12+01:00",
-  "edited_at": null,
-  "category": "Other",
-  "revision": 1
-}
-```
-
-The revision starts at 1 and increases whenever any constituent Telegram
-message changes.
-
-Only metadata that may be useful outside the server should be stored here.
-
-Operational processing state belongs in SQLite instead.
-
-The metadata also records an attachment manifest, source message IDs, an
-optional media-group ID, and any attachment-download warnings.
-
----
-
-# 8. Attachments and Extracted Content
-
-Files associated with the item live inside the same item directory.
-
-For example:
-
-```text
-2026-08-08_18492/
-├── index.md
-├── metadata.json
-├── links.json
-├── capture/
-│   ├── source.md
-│   ├── message.md
-│   ├── payload.json
-│   └── attachments/
-│       ├── 01-photo.jpg
-│       └── 02-video.mp4
-└── extracted/
-    ├── 01-linkedin-7492274768650407936/
-    │   ├── content.md
-    │   ├── comments.md
-    │   ├── metadata.json
-    │   ├── status.json
-    │   └── raw/
-    └── 02-research-arxiv-2607.12345/
-        ├── content.md
-        ├── metadata.json
-        ├── status.json
-        └── raw/
-```
-
-Every extraction directory has the same four names whichever of the six handlers
-produced it, so a reader learns one convention rather than six. `content.md` is
-always the body; `status.json` always reports `complete`, `partial`, `blocked` or
-`failed` with a stable reason. Different item types can still produce different
-files under `raw/`.
-
-There is no requirement for every item to have the same output structure beyond having a stable item directory and the original captured message.
-
-The capture layer preserves useful references: text and links, forwarded source
-context, documents, photos, videos, animations, voice/audio/video notes,
-locations, venues, and mixed media albums. It does not archive stickers,
-contacts, polls, payments, games, dice, service events, or comments. Media is
-stored as supplied. Voice notes are transcribed automatically; OCR, scraping,
-and transcription of other media remain future processing steps. See
-[`PREPROCESSING.md`](PREPROCESSING.md) for the authoritative behaviour matrix.
-
-A media group is one logical message. It can be combined with nearby notes or
-other messages under the same three-second rule. A grouped item is named from
-its earliest message ID and contains ordered raw payloads, all source IDs, and
-all attachments. Source messages remain chronological and appear as separate
-segments. Explicit forwards are labeled without reordering or guessing which
-other segment contains the user's intent.
-
----
-
-# 9. Processing Lifecycle
-
-There are four logical states:
-
-```text
-received
-processing
-ready
-failed
-```
-
-The filesystem and SQLite work together.
-
-### Received
-
-The Telegram message has been saved into:
-
-```text
-staging/<item>/
-```
-
-SQLite contains:
-
-```text
-status = received
-```
-
-### Processing
-
-A worker is currently processing the item.
-
-The item remains in:
-
-```text
-staging/<item>/
-```
-
-SQLite contains:
-
-```text
-status = processing
-```
-
-No `.processing` marker file is required.
-
-The nullable SQLite `processing_step` records the currently running step. It is
-cleared when the item is ready. Declared processor problems are tracked by
-processor telemetry and do not put the item in the global failed state.
-
-### Failed
-
-Capture, orchestration, storage, commit, or unexpected processor code failed.
-
-The item remains in:
-
-```text
-staging/<item>/
-```
-
-SQLite contains:
-
-```text
-status = failed
-```
-
-The error message can also be stored in SQLite.
-
-No `.failed` marker file is required.
-
-### Ready
-
-Processing completed successfully.
-
-The entire item directory is moved:
-
-```text
-staging/<item>/
-        ↓
-inbox/<item>/
-```
-
-SQLite contains:
-
-```text
-status = ready
-```
-
-The move into `inbox/` is the filesystem representation that the item is ready for synchronization.
-
-If no implemented processing step applies, an item moves directly from
-`received` to `ready` without occupying the worker.
-
----
-
-# 10. Processing
-
-Processing depends on the type of captured information.
-
-A plain Telegram note may require almost no processing.
-
-One background worker claims the oldest `received` row and processes only one
-item at a time. SQLite is the durable queue; there is no separate queue table or
-in-memory-only job list. On restart, an interrupted `processing` item still in
-staging returns to `received`.
-
-Processing steps are ordinary ordered Python functions registered from the
-strict, commented `config.yaml`. The shipped order transcribes Telegram voice
-attachments, cleans text, discovers the item's links, resolves them, extracts the
-content behind the highest-priority ones, and renders `index.md` last. Voice
-output is materialized in `capture/source.md` before the text transforms.
-Expected future steps include OCR of photo attachments, depth-1 nested
-extraction, and item-level classification.
-
-Content extraction is bounded on both axes: a link budget (five full
-extractions, dropping to two when the item is a link list) and a per-item
-wall-clock ceiling, after which the remaining links stay title-only. It is the
-only expensive stage, so its results are cached outside the item directory and
-keyed on the canonical URL — an item is rebuilt from `capture/payload.json` on
-every Telegram edit, and adding a note to a message must not re-download the
-paper attached to it. No extraction failure ever blocks an item: the failure is
-recorded against its link and the item lands with everything else it has.
-
-The repository already contains reusable implementations for cautious text
-cleanup, bounded shortened-URL resolution, Instagram extraction with tuned OCR
-and transcription, and anonymous public LinkedIn extraction. These live below
-`info_triage.utilities` and `info_triage.extractors`. The Telegram pipeline
-reuses the local transcription engine, URL resolver, and text cleaner; their
-standalone commands remain available.
-
-Steps write only to a revision-specific temporary workspace. Storage commits
-`capture/source.md`, `capture/message.md`, and generated output only if the
-claimed revision remains current. Generated output is item-root-relative and may
-not land inside `capture/`, which belongs to the capture layer alone.
-`capture/payload.json` and original media preserve the exact captured source. A later Telegram edit therefore supersedes a slow result without
-blocking capture.
-
-Each step has its own nested workspace and a snapshot of the accumulated
-result. A step can succeed, complete partially with one or more recoverable
-issues, or declare failure. Partial output is retained. Declared failed output
-and generated files are discarded before the next step runs. Unexpected Python
-exceptions are treated as code failures and retain the existing item-level
-failure behavior.
-
-The worker records every actual step execution, including retries and later
-revisions. It appends one compact JSON event per physical line to
-`data/logs/processor-runs.jsonl`. Success events contain status, duration,
-processor, and item identity only. Partial and failed events also contain stable
-reason keys, full untruncated input Markdown, failed targets, and exception
-details when applicable. Transformed results, raw Telegram JSON, and binary
-media are never logged. The log is append-only and currently has no rotation or
-cleanup.
-
-A URL may require:
-
-```text
-retrieve page
-    ↓
-extract useful content
-    ↓
-optionally classify / summarize
-    ↓
-save generated files into item directory
-```
-
-An Instagram post may require additional extraction of:
-
-- caption
-- images
-- post metadata
-- useful information contained in the images
-
-A job advertisement may later have its own extraction pipeline.
-
-The system does not need a general workflow engine. Processing can simply be ordinary Python code that handles different source types.
-
----
-
-# 11. Telegram Message Edits
-
-Telegram edits should be supported.
-
-If an already captured Telegram message is edited, its `(chat_id, message_id)`
-is resolved to the containing item. This may be the edited message itself or the
-earliest message in a grouped capture.
-
-The system then:
-
-```text
-receive edited message
-    ↓
-replace that member's raw payload, content, and attachments
-    ↓
-regenerate the segmented capture/source.md
-    ↓
-run the configured processors, regenerate capture/message.md and index.md
-    ↓
-increment the metadata revision
-    ↓
-if item is already in inbox:
-    move it back to staging
-    ↓
-status = received
-    ↓
-process again
-    ↓
-move back to inbox when finished
-```
-
-Unedited constituent messages and their attachments remain in the item. This
-ensures that edited source information is reprocessed without breaking the
-grouped capture.
-
-The stable item directory name is important here.
-
----
-
-# 12. SQLite
-
-SQLite is intentionally small. It stores processing state, source-to-item
-identity mappings, and the short-lived durable input needed during the grouping
-quiet period. Pending raw payloads are deleted immediately after a batch is
-successfully written to its item directory; ready content is not kept in the
-database.
-
-A minimal table is sufficient:
-
-```sql
-CREATE TABLE items (
-    chat_id INTEGER NOT NULL,
-    message_id INTEGER NOT NULL,
-
-    status TEXT NOT NULL,
-
-    category TEXT,
-    revision INTEGER NOT NULL DEFAULT 1,
-
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-
-    short_text TEXT,
-    error TEXT,
-    processing_step TEXT,
-
-    PRIMARY KEY (chat_id, message_id)
-);
-```
-
-Possible values of `status` are:
-
-```text
-received
-processing
-ready
-failed
-```
-
-`item_messages` maps every constituent `(chat_id, message_id)` to the primary
-item. `pending_capture_messages` temporarily holds each message's raw payload,
-rendered content, and attachment specifications until finalization.
-`processor_stats` stores lifetime succeeded, partial, and failed run counts;
-`processor_reason_stats` stores stable reason occurrence counts. Full event
-details remain only in JSONL. The actual ready text, HTML, images, documents,
-and generated outputs remain on disk.
-
-SQLite does not need to be synchronized to the laptop.
-
----
-
-# 13. Why Keep SQLite
-
-SQLite has only a few responsibilities:
-
-1. Durably stage the short grouping window.
-2. Track the current processing state.
-3. Map Telegram source messages to items and support edits.
-4. Store processing errors.
-5. Store cumulative processor outcome and reason counters.
-6. Supply data to the web dashboard.
-
-It is not:
-
-- a content database
-- a permanent history
-- an export database
-- an acknowledgement system
-- a distributed queue
-
-This keeps SQLite useful without making it central to the whole architecture.
-
----
-
-# 14. SQLite Pruning
-
-SQLite is operational rather than archival.
-
-Old rows can therefore be deleted automatically.
-
-A simple policy is:
-
-> Remove rows whose `updated_at` is older than 30 days.
-
-The filesystem remains the source of actual content.
-
-The pruning process can run periodically, for example once per day.
-
-There is no need to preserve indefinite processing history.
-
----
-
-# 15. Server-to-Laptop Synchronization
-
-The server `inbox/` and laptop `inbox/` should behave like two synchronized copies of the same working inbox.
-
-Conceptually:
-
-```text
-server/inbox/  ⇄  laptop/inbox/
-```
-
-The roles are intentionally asymmetric:
-
-```text
-SERVER
-creates new item directories
-
-LAPTOP
-reads, processes, moves or deletes item directories
-```
-
-After synchronization:
-
-- new server items appear on the laptop;
-- items removed from the laptop are removed from the server.
-- an item with a revision newer than the last laptop revision appears again,
-  even if the older local revision was removed.
-- `triage.md` is regenerated from the item directories as a consolidated,
-  oldest-first processing view.
-
-There is no separate archive or acknowledgement protocol.
-
----
-
-# 16. Manual Processing on the Laptop
-
-The laptop receives ordinary self-contained directories.
-
-For example:
-
-```text
-~/info-triage-inbox/
-├── 2026-08-08_18492/
-├── 2026-08-08_18493/
-└── 2026-08-08_18494/
-```
-
-The user processes these items one by one.
-
-The synchronization command also generates two views of the same items:
-
-```text
-~/info-triage-inbox/triage.md     the contract, for reading and for /route
-~/info-triage-inbox/triage.org    navigation, for Emacs
-```
-
-`triage.md` is the items' `index.md` files concatenated, oldest first by UTC
-`received_at`, under one `## N — <id>` heading each and with their own headings
-demoted one level. Because it is a concatenation there is no drift and no second
-source of truth: whatever an item claims about itself, it claims identically in
-both places. Each item's frontmatter is fenced as a YAML block, since frontmatter
-is only unambiguous at the top of a file.
-
-`N` is assigned by the sync and runs from 1. It exists so the user can select
-items by number — "route items 1, 5 and 10" — and it is regenerated on every
-sync, so the directory name stays in the heading beside it: that is the
-identifier a decision can be recorded against. Under each heading a short
-navigation line links the item's directory and its index, and every relative
-link inside the section is rebased onto `<id>/` so it resolves from this file.
-Rebasing a destination is a change of vantage point, not a rendering path of its
-own; the section body is otherwise still copied through untouched.
-
-A short generated header gives the two operational numbers — how many items are
-waiting and how old the oldest is — and tells the reader which files are
-provenance and how to file an item. Operational metadata such as Telegram
-identities, revisions, and attachment internals never appears.
-
-`triage.org` carries two or three lines per item — a foldable heading holding the
-number, the date, the kind and a one-line label, the user's own note when he left
-one, and links to the index, the directory and the source. No content beyond that
-label reaches it, which is what keeps §4.4's conclusion intact: arbitrary
-extracted text is not safe to embed in Org, and here almost none of it is. Its
-numbering is the same numbering as `triage.md`'s, which is what lets the user
-choose items in one view and name them to `/route`, which reads the other. See
-`docs/EMACS.md` for the review workflow it serves.
-
-Both files are derived snapshots rather than acknowledgement state. They are
-replaced atomically after every successful sync, so edits to them are not
-preserved, and neither can be marked: the linked item directories remain the
-authoritative inbox, and removing one is how an item is filed.
-
-Once an item has been dealt with, it is moved elsewhere in the user's own system or removed from the Info Triage inbox.
-
-Info Triage does not need to know where it goes afterwards.
-
-That may be:
-
-- an Org file
-- a project directory
-- a task system
-- a notes system
-- a job-processing pipeline
-- a read-later collection
-- somewhere else entirely
-
-From Info Triage's perspective, removing it from the synchronized inbox means it has been consumed.
-
----
-
-# 17. Synchronization Tool
-
-A normal bidirectional synchronization tool is preferable to treating raw `rsync` as a two-way synchronization protocol.
-
-The desired behavior is:
-
-```text
-server additions → laptop
-laptop deletions → server
-```
-
-Possible tools include:
-
-- Unison
-- Syncthing
-- another simple bidirectional file synchronizer
-
-The implementation uses a small Python synchronization command, launched by
-`sync.sh`, to orchestrate `ssh` and `rsync`. A local manifest maps each item ID
-to its last delivered revision. This is the minimum state needed to distinguish
-an unchanged processed item from a newer server update. Python keeps the state
-transitions and generated Markdown parsing directly testable while `sync.sh`
-remains the stable user-facing command.
-
-The desired laptop experience should be approximately:
-
-```bash
-info-triage sync
-```
-
-or a direct invocation of the chosen synchronization tool.
-
-No additional pull/acknowledge commands are required.
-
----
-
-# 18. Web Dashboard
-
-The server exposes a very small web dashboard.
-
-Its purpose is only to show the state of Telegram captures and processing.
-
-It is not intended to become another interface for manually processing captured information.
-
-The dashboard reads its data directly from SQLite.
-
----
-
-# 19. Dashboard Tabs
-
-The dashboard contains one tab for each item status plus processor telemetry:
-
-```text
-[ Received 3 ] [ Processing 1 ] [ Ready 12 ] [ Failed 2 ] [ Processors ]
-```
-
-The number displayed in the tab is the number of SQLite rows currently in that state.
-
-Selecting an item tab filters the table to that status. The Processors tab
-shows every configured or historically observed processor with lifetime runs,
-succeeded, partial, and failed counts. Its reason rows show outcome, occurrence
-count, and a `processor:reason` key that can be copied into `grep -F` against
-`data/logs/processor-runs.jsonl`.
-
-No separate overview dashboard is necessary.
-
----
-
-# 20. Dashboard Tables
-
-Item-status tabs display the same simple table:
-
-```text
-ID              Created              Updated              Message
----------------------------------------------------------------------------
-2026-08-08_18492  2026-08-08 20:31   2026-08-08 20:31     Interesting article...
-2026-08-08_18488  2026-08-08 20:25   2026-08-08 20:27     https://instagram...
-```
-
-The columns are:
-
-- **ID** — the `YYYY-MM-DD_<message_id>` item directory name
-- **Created** — when the Telegram message was first received
-- **Updated** — last relevant update
-- **Message** — short preview of the Telegram text, plus the current or failed
-  processing step when present
-
-For failed items, the error can also be displayed, either as another column or below the short text.
-
-The dashboard does not need:
-
-- charts
-- event timelines
-- per-stage progress indicators
-- WebSockets
-- retry history
-- complex item detail pages
-
-A normal HTML table is sufficient.
-
-The Processors tab uses another plain table with columns for processor, runs,
-succeeded, partial, failed, and the stable reason breakdown. It does not expose
-full inputs or tracebacks in the browser; those remain in the JSONL log.
-
----
-
-# 21. Dashboard Refresh
-
-The page can simply refresh automatically every few seconds, or refresh only when manually reloaded.
-
-Real-time infrastructure is unnecessary.
-
----
-
-# 22. Failure Handling
-
-If infrastructure, commit logic, or unexpected processor code fails:
-
-```text
-status = failed
-```
-
-and the item remains in `staging/`.
-
-The error is stored in SQLite.
-
-A simple retry mechanism can later reset:
-
-```text
-failed → received
-```
-
-and let the normal processing loop try again.
-
-Retrying can initially be done through a command-line command or a simple dashboard button.
-
-No dedicated failure directory is required.
-
-Expected processor problems do not use this item state. A partial processor
-keeps its usable output; a declared failed processor rolls back its own changes;
-then the pipeline advances and delivers the item. Both are counted and logged
-on the Processors tab.
-
----
-
-# 23. Simplified Directory and State Model
-
-The complete server-side model is:
-
-```text
-data/
-├── staging/
-│   ├── item A     received
-│   ├── item B     processing
-│   └── item C     failed
-│
-└── inbox/
-    ├── item D     ready
-    └── item E     ready
-```
-
-SQLite tells us which state each `staging/` item is in.
-
-Anything in `inbox/` is ready.
-
----
-
-# 24. End-to-End Workflow
-
-```text
-Telegram message(s)
-      │
-      ▼
-durably wait for the three-second grouping window
-      │
-      ▼
-save grouped item into staging/
-      │
-      ▼
-SQLite: received
-      │
-      ▼
-check applicable steps
-      │
-      ├── none ── move staging/ → inbox/; SQLite: ready
-      │
-      └── one or more ── single worker; SQLite: processing
-                               │
-                               ├── declared step issue ── log/count;
-                               │   retain partial output or roll back failed step;
-                               │   continue remaining steps
-                               │
-                               ├── unexpected/infrastructure failure ── SQLite: failed;
-                               │   remain in staging/
-                               │
-                               └── pipeline complete ── move staging/ → inbox/;
-                                   SQLite: ready
-      │
-      ▼
-synchronize
-      │
-      ▼
-item appears in laptop inbox
-      │
-      ▼
-manual processing
-      │
-      ▼
-remove/move item from laptop inbox
-      │
-      ▼
-synchronize
-      │
-      ▼
-item removed from server inbox
-```
-
-For an edited Telegram message:
-
-```text
-edited Telegram message
-      │
-      ▼
-resolve (chat_id, message_id) to its grouped item
-      │
-      ▼
-move inbox item back to staging if necessary
-      │
-      ▼
-replace that source and regenerate grouped content
-      │
-      ▼
-SQLite: received
-      │
-      ▼
-normal processing again
-```
-
----
-
-# 25. What the System Deliberately Does Not Have
-
-The simplified design does not require:
-
-- PostgreSQL
-- Redis
-- Celery
-- Kafka
-- object storage
-- distributed queues
-- explicit export state
-- explicit acknowledgement state
-- archive directories
+One request is one item; the grouping window does not apply. `info-triage-capture` is the shipped
+client and the Chrome extension in `extension/` is another.
+
+Passing back an `id` (the `<route>/<name>` handle a capture answered with) rewrites that item and
+answers `200`. It is a replacement, not a patch: the body is the item's whole new content, files it
+does not repeat are gone, and everything the previous revision generated is discarded before the
+pipeline runs again. `route` beside an `id` is the destination, so a replacement can re-file an item,
+which renumbers it. `captured_at` cannot change. Only HTTP captures are rewritable; a Telegram
+capture answers `409`, because its message still exists upstream and is edited there.
+
+An HTTP capture writes `capture/payload.json` in Telegram's own payload shape, so link discovery,
+segment rendering and index rendering read it unchanged. Its identity is `chat_id = 0` (private-chat
+ids are always positive) with `message_id` set to the allocated `local_id`.
+
+The bearer token is the only access control. The port is published to the whole LAN and the
+dashboard is unauthenticated. `Content-Length` is checked before the body is read; a request is at
+most 32 MiB, a file 20 MiB, and a capture carries at most 20 files.
+
+## Item identity and naming
+
+An item is identified by `(origin_route, chat_id, message_id)`. A private chat's `chat_id` is the
+user's own id and is the same on every bot, and each bot's `message_id` counter starts small, so the
+route is what makes the triple unique. When messages are grouped, the earliest one is the item's
+identity and every constituent message maps to it.
+
+The directory is named `YYYY-MM-DD_<local_id>`, from the earliest source's UTC creation date. The
+number is a per-route counter, not the Telegram message id: an HTTP capture has none, and a re-routed
+item would carry a number its destination route may already have used. The directory layout and
+`index.md` are described in [`item-contract.md`](item-contract.md).
+
+## Lifecycle
+
+| State | Where the item is | Meaning |
+|---|---|---|
+| `received` | `data/staging/<route>/` | saved and waiting; these rows are the durable queue |
+| `processing` | `data/staging/<route>/` | claimed by the worker; `processing_step` names the running step |
+| `ready` | `data/inbox/<route>/` | delivered to the inbox, with or without problems |
+| `failed` | `data/staging/<route>/` | nothing deliverable: unreadable capture text, or the commit failed |
+
+An item to which no configured step applies goes from `received` to `ready` without occupying the
+worker. On restart, an interrupted `processing` item still in staging returns to `received`. There
+are no marker files; SQLite says which state a staged item is in, and anything in `inbox/` is ready.
+
+## Processing
+
+One background thread claims the oldest `received` row and processes one item at a time, across
+every route. The steps are ordinary Python classes built from the route's `steps` list in
+`config.yaml` and run in exactly that order. [`preprocessing.md`](preprocessing.md) is the catalogue
+of what each one does.
+
+Each step receives a fresh temporary workspace and a snapshot of the accumulated result. It returns
+`succeeded`, `partial` (usable output with recoverable issues, kept) or `failed` (its changes are
+discarded). New files are handed over as `GeneratedFile(relative_path, source_path)`, and the source
+must live inside the step's workspace.
+
+A revision is always rebuilt from the retained payload, never from a previously processed file, and
+is committed only if it is still the current revision. A later edit therefore supersedes a slow
+result without blocking capture. Because of that rebuild, expensive retrieval is cached outside the
+item under `data/extraction-cache/`, keyed on the canonical URL: adding a note to a message must not
+download its paper again.
+
+### Telemetry
+
+Every step runs through the shared worker, so its runs are logged and counted in one place.
+
+- `data/logs/processor-runs.jsonl` is append-only, one event per line, with no rotation or cleanup.
+  A successful run records status, duration, the step and the item's identity. A problem run also
+  records stable reason keys, the untruncated step input, the failed target, and the exception type
+  and traceback when there was one. Transformed results and binary media are never logged.
+- SQLite keeps cumulative succeeded, partial and failed counts per step, and per reason key. They are
+  keyed by step name alone: whether `url-resolution` is healthy is a question about the whole system,
+  and the route is on every log record for anyone who needs it per route.
+- Every outcome other than `succeeded` also becomes a problem on the item, listed in its `index.md`.
+
+### Edits
+
+Editing any constituent Telegram message updates the same item. The edited member's payload and
+attachments are replaced, the revision increases, the item moves back to staging if it had been
+delivered, and the pipeline runs again. Unedited members stay as they were.
+
+## SQLite
+
+`data/info-triage.sqlite3` is operational state, not content:
+
+| Table | Holds |
+|---|---|
+| `items` | one row per item: the three route fields, state, revision, category, timestamps, a short preview, the error, the running step, the problems it was delivered with |
+| `item_messages` | every constituent source message mapped to its item |
+| `pending_capture_messages` | raw payloads waiting out the grouping window, deleted once written to an item |
+| `route_sequences` | the per-route `local_id` counter, shared by every transport |
+| `processor_stats`, `processor_reason_stats` | the cumulative counters |
+
+Text, media and generated output stay on disk. The database is not synchronized to the laptop. The
+store refuses a database that predates routes instead of migrating it.
+
+Every new capture is assigned the category `Other`. The categories `ML`, `Career` and `Life` remain
+valid values from an earlier interface; nothing classifies an item automatically.
+
+## HTTP
+
+- `GET /health` is a cheap check, used by the container health check and by `deploy.sh`.
+- `GET /` is a read-only dashboard over SQLite: one tab per item state with its count, and a
+  Processors tab with lifetime outcome totals and reason keys that can be pasted into `grep -F`
+  against the run log. Item rows show route, id, timestamps, category, revision, a preview, the
+  running or failed step and the problems the item carried. The page reloads every ten seconds.
+- `POST /capture` is the only mutating endpoint.
+
+## The laptop side
+
+`sync.sh` downloads new and edited items, removes from the server what was processed locally, and
+regenerates the two views of each route's queue. [`sync.md`](sync.md) describes it, and
+[`related-notes.md`](related-notes.md) the annotation pass that follows a sync.
+
+## What the system deliberately does not have
+
+- a database server, a message broker, a task queue or object storage
+- export, acknowledgement or archive state: removing a directory is the whole protocol
 - server-side retention of consumed content
-- filesystem marker files
-- an item-events table
-- processing timelines
-- a frontend SPA
-- bidirectional application-level APIs for synchronization
+- marker files, an events table or a processing timeline
+- a front-end application, or any way to act on items from the dashboard
+- classification or destination inference at capture time
+- a language model anywhere in the pipeline; see [`item-contract.md`](item-contract.md#why-nothing-is-summarized)
 
-The main components are simply:
-
-```text
-Telegram bot
-Python server
-SQLite
-filesystem
-processing code
-simple web page
-bidirectional folder synchronization
-```
-
----
-
-# 26. Design Principles
-
-## Keep capture trivial
-
-The normal interaction should remain:
-
-```text
-Share → Telegram → done
-```
-
-## Keep content in files
-
-Files are easy to inspect, copy, process, search, and use with arbitrary tools.
-
-## Keep state in SQLite
-
-SQLite only records small operational facts that are awkward to infer from files.
-
-## Keep the state machine tiny
-
-Only:
-
-```text
-received
-processing
-ready
-failed
-```
-
-## Keep only two server directories
-
-```text
-staging/
-inbox/
-```
-
-## Treat one item as one directory
-
-Everything belonging to a capture travels together.
-
-## Let the laptop consume the inbox
-
-The server produces items.
-
-The laptop decides when they have been dealt with.
-
-## Synchronize rather than build a delivery protocol
-
-There is no need for export acknowledgements or retention logic.
-
-## Avoid permanent history
-
-SQLite can be pruned after roughly one month.
-
-## Keep the dashboard observational
-
-Its job is to answer:
-
-- What has just arrived?
-- What is processing?
-- What is ready?
-- What failed?
-
-Nothing more is required initially.
-
-## Add complexity only when a real problem appears
-
-The design should remain a small personal tool rather than evolving pre-emptively into a general distributed system.
+Content lives in files because files are easy to inspect, copy and search with any tool. State lives
+in SQLite only where it is awkward to infer from files. One item is one directory, so everything that
+belongs to a capture travels together.

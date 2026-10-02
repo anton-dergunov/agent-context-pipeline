@@ -1,0 +1,224 @@
+{
+  "summary": {
+    "total": 30,
+    "titled": 24,
+    "untitled": 6,
+    "outcomes": {
+      "http-error": 4,
+      "resolved": 24,
+      "title-not-found": 2
+    }
+  },
+  "results": [
+    {
+      "source_url": "http://facebook.com/groups/daveswift",
+      "final_url": "https://www.facebook.com/groups/daveswift",
+      "title": "Dave's Business Software Talk: LTDs, Open Source & SaaS | Facebook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://alnk.to/6IHPHv9",
+      "final_url": "https://outdoorvitals.com/products/update-stormloft-0-30-f-down-topquilt-sleeping-bag?avad=294385_c4e5215d9&utm_source=avantlink&utm_medium=affiliate&utm_campaign=Oskars_Brumelis&utm_term=em_avantlink_affiliate_Custom+Link&avad_ttl=1786652680",
+      "title": "StormLoft™ Down TopQuilt",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/3I56BIE",
+      "final_url": "https://www.amazon.com/dp/B07M7TBGJB?th=1&linkCode=sl1&tag=hikemuchytb-20&linkId=07bb32cf81e9db609d942653e4128f9f&language=en_US&ref_=as_li_ss_tl",
+      "title": "Amazon.com: TREKOLOGY Aluft 2.0 Small Inflatable Camping Pillow for Backpacking, Travel | Ultralight, portable, compact blow up air cushion for hiking, camp, beach, sleeping, packable head rest, neck, lumbar support : Home & Kitchen",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/3Va7qCR",
+      "final_url": "https://www.amazon.com/NB10000-Ultra-Slim-Quick-Charge-Flashlights-Headlamps/dp/B08JH5SKQ8?th=1&linkCode=sl1&tag=hikemuchytb-20&linkId=07f158e5dc5fe641b5c2fd6e1a821d10&language=en_US&ref_=as_li_ss_tl",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://azure.microsoft.com/en-us/services/machine-learning/automatedml/",
+      "final_url": "https://azure.microsoft.com/en-us/solutions/automated-machine-learning/",
+      "title": "Automated Machine Learning (AutoML) | Microsoft Azure",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://direct.mit.edu/books/book/3168/chapter/87392/learning-to-rank-with-nonsmooth-cost-functions",
+      "final_url": "https://direct.mit.edu/books/book/3168/chapter/87392/learning-to-rank-with-nonsmooth-cost-functions",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://dl.acm.org/citation.cfm?id=2488393%29",
+      "final_url": "https://dl.acm.org/citation.cfm?id=2488393%29",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/e4AHNSeT",
+      "final_url": "https://redis.io/glossary/distributed-caching/",
+      "title": "Understanding distributed caching for fast apps",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gpQMxV9u",
+      "final_url": "https://redis.io/glossary/acid-transactions/",
+      "title": "Understanding ACID transactions for reliable data",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ejXFjXGv",
+      "final_url": "https://ai.meta.com/blog/yann-lecun-ai-model-i-jepa/?_fb_noscript=1",
+      "title": "I-JEPA: The first AI model based on Yann LeCun’s vision for more human-like AI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9TWPHYV",
+      "final_url": "https://www.amazon.com/Hands-Large-Language-Models-Understanding/dp/1098150961/",
+      "title": "Hands-On Large Language Models: Language Understanding and Generation: Alammar, Jay, Grootendorst, Maarten: 9781098150969: Amazon.com: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gMRgd68d",
+      "final_url": "https://www.amazon.com/Build-Large-Language-Model-Scratch/dp/1633437167/",
+      "title": "Build a Large Language Model (From Scratch): Raschka, Sebastian: 9781633437166: Amazon.com: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/guivZ_ve",
+      "final_url": "https://www.amazon.com/Hundred-Page-Language-Models-Book-hands/dp/1778042724/",
+      "title": "The Hundred-Page Language Models Book: hands-on with PyTorch (The Hundred-Page Books): Burkov, Andriy: 9781778042720: Amazon.com: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gCRhKTYH",
+      "final_url": "https://arxiv.org/pdf/2309.07864",
+      "title": "The Rise and Potential of Large Language Model Based Agents: A Survey",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gaEFnU_g",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688047",
+      "title": "Playlist Search Reinvented: LLMs Behind the Curtain | Proceedings of the 18th ACM Conference on Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gan-X6nU",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688098",
+      "title": "A Multi-modal Modeling Framework for Cold-start Short-video Recommendation | Proceedings of the 18th ACM Conference on Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/@karpathy/software-2-0-a64152b37c35",
+      "final_url": "https://karpathy.medium.com/software-2-0-a64152b37c35",
+      "title": "Software 2.0",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf",
+      "final_url": "https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf",
+      "title": "The Illusion of Thinking: Understanding the Strengths and Limitations of Reasoning Models via the Lens of Problem Complexity",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://narrativescience.com/resource/blog/why-we-dont-have-a-machine-learning-team-at-narrative-science",
+      "final_url": "https://www.tableau.com/blog",
+      "title": "Blog",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://netflixtechblog.com/uda-unified-data-architecture-6a6aee261d8d",
+      "final_url": "https://netflixtechblog.com/uda-unified-data-architecture-6a6aee261d8d?gi=4eb999d7f4b2",
+      "title": "Model Once, Represent Everywhere: UDA (Unified Data Architecture) at Netflix",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf",
+      "final_url": "https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf",
+      "title": "Feature Engineering and Classifier Ensemble for KDD Cup 2010",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf",
+      "final_url": "https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf",
+      "title": "How Anthropic teams use Claude Code",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf",
+      "final_url": "https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf",
+      "title": "node2vec: Scalable Feature Learning for Networks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.microsoft.com/en-us/research/uploads/prod/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf",
+      "final_url": "https://www.microsoft.com/en-us/research/wp-content/uploads/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf",
+      "title": "OVERVIEW OF THE TREC 2019 DEEP LEARNING TRACK",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pub.towardsai.net/practical-guide-to-distilling-large-models-into-small-models-a-novel-approach-with-extended-1a49d53163a1",
+      "final_url": "https://pub.towardsai.net/practical-guide-to-distilling-large-models-into-small-models-a-novel-approach-with-extended-1a49d53163a1?gi=871887824db4",
+      "title": "Practical Guide to Distilling Large Models into Small Models: A Novel Approach with Extended…",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://stats.stackexchange.com/questions/451827/whats-the-intitution-behind-contrastive-learning-or-approach",
+      "final_url": "https://stats.stackexchange.com/questions/451827/whats-the-intitution-behind-contrastive-learning-or-approach",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://www.apress.com/us/write-for-us",
+      "final_url": "https://link.springer.com/brands/apress/why-publish-with-apress",
+      "title": "Why publish with Apress?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.perplexity.ai/page/google-shares-viral-prompt-eng-TEzNkJMNSm2kdu.xiZ8YWQ",
+      "final_url": "https://www.perplexity.ai/page/google-shares-viral-prompt-eng-TEzNkJMNSm2kdu.xiZ8YWQ",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S1568163724003994",
+      "final_url": "https://www.sciencedirect.com/science/article/pii/S1568163724003994",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://www.tensorflow.org/tutorials/keras/keras_tuner",
+      "final_url": "https://www.tensorflow.org/tutorials/keras/keras_tuner",
+      "title": "Introduction to the Keras Tuner | TensorFlow Core",
+      "reason": null,
+      "error": null
+    }
+  ]
+}

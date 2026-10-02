@@ -1,13 +1,39 @@
-# Multilingual Transcription Benchmark
+# Experiment · which Whisper model transcribes four languages well enough?
 
-Benchmark date: 2026-08-09/10. Machine: Apple Silicon Mac, CPU `int8`, one
-inference thread, beam size 5, VAD enabled. The suite contained 40 controlled
-FLEURS recordings (ten each in English, Spanish, Russian, and Mandarin), all
-nine downloaded Instagram videos, and two Telegram voice messages.
+**Question.** Which multilingual Whisper model should transcribe voice notes and video audio in
+English, Spanish, Russian and Mandarin, given a NAS with no GPU on one side and an Apple Silicon
+laptop on the other?
 
-Production selection (2026-08-10): `small` with faster-whisper CPU/int8 and one
-thread for Docker on Synology/Raspberry Pi; `medium` with MLX/Metal and one CPU
-helper thread on Apple Silicon Macs. VAD remains enabled on both paths.
+**Status.** Measured 9–10 Aug 2026. Selected 10 Aug 2026: `small` with faster-whisper, CPU `int8`
+and one thread in Docker on the NAS or a Raspberry Pi; `medium` with MLX on the Metal GPU and one
+CPU helper thread on Apple Silicon Macs. Voice-activity detection stays on for both. Target-machine
+throughput has not been measured.
+
+**Serves.** [`docs/architecture/preprocessing.md`](../../docs/architecture/preprocessing.md#voice-note-transcription)
+and [`docs/extractors/instagram.md`](../../docs/extractors/instagram.md).
+
+**Method.** Apple Silicon Mac, CPU `int8`, one inference thread, beam size 5, voice-activity
+detection enabled. The suite held 40 controlled FLEURS recordings (ten each in English, Spanish,
+Russian and Mandarin), the nine videos among the posts in
+[`tests/fixtures/instagram_urls.txt`](../../tests/fixtures/instagram_urls.txt), and two Telegram
+voice messages.
+
+**Apparatus and inputs.**
+
+- `instagram-transcription-bench` (`info_triage/extractors/instagram/transcription_bench.py`).
+- [`fleurs_samples.tsv`](fleurs_samples.tsv): the 40 selected recordings with their reference
+  transcripts. [`fleurs_source.json`](fleurs_source.json): the dataset, licence (CC-BY-4.0) and the
+  selection rule. The audio itself is downloaded into an ignored cache and is not committed.
+
+```bash
+uv run instagram-transcription-bench \
+  --telegram-audio /absolute/path/to/first.ogg \
+  --telegram-audio /absolute/path/to/second.ogg
+```
+
+The generated report, with per-language precision and recall, agreement with large-v3, and the
+transcripts side by side, is written to `.bench_transcription/report.md`. It quotes private voice
+messages, so it is not committed; the tables below are its summary.
 
 ## Resource results
 
@@ -69,7 +95,3 @@ Mandarin, rather than language identification.
   every larger model produced “Voice message for testing how it works in the
   bot.” All models correctly transcribed the second Telegram message. Turbo
   assigned the highest language confidence to both.
-
-The complete generated report, including ROUGE-L precision/recall, Jaccard,
-large-v3 agreement, VAD-on/off text, and exact side-by-side Instagram/Telegram
-transcripts, is available locally at `.bench_transcription/report.md`.

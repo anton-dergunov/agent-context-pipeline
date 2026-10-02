@@ -1,0 +1,3722 @@
+{
+  "summary": {
+    "total": 529,
+    "titled": 434,
+    "untitled": 95,
+    "outcomes": {
+      "destination-not-found": 2,
+      "http-error": 52,
+      "redirect-loop": 2,
+      "request-error": 3,
+      "resolved": 434,
+      "response-too-large": 13,
+      "title-not-found": 22,
+      "unsafe-url": 1
+    }
+  },
+  "results": [
+    {
+      "source_url": "http://facebook.com/groups/daveswift",
+      "final_url": "https://www.facebook.com/login/?next=https%3A%2F%2Fwww.facebook.com%2Fgroups%2Fdaveswift",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 400"
+    },
+    {
+      "source_url": "https://aiagentbuilders.co/yt",
+      "final_url": "https://www.skool.com/ai-agent-builders/about?utm_source=yt",
+      "title": "AI Agent Builders",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://alnk.to/6IHPHv9",
+      "final_url": "https://classic.avantlink.com/click.php?shortened_url_id=6IHPHv9",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://alnk.to/gVNMAPI",
+      "final_url": "https://classic.avantlink.com/click.php?shortened_url_id=gVNMAPI",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://alnk.to/hDuAMob",
+      "final_url": "https://classic.avantlink.com/click.php?shortened_url_id=hDuAMob",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://amzn.to/3GJnnsm",
+      "final_url": "https://www.amazon.com/Darn-Tough-Merino-Cushion-Olive/dp/B000XG1G5E?crid=3RELCPR1Z67Z4&keywords=darn+tough+merino+wool+socks&qid=1702544948&sprefix=darn+tough+merino+wool+soc,aps,286&sr=8-4-spons&sp_csd=d2lkZ2V0TmFtZT1zcF9hdGY&psc=1&smid=A1X18QSHW2KQEH&linkCode=sl1&tag=hikemuchytb-20&linkId=a6779d01dacc53569d4eee6042e354c2&language=en_US&ref_=as_li_ss_tl",
+      "title": "Amazon.com : Darn Tough Merino Wool Boot Sock Cushion,Olive,Large | 64% Merino Wool, True Seamless Toe, cushion underfoot, keeps feet dry, all-weather, pairs with hiking boots, Vermont USA : Athletic Socks : Clothing, Shoes & Jewelry",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/3I56BIE",
+      "final_url": "https://www.amazon.co.uk/dp/B07M7TBGJB?linkId=07bb32cf81e9db609d942653e4128f9f&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/01TsNUvV&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3IiRnjf",
+      "final_url": "https://www.amazon.co.uk/dp/B0BFBZR4KW?linkId=fdc1ee9b4c2163d53eeb1524d8271390&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/05KiyYQg&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3JOEqye",
+      "final_url": "https://www.amazon.co.uk/dp/B009B98FGW?linkId=50748ac7402ce7705da973c6d2330f80&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0ifnRNuc&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3JSTjj3",
+      "final_url": "https://www.amazon.co.uk/dp/B092DZCM42?linkId=86b8f423ba8925a578d9e91c9cfc8044&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0cnk1UJL&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3JWYmyM",
+      "final_url": "https://www.amazon.co.uk/dp/B0BVLYPYT1?linkId=611528293ec135c21c3789bcd56f2ddc&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/01D5PAL8&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3KgAsOM",
+      "final_url": "https://www.amazon.co.uk/dp/B0F3FJNCJD?linkId=d15fb87c1724e303221bef0502d8ad0e&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/076uc1fe&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/3Va7qCR",
+      "final_url": "https://www.amazon.com/NB10000-Ultra-Slim-Quick-Charge-Flashlights-Headlamps/dp/B08JH5SKQ8?th=1&linkCode=sl1&tag=hikemuchytb-20&linkId=07f158e5dc5fe641b5c2fd6e1a821d10&language=en_US&ref_=as_li_ss_tl",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/42LM0Ru",
+      "final_url": "https://www.amazon.co.uk/dp/B08J2FYYYT?linkId=812c1a5e88e6b357f4cd86e1cbba0471&keywords=sony+a7c&dib_tag=se&ref_=as_li_ss_tl&language=en_US&dib=eyJ2IjoiMSJ9.WUCFYRC_988OErmH2xAk4pm-8XSJQ2EtzzlpKmx-vvynPIK51mo-hWJLXOAMk2qkVgwUU_zSB6TLH1e5bq3gEJEadYHVuTQFMehVSxwm1j7s1khdCpHDA2Tc7pxqX0p5jAMEsxXY1RS2Ge6h_5v4NaCBquuSxhWOr1Wk9rRLWCuPf60BBxys60Bb33nd46WmyMKV22l6Zi7wqM9aPCao2tpvBSsg2fbtECSn9ZIJeuA.X98ll4TbuKsBFCSx1maIHK1rXUj9KaK75v1y6jUAVpg&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/06SrH3nv&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/48aNVlg",
+      "final_url": "https://www.amazon.co.uk/dp/B0DY2SW4CH?linkId=cc1d8597f73ba74ca953d11067ac9572&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0eo676Vn&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/4d9Ikuo",
+      "final_url": "https://www.amazon.co.uk/dp/B001GE19VS?linkId=65c92eaf1bfb3ae5440d32a507616a90&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/09W0uca3&ar_mt=EXACT_MATCH",
+      "title": "Lightload Towels-The Only Towels That Are Life Savers!(Two Pack each 30x30cm) : Amazon.co.uk: Sports & Outdoors",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/4mboYtw",
+      "final_url": "https://www.amazon.co.uk/dp/B08NF675DY?linkId=8260e1a0f4f5b4125096d525229cf5b1&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/053m68Wl&ar_mt=EXACT_MATCH",
+      "title": "Light My Fire Titanium Spork 3-in-1 Camping Cutlery Knife Fork Spoon Set Survival Camping Gifts for Scouts Camping Accessorie Non-Toxic Reusable Travel Cutlery Set for 1 Metal Spork : Amazon.co.uk: Sports & Outdoors",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/4nJt9Or",
+      "final_url": "https://www.amazon.co.uk/s/?ie=UTF8&url=search-alias=aps&field-keywords=NEMO+Equipment+Tensor+All-Season+Sleeping+Pad-Blade/Spicy+Orange-Reg+Mummy&ar_srct=T1&tag=hikemuchytb-20&linkId=8111fa4624cd497b40743b3072defd5f&ref_=as_li_ss_tl&language=en_US&linkCode=gt3&creatorsDisableRedirect=true&ar_su=https://a.co/d/0jjSZ6ZZ",
+      "title": "Amazon.co.uk : NEMO Equipment Tensor All-Season Sleeping Pad-Blade/Spicy Orange-Reg Mummy",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/4ni0a3M",
+      "final_url": "https://www.amazon.co.uk/dp/B0CWXMSL7N?psc=1&linkId=de721dc65154e72a4eec740f56a2958f&ref_=as_li_ss_tl&language=en_US&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0hDp9m5o&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://amzn.to/4nsNreU",
+      "final_url": "https://www.amazon.co.uk/dp/B0CT67MSSN?keywords=pack+liner+sea+to+summit&language=en_US&linkId=286ae6390e6630a0dbe1d8f026efdd0f&dib_tag=se&ref_=as_li_ss_tl&dib=eyJ2IjoiMSJ9.mBuoJ8x-tqxqFqkJsWDpoQ1N-0KdpN0SGsB3mOZ5H5QJX60VLPcnbGtc_t5_1v5XqMWAO_mVePKOLIN-_pISfMfRWzvzAicUVdhrgV7mpNJE6hyYkFLaVKexwBrWY-XyrpNwv8Cv8MgmkQZO8RL_CYhgCcXpv2xPCr309YBmw6_n6b7rM9Bo9LL5US_UB1B3Y9AQhHngVqyORcEOd_j0AUqUJnMMYXpWrWRcMD8OJ88-Xu-LGRJOd9D-XJA-DHAJB_c9cVbZB7N7NnDGNFxZGudRvHsfhIM8KQsTDw4mX3E.TJ7lW5YElVuoXqIbSftuJDwXjSLOWz5basAGB5byekk&ar_srct=T1&tag=hikemuchytb-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/032w5QHk&ar_mt=EXACT_MATCH",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://clientamp.com",
+      "final_url": "https://clientamp.com/",
+      "title": "Client Amp - Your partner for online business.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://coros.com/buy/nomad",
+      "final_url": "https://coros.com/buy/nomad",
+      "title": "Buy COROS NOMAD | GPS Adventure Watch",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://daveswift.com",
+      "final_url": "https://daveswift.com/",
+      "title": "Dave Swift",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://docs.google.com/presentation/d/19v5_HR5B-1CPHuoZ-RXjhgBrGFXGnBNd6TfLhsXWT1c/edit?usp=sharing",
+      "final_url": "https://docs.google.com/presentation/d/19v5_HR5B-1CPHuoZ-RXjhgBrGFXGnBNd6TfLhsXWT1c/edit?usp=sharing",
+      "title": "Training Agents: Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/burtenshaw/training-agents",
+      "final_url": "https://github.com/burtenshaw/training-agents",
+      "title": "GitHub - burtenshaw/training-agents: A repo on resources for training agents.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://i10x.ai?fpr=dave50",
+      "final_url": "https://i10x.ai/?fpr=dave50",
+      "title": "Your AI Workspace | i10X",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://open.spotify.com/artist/1evrYxCrMSCK1QZAuZ1b6m?si=2EvQgYbISoasG4u0_qyvwA",
+      "final_url": "https://open.spotify.com/artist/1evrYxCrMSCK1QZAuZ1b6m?si=2EvQgYbISoasG4u0_qyvwA",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://profitable.tools/macwhisper",
+      "final_url": "https://goodsnooze.gumroad.com/l/macwhisper",
+      "title": "🎙️ MacWhisper",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://trailgoals.com/",
+      "final_url": "https://trailgoals.com/",
+      "title": "Trail Goals | Trail Prints & Posters",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://twitter.com/davidswift",
+      "final_url": "https://x.com/davidswift",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://www.brynjeusa.com/ref/16/",
+      "final_url": "https://www.brynjeusa.com/ref/16/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 503"
+    },
+    {
+      "source_url": "https://www.decathlon.com/collections/hiking-camp-accessories/products/hiking-pole-arpenaz-200",
+      "final_url": "https://www.decathlon.com/products/hiking-pole-arpenaz-200",
+      "title": "Forclaz MT100 Comfort Hiking Pole (Single Pole)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.decathlon.com/products/backpacking-foam-folding-mattress-trek-100-174619",
+      "final_url": "https://www.decathlon.com/products/backpacking-foam-folding-mattress-trek-100-174619",
+      "title": "Forclaz Trek 100 Folding Foam Hiking Mattress",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571",
+      "final_url": "https://www.decathlon.com/products/simond-mt100-hooded-down-puffer-jacket-167571",
+      "title": "Simond Men's MT100 Hooded Down Puffer Jacket",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.facebook.com/paula.castignola/",
+      "final_url": "https://www.facebook.com/paula.castignola/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 400"
+    },
+    {
+      "source_url": "https://www.insta360.com/sal/ace-pro-2?utm_term=INRF7L2&utm_source=youtube&utm_medium=KOL&utm_campaign=OscarHikes&utm_content=date20241021AP2Launch",
+      "final_url": "https://store.insta360.com/gb/product/ace-pro-2?utm_campaign=OscarHikes&utm_content=date20241021AP2Launch&utm_medium=KOL&utm_source=youtube&utm_term=INRF7L2",
+      "title": "Buy Insta360 Ace Pro 2 - 8K AI-Powered Cam",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.instagram.com/_giafu/",
+      "final_url": "https://www.instagram.com/_giafu/",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.instagram.com/oscarbrumelis/",
+      "final_url": "https://www.instagram.com/oscarbrumelis/",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.instagram.com/paula_castignola/",
+      "final_url": "https://www.instagram.com/paula_castignola/",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.pakaapparel.com/products/alpaca-hoodie",
+      "final_url": "https://www.pakaapparel.com/products/alpaca-hoodie",
+      "title": "The Hoodie – Alpaca Wool Hoodie Sweater – Unisex",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.tiktok.com/@oscarhikes",
+      "final_url": "https://www.tiktok.com/@oscarhikes",
+      "title": "TikTok - Make Your Day",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=59CAwbGTHLE",
+      "final_url": "https://www.youtube.com/watch?v=59CAwbGTHLE",
+      "title": "Count Binface on Brexit",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=8UEoPXIW1jc",
+      "final_url": "https://www.youtube.com/watch?v=8UEoPXIW1jc",
+      "title": "EL ULTIMO CAFÉ - Paula Castignola & Ariel Pirotti cuarteto",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=G2SCdfq4ZvA",
+      "final_url": "https://www.youtube.com/watch?v=G2SCdfq4ZvA",
+      "title": "Gia Fu // Sueño Afro-Cubano (vinyl session)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=RCIEEQxRer8",
+      "final_url": "https://www.youtube.com/watch?v=RCIEEQxRer8",
+      "title": "A jet suit is being trialled to speed up mountain rescues in isolated terrain",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=WZxbzEpdjlU",
+      "final_url": "https://www.youtube.com/watch?v=WZxbzEpdjlU",
+      "title": "Talent Isn’t the Gap. Starting Is.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=_-6hzpk9cG8",
+      "final_url": "https://www.youtube.com/watch?v=_-6hzpk9cG8",
+      "title": "Genius Car Camping Hacks for Your Next Road Trip!",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=_X82NsOJguc",
+      "final_url": "https://www.youtube.com/watch?v=_X82NsOJguc",
+      "title": "How Good Is Simond's 150€ Tiny Tent Really?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=f1lABKAmGTo",
+      "final_url": "https://www.youtube.com/watch?v=f1lABKAmGTo",
+      "title": "Yerevan Smoke & Mirrors: Late Night Armenian Jazz Mix",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=giNWPfAen8g",
+      "final_url": "https://www.youtube.com/watch?v=giNWPfAen8g",
+      "title": "Why I Use MacWhisper Daily (Are You Missing Half Its Features?)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=ztdTed5egrM",
+      "final_url": "https://www.youtube.com/watch?v=ztdTed5egrM",
+      "title": "Training Agents 3: Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://docs.pydantic.dev/latest/",
+      "final_url": "https://pydantic.dev/docs/validation/latest/get-started/",
+      "title": "Welcome to Pydantic",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://dspy.ai",
+      "final_url": "https://dspy.ai/",
+      "title": "DSPy",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/lucasmcgregor/medium__llm_comparison",
+      "final_url": "https://github.com/lucasmcgregor/medium__llm_comparison",
+      "title": "GitHub - lucasmcgregor/medium__llm_comparison: Test for comparing multiple LLM models for data extraction and normalization",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://huggingface.co",
+      "final_url": "https://huggingface.co/",
+      "title": "Hugging Face – The AI community building the future.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://llamahub.ai",
+      "final_url": "https://llamahub.ai/",
+      "title": "Llama Hub",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/the-leading-indicator/mcp-is-dead-1b24fe6a3e64",
+      "final_url": "https://medium.com/the-leading-indicator/mcp-is-dead-1b24fe6a3e64",
+      "title": "MCP Is Dead",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.langchain.com",
+      "final_url": "https://www.langchain.com/",
+      "title": "LangChain: Observe, Evaluate, and Deploy Reliable AI Agents",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.llamaindex.ai",
+      "final_url": "https://www.llamaindex.ai/",
+      "title": "LlamaIndex | AI Agents for Document OCR + Workflows",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/1704.01212",
+      "final_url": "https://arxiv.org/abs/1704.01212",
+      "title": "Neural Message Passing for Quantum Chemistry",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/1705.10359",
+      "final_url": "https://arxiv.org/abs/1705.10359",
+      "title": "Neural Embeddings of Graphs in Hyperbolic Space",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/1711.07553",
+      "final_url": "https://arxiv.org/abs/1711.07553",
+      "title": "Residual Gated Graph ConvNets",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/1806.01261",
+      "final_url": "https://arxiv.org/abs/1806.01261",
+      "title": "Relational inductive biases, deep learning, and graph networks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/2306.04833",
+      "final_url": "https://arxiv.org/abs/2306.04833",
+      "title": "Unified Embedding Based Personalized Retrieval in Etsy Search",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/2402.17152",
+      "final_url": "https://arxiv.org/abs/2402.17152",
+      "title": "Actions Speak Louder than Words: Trillion-Parameter Sequential Transducers for Generative Recommendations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/2409.02856",
+      "final_url": "https://arxiv.org/abs/2409.02856",
+      "title": "Building a Scalable, Effective, and Steerable Search and Ranking Platform",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/2409.15373",
+      "final_url": "https://arxiv.org/abs/2409.15373",
+      "title": "Enhancing Performance and Scalability of Large-Scale Recommendation Systems with Jagged Flash Attention",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://arxiv.org/abs/2505.24726",
+      "final_url": "https://arxiv.org/abs/2505.24726",
+      "title": "Reflect, Retry, Reward: Self-Improving LLMs via Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://cs330.stanford.edu/",
+      "final_url": "https://cs330.stanford.edu/",
+      "title": "CS 330 Deep Multi-Task and Meta Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://dl.acm.org/citation.cfm?doid=2623330.2623732%29",
+      "final_url": "https://dl.acm.org/citation.cfm?doid=2623330.2623732%29",
+      "title": null,
+      "reason": "redirect-loop",
+      "error": "redirect loop detected"
+    },
+    {
+      "source_url": "http://dl.acm.org/citation.cfm?doid=2806416.2806512%29",
+      "final_url": "https://dl.acm.org/citation.cfm?doid=2806416.2806512%29",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "http://dl.acm.org/citation.cfm?doid=2882903.2903743%29",
+      "final_url": "https://dl.acm.org/citation.cfm?doid=2882903.2903743%29",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "http://dl.acm.org/citation.cfm?doid=2939672.2939751%29",
+      "final_url": "https://dl.acm.org/citation.cfm?doid=2939672.2939751%29",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "http://proceedings.mlr.press/v70/shrikumar17a/shrikumar17a.pdf",
+      "final_url": "http://proceedings.mlr.press/v70/shrikumar17a/shrikumar17a.pdf",
+      "title": "Learning Important Features Through Propagating Activation Differences",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://snap.stanford.edu/graphsage/",
+      "final_url": "http://snap.stanford.edu/graphsage/",
+      "title": "GraphSAGE",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://staff.ustc.edu.cn/~hexn/papers/sigir18-bipartiteNE.pdf",
+      "final_url": "http://staff.ustc.edu.cn/~hexn/papers/sigir18-bipartiteNE.pdf",
+      "title": "BiNE: Bipartite Network Embedding",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://www.cs.columbia.edu/~rambow/enron/",
+      "final_url": "http://www.cs.columbia.edu/~rambow/enron/",
+      "title": "Overview — Enron Corpus Database v1.1 documentation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://www.cs.columbia.edu/~vinod/data/gender_identified_enron_corpus.tar.gz",
+      "final_url": "https://www.cs.stanford.edu/~vinod/data/gender_identified_enron_corpus.tar.gz",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "http://www.mlebook.com/wiki/doku.php",
+      "final_url": "http://www.mlebook.com/wiki/doku.php",
+      "title": "The Hundred-Page Machine Learning Book by Andriy Burkov",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "http://www.perozzi.net/publications/14_kdd_deepwalk.pdf",
+      "final_url": "http://www.perozzi.net/publications/14_kdd_deepwalk.pdf",
+      "title": null,
+      "reason": "request-error",
+      "error": "HTTPConnectionPool(host='www.perozzi.net', port=80): Max retries exceeded with url: /publications/14_kdd_deepwalk.pdf (Caused by ConnectTimeoutError(<HTTPConnection(host='www.perozzi.net', port=80) at 0x10a766e40>, 'Connection to www.perozzi.net timed out. (connect timeout=8.0)'))"
+    },
+    {
+      "source_url": "https://aclanthology.org/Q19-1029/",
+      "final_url": "https://aclanthology.org/Q19-1029/",
+      "title": "Trick Me If You Can: Human-in-the-Loop Generation of Adversarial Examples for Question Answering",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ai.googleblog.com/2020/11/the-language-interpretability-tool-lit.html",
+      "final_url": "https://research.google/blog/the-language-interpretability-tool-lit-interactive-exploration-and-analysis-of-nlp-models/",
+      "title": "The Language Interpretability Tool (LIT): Interactive Exploration and Analysis o",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ai.googleblog.com/2021/03/constructing-transformers-for-longer.html",
+      "final_url": "https://research.google/blog/constructing-transformers-for-longer-sequences-with-sparse-attention-methods/",
+      "title": "Constructing Transformers For Longer Sequences with Sparse Attention Methods",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ai.gopubby.com/flashattention-from-first-principles-part-1-5a9f2407d739",
+      "final_url": "https://ai.gopubby.com/flashattention-from-first-principles-part-1-5a9f2407d739",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://ai.gopubby.com/flashattention-visually-and-exhaustively-explained-d6124670f7fb",
+      "final_url": "https://ai.gopubby.com/flashattention-visually-and-exhaustively-explained-d6124670f7fb",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://ai.meta.com/research/no-language-left-behind/",
+      "final_url": "https://ai.meta.com/research/no-language-left-behind/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 400"
+    },
+    {
+      "source_url": "https://aipapersacademy.com/byte-latent-transformer/",
+      "final_url": "https://aipapersacademy.com/byte-latent-transformer/",
+      "title": "Byte Latent Transformer (BLT) by Meta AI: A Tokenizer-free LLM",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://alphaxiv.org/abs/2507.10524",
+      "final_url": "https://www.alphaxiv.org/abs/2507.10524",
+      "title": "Mixture-of-Recursions: Learning Dynamic Recursive Depths for Adaptive Token-Level Computation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amitness.com/2020/03/illustrated-simclr/",
+      "final_url": "https://amitness.com/posts/simclr",
+      "title": "The Illustrated SimCLR Framework",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amitness.com/2020/05/data-augmentation-for-nlp/",
+      "final_url": "https://amitness.com/posts/data-augmentation-for-nlp",
+      "title": "A Visual Survey of Data Augmentation in NLP",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/3D3jZun",
+      "final_url": "https://www.amazon.co.uk/dp/1836200072?linkId=dbdf054463918fa958c4f5b6380a30fb&keywords=llm+engineer's+handbook&dib_tag=se&ref_=as_li_ss_tl&language=en_US&dib=eyJ2IjoiMSJ9.9aGXn6xGorwhpBZedby-9xE1HiT8mmO6mYpNs6L32lU7S_eDaRnOQG3h9alkwaA1K-V9psd8E65cCDaMB2RPFq2S70RWWPFtDUhYmJjJa_gyjwZYf5ohiPXkkgmwOM69CIMGqDizkbjZRmPMHX3oDyAhR8dKPVn8JVXnlEBo-o4iXWZvI2MKfdmwYmzHBFF-sq0JZNn2m6D5h-L2PHKplehHu3lPgP6SFBYwYjZoGJ0.VFrmrdrknuwmAYLs5UmuHArds1MW2elu-ncy9abfJaQ&ar_srct=T1&tag=thuvu07-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0iUMEepY&ar_mt=EXACT_MATCH",
+      "title": "LLM Engineer's Handbook: Master the art of engineering large language models from concept to production: Amazon.co.uk: Paul Iusztin, Maxime Labonne: 9781836200079: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/3QBg0Z4",
+      "final_url": "https://www.amazon.co.uk/dp/1098166302?linkId=2d8632c30a608ada95d69ed880848295&keywords=AI+engineering&dib_tag=se&ref_=as_li_ss_tl&language=en_US&dib=eyJ2IjoiMSJ9.pPu6oGHcFOy4umDn-nHHDgI2nmc0Vk2jrIzecjstR5PlA2Bqrx0iPicY_53AmFKqoY-fOayORwd1jRTQpU5HqskrIEi2qj5rKSkr7ge_riZZs6r7gFtZJACUm6itM1LgbFdrzfqmRQyZmmJrZiXkU4-kT94QsMjuwmGwBkXf5WS4qmMEOmCtVwde9Dsiw6nwx9WYcEayeTBPBWa2x3gul6BbqeooE8UqgWYq3MhBrBU.afDptt7RirAY1GS8efpT6o2mCnUNvmNfMgd6KyRtmtA&ar_srct=T1&tag=thuvu07-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/0cloKXcN&ar_mt=EXACT_MATCH",
+      "title": "AI Engineering: Building Applications with Foundation Models: Amazon.co.uk: Huyen, Chip: 9781098166304: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://amzn.to/4kgv4cg",
+      "final_url": "https://www.amazon.co.uk/dp/1633437167?linkId=8a0068dac1d83fa12203832595aaac75&keywords=build+a+large+language+model+from+scratch&dib_tag=se&ref_=as_li_ss_tl&language=en_US&dib=eyJ2IjoiMSJ9.3ZAePWEmeg9GoDKd0fxCOmW-QTfMlcLJs5AGdnQO_Q56fVSB6RTKfbgQsvL2E4uVgPa1VQfIQqzHBrmreKdPuTzPTOK3h1s9_7tUVB62Oy3KERR0tMQ30YPYhl3fXVx-TqisRAbzQyzsNTwjKHZ6MO1pmMRjRbsVu4LSEoroywXk3z3wJBhMZ875WWIxqci3AewncHLjtwB5qBQhIqH8LZYJxqkt306NqeUlbf26IrI.yjBU-FkFkUgLBP1bascy5TU3zdf6vTzVrgNE6Om52FE&ar_srct=T1&tag=thuvu07-20&linkCode=gt2&creatorsDisableRedirect=true&ar_su=https://a.co/d/081Q6Y68&ar_mt=EXACT_MATCH",
+      "title": "Build a Large Language Model (From Scratch): Amazon.co.uk: Raschka, Sebastian: 9781633437166: Books",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://app.yoodli.ai",
+      "final_url": "https://yoodli.ai/",
+      "title": "AI Roleplay Platform for Communication Coaching | Yoodli",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/1709.05584v3",
+      "final_url": "https://arxiv.org/abs/1709.05584v3",
+      "title": "Representation Learning on Graphs: Methods and Applications",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/1803.09820",
+      "final_url": "https://arxiv.org/abs/1803.09820",
+      "title": "A disciplined approach to neural network hyper-parameters: Part 1 -- learning rate, batch size, momentum, and weight decay",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/1807.03748",
+      "final_url": "https://arxiv.org/abs/1807.03748",
+      "title": "Representation Learning with Contrastive Predictive Coding",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/1901.11196",
+      "final_url": "https://arxiv.org/abs/1901.11196",
+      "title": "EDA: Easy Data Augmentation Techniques for Boosting Performance on Text Classification Tasks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2002.00293",
+      "final_url": "https://arxiv.org/abs/2002.00293",
+      "title": "Beat the AI: Investigating Adversarial Human Annotation for Reading Comprehension",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2005.00396",
+      "final_url": "https://arxiv.org/abs/2005.00396",
+      "title": "Identifying Necessary Elements for BERT's Multilinguality",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2005.04790",
+      "final_url": "https://arxiv.org/abs/2005.04790",
+      "title": "The Hateful Memes Challenge: Detecting Hate Speech in Multimodal Memes",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2005.05909",
+      "final_url": "https://arxiv.org/abs/2005.05909",
+      "title": "TextAttack: A Framework for Adversarial Attacks, Data Augmentation, and Adversarial Training in NLP",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2008.02250",
+      "final_url": "https://arxiv.org/abs/2008.02250",
+      "title": "Generalized Word Shift Graphs: A Method for Visualizing and Explaining Pairwise Comparisons Between Texts",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2009.11462",
+      "final_url": "https://arxiv.org/abs/2009.11462",
+      "title": "RealToxicityPrompts: Evaluating Neural Toxic Degeneration in Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2010.00747",
+      "final_url": "https://arxiv.org/abs/2010.00747",
+      "title": "Contrastive Learning of Medical Visual Representations from Paired Images and Text",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2010.06595",
+      "final_url": "https://arxiv.org/abs/2010.06595",
+      "title": "With Little Power Comes Great Responsibility",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2012.00152",
+      "final_url": "https://arxiv.org/abs/2012.00152",
+      "title": "Every Model Learned by Gradient Descent Is Approximately a Kernel Machine",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2012.07805",
+      "final_url": "https://arxiv.org/abs/2012.07805",
+      "title": "Extracting Training Data from Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2201.02135",
+      "final_url": "https://arxiv.org/abs/2201.02135",
+      "title": "Deep Reinforcement Learning, a textbook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2305.03495",
+      "final_url": "https://arxiv.org/abs/2305.03495",
+      "title": "Automatic Prompt Optimization with \"Gradient Descent\" and Beam Search",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2309.08632",
+      "final_url": "https://arxiv.org/abs/2309.08632",
+      "title": "Pretraining on the Test Set Is All You Need",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2406.06608",
+      "final_url": "https://arxiv.org/abs/2406.06608",
+      "title": "The Prompt Report: A Systematic Survey of Prompt Engineering Techniques",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2409.04109",
+      "final_url": "https://arxiv.org/abs/2409.04109",
+      "title": "Can LLMs Generate Novel Research Ideas? A Large-Scale Human Study with 100+ NLP Researchers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2410.04840",
+      "final_url": "https://arxiv.org/abs/2410.04840",
+      "title": "Strong Model Collapse",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2410.12896",
+      "final_url": "https://arxiv.org/abs/2410.12896",
+      "title": "A Survey on Data Synthesis and Augmentation for Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2411.05059",
+      "final_url": "https://arxiv.org/abs/2411.05059",
+      "title": "FineTuneBench: How well do commercial fine-tuning APIs infuse knowledge into LLMs?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2412.05265",
+      "final_url": "https://arxiv.org/abs/2412.05265",
+      "title": "Reinforcement Learning: An Overview",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2412.09871",
+      "final_url": "https://arxiv.org/abs/2412.09871",
+      "title": "Byte Latent Transformer: Patches Scale Better Than Tokens",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2412.09952",
+      "final_url": "https://arxiv.org/abs/2412.09952",
+      "title": "Llama 3 Meets MoE: Efficient Upcycling",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2412.12095",
+      "final_url": "https://arxiv.org/abs/2412.12095",
+      "title": "Causal Diffusion Transformers for Generative Modeling",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.04227",
+      "final_url": "https://arxiv.org/abs/2501.04227",
+      "title": "Agent Laboratory: Using LLM Agents as Research Assistants",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.05366",
+      "final_url": "https://arxiv.org/abs/2501.05366",
+      "title": "Search-o1: Agentic Search-Enhanced Large Reasoning Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.06252",
+      "final_url": "https://arxiv.org/abs/2501.06252",
+      "title": "Transformer-Squared: Self-adaptive LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.09223",
+      "final_url": "https://arxiv.org/abs/2501.09223",
+      "title": "Foundations of Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.13926",
+      "final_url": "https://arxiv.org/abs/2501.13926",
+      "title": "Can We Generate Images with CoT? Let's Verify and Reinforce Image Generation Step by Step",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.17161",
+      "final_url": "https://arxiv.org/abs/2501.17161",
+      "title": "SFT Memorizes, RL Generalizes: A Comparative Study of Foundation Model Post-training",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2501.18585",
+      "final_url": "https://arxiv.org/abs/2501.18585",
+      "title": "Thoughts Are All Over the Place: On the Underthinking of o1-Like LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2502.03373",
+      "final_url": "https://arxiv.org/abs/2502.03373",
+      "title": "Demystifying Long Chain-of-Thought Reasoning in LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2502.21321",
+      "final_url": "https://arxiv.org/abs/2502.21321",
+      "title": "LLM Post-Training: A Deep Dive into Reasoning Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.09516",
+      "final_url": "https://arxiv.org/abs/2503.09516",
+      "title": "Search-R1: Training LLMs to Reason and Leverage Search Engines with Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.12605",
+      "final_url": "https://arxiv.org/abs/2503.12605",
+      "title": "Multimodal Chain-of-Thought Reasoning: A Comprehensive Survey",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.13657",
+      "final_url": "https://arxiv.org/abs/2503.13657",
+      "title": "Why Do Multi-Agent LLM Systems Fail?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.19173",
+      "final_url": "https://arxiv.org/abs/2503.19173",
+      "title": "Graph neural networks extrapolate out-of-distribution for shortest paths",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.20376",
+      "final_url": "https://arxiv.org/abs/2503.20376",
+      "title": "Dewey Long Context Embedding Model: A Technical Report",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.21620",
+      "final_url": "https://arxiv.org/abs/2503.21620",
+      "title": "UI-R1: Enhancing Efficient Action Prediction of GUI Agents by Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2503.24322",
+      "final_url": "https://arxiv.org/abs/2503.24322",
+      "title": "NoProp: Training Neural Networks without Full Back-propagation or Full Forward-propagation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.01990",
+      "final_url": "https://arxiv.org/abs/2504.01990",
+      "title": "Advances and Challenges in Foundation Agents: From Brain-Inspired Intelligence to Evolutionary, Collaborative, and Safe Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.07128",
+      "final_url": "https://arxiv.org/abs/2504.07128",
+      "title": "DeepSeek-R1 Thoughtology: Let's think about LLM Reasoning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.11536",
+      "final_url": "https://arxiv.org/abs/2504.11536",
+      "title": "ReTool: Reinforcement Learning for Strategic Tool Use in LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.12860",
+      "final_url": "https://arxiv.org/abs/2504.12860",
+      "title": "When do Random Forests work?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.13837",
+      "final_url": "https://arxiv.org/abs/2504.13837",
+      "title": "Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2504.17192",
+      "final_url": "https://arxiv.org/abs/2504.17192",
+      "title": "Paper2Code: Automating Code Generation from Scientific Papers in Machine Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.00949",
+      "final_url": "https://arxiv.org/abs/2505.00949",
+      "title": "Llama-Nemotron: Efficient Reasoning Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.09343",
+      "final_url": "https://arxiv.org/abs/2505.09343",
+      "title": "Insights into DeepSeek-V3: Scaling Challenges and Reflections on Hardware for AI Architectures",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.11423",
+      "final_url": "https://arxiv.org/abs/2505.11423",
+      "title": "When Thinking Fails: The Pitfalls of Reasoning for Instruction-Following in LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.13138",
+      "final_url": "https://arxiv.org/abs/2505.13138",
+      "title": "Neurosymbolic Diffusion Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.13775",
+      "final_url": "https://arxiv.org/abs/2505.13775",
+      "title": "Beyond Semantics: The Unreasonable Effectiveness of Reasonless Intermediate Tokens",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.15045",
+      "final_url": "https://arxiv.org/abs/2505.15045",
+      "title": "Diffusion vs. Autoregressive Language Models: A Text Embedding Perspective",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.17117",
+      "final_url": "https://arxiv.org/abs/2505.17117",
+      "title": "From Tokens to Thoughts: How LLMs and Humans Trade Compression for Meaning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.21082",
+      "final_url": "https://arxiv.org/abs/2505.21082",
+      "title": "RPM: Reasoning-Level Personalization for Black-Box Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.23735",
+      "final_url": "https://arxiv.org/abs/2505.23735",
+      "title": "ATLAS: Learning to Optimally Memorize the Context at Test Time",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2505.24832",
+      "final_url": "https://arxiv.org/abs/2505.24832",
+      "title": "How much do language models memorize?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2506.04374",
+      "final_url": "https://arxiv.org/abs/2506.04374",
+      "title": "A Statistical Physics of Language Model Reasoning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2506.06122",
+      "final_url": "https://arxiv.org/abs/2506.06122",
+      "title": "Reinforcement Learning Optimization for Large-Scale Learning: An Efficient and User-Friendly Scaling Library",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2506.10979",
+      "final_url": "https://arxiv.org/abs/2506.10979",
+      "title": "How Well Can Reasoning Models Identify and Recover from Unhelpful Thoughts?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2506.11440",
+      "final_url": "https://arxiv.org/abs/2506.11440",
+      "title": "AbsenceBench: Language Models Can't Tell What's Missing",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2506.14761",
+      "final_url": "https://arxiv.org/abs/2506.14761",
+      "title": "From Bytes to Ideas: Language Modeling with Autoregressive U-Nets",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2507.10524",
+      "final_url": "https://arxiv.org/abs/2507.10524",
+      "title": "Mixture-of-Recursions: Learning Dynamic Recursive Depths for Adaptive Token-Level Computation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2507.21046",
+      "final_url": "https://arxiv.org/abs/2507.21046",
+      "title": "A Survey of Self-Evolving Agents: What, When, How, and Where to Evolve on the Path to Artificial Super Intelligence",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2508.01191",
+      "final_url": "https://arxiv.org/abs/2508.01191",
+      "title": "Is Chain-of-Thought Reasoning of LLMs a Mirage? A Data Distribution Lens",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/abs/2508.11957",
+      "final_url": "https://arxiv.org/abs/2508.11957",
+      "title": "A Comprehensive Review of AI Agents: Transforming Possibilities in Technology and Beyond",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/html/2502.21321",
+      "final_url": "https://arxiv.org/html/2502.21321",
+      "title": "LLM Post-Training: A Deep Dive into ReasoningLarge Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/1109.2140.pdf",
+      "final_url": "https://arxiv.org/pdf/1109.2140",
+      "title": "paper.dvi",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/1608.07685.pdf",
+      "final_url": "https://arxiv.org/pdf/1608.07685",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/1704.01212.pdf",
+      "final_url": "https://arxiv.org/pdf/1704.01212",
+      "title": "Neural Message Passing for Quantum Chemistry",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/1908.11512.pdf",
+      "final_url": "https://arxiv.org/pdf/1908.11512",
+      "title": "Fast and Accurate Network Embeddings via Very Sparse Random Projection",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/2003.00911.pdf",
+      "final_url": "https://arxiv.org/pdf/2003.00911",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/2501.12948",
+      "final_url": "https://arxiv.org/pdf/2501.12948",
+      "title": "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://arxiv.org/pdf/2507.07935",
+      "final_url": "https://arxiv.org/pdf/2507.07935",
+      "title": "Working with AI: Measuring the Applicability of Generative AI to Occupations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://azure.microsoft.com/en-us/services/machine-learning/automatedml/",
+      "final_url": "https://azure.microsoft.com/en-us/services/machine-learning/automatedml/",
+      "title": null,
+      "reason": "request-error",
+      "error": "HTTPSConnectionPool(host='azure.microsoft.com', port=443): Max retries exceeded with url: /en-us/services/machine-learning/automatedml/ (Caused by ReadTimeoutError(\"HTTPSConnectionPool(host='azure.microsoft.com', port=443): Read timed out. (read timeout=8.0)\"))"
+    },
+    {
+      "source_url": "https://bibinlp.umiacs.umd.edu/sharedtask.html",
+      "final_url": "https://bibinlp.umiacs.umd.edu/sharedtask.html",
+      "title": "Build It, Break It: The Language Edition",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://blog.research.google/",
+      "final_url": "https://research.google/blog/",
+      "title": "Latest News from Google Research Blog - Google Research",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://blog.research.google/2020/04/xtreme-massively-multilingual-multi.html",
+      "final_url": "https://research.google/blog/xtreme-a-massively-multilingual-multi-task-benchmark-for-evaluating-cross-lingual-generalization/",
+      "title": "XTREME: A Massively Multilingual Multi-task Benchmark for Evaluating Cross-lingu",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://books.google.com/ngrams/info",
+      "final_url": "https://books.google.com/ngrams/info",
+      "title": "Google Books Ngram Viewer",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://commoncrawl.org/",
+      "final_url": "https://commoncrawl.org/",
+      "title": "Common Crawl - Open Repository of Web Crawl Data",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://cytoscape.org/index.html",
+      "final_url": "https://cytoscape.org/index.html",
+      "title": "Cytoscape: An Open Source Platform for Complex Network Analysis and Visualization",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://developers.google.com/machine-learning/crash-course",
+      "final_url": "https://developers.google.com/machine-learning/crash-course",
+      "title": "Machine Learning | Google for Developers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://developers.google.com/machine-learning/gan",
+      "final_url": "https://developers.google.com/machine-learning/gan",
+      "title": "Introduction | Machine Learning | Google for Developers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://developers.google.com/machine-learning/guides/good-data-analysis",
+      "final_url": "https://developers.google.com/machine-learning/guides/good-data-analysis",
+      "title": "Good Data Analysis | Machine Learning | Google for Developers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://developers.google.com/machine-learning/guides/rules-of-ml",
+      "final_url": "https://developers.google.com/machine-learning/guides/rules-of-ml",
+      "title": "Rules of Machine Learning: | Google for Developers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://direct.mit.edu/books/book/3168/chapter/87392/learning-to-rank-with-nonsmooth-cost-functions",
+      "final_url": "https://direct.mit.edu/books/book/3168/chapter/87392/learning-to-rank-with-nonsmooth-cost-functions",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://dl.acm.org/citation.cfm?id=2488393%29",
+      "final_url": "https://dl.acm.org/citation.cfm?id=2488393%29",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://dl.acm.org/doi/10.1145/3640457.3688039",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688039",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://dl.acm.org/doi/pdf/10.1145/3394486.3403226",
+      "final_url": "https://dl.acm.org/doi/pdf/10.1145/3394486.3403226",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://doi.org/10.1145/3640457.3688030",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688030",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://doi.org/10.1145/3640457.3688033",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688033",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://doi.org/10.1145/3640457.3688036",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688036",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://doi.org/10.1145/3640457.3688056",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688056",
+      "title": "Towards Understanding The Gaps of Offline And Online Evaluation Metrics: Impact of Series vs. Movie Recommendations | Proceedings of the 18th ACM Conference on Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://doi.org/10.1145/3640457.3688057",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688057",
+      "title": "Bootstrapping Conditional Retrieval for User-to-Item Recommendations | Proceedings of the 18th ACM Conference on Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://drive.google.com/file/d/1cUxKspEXgQ64s4OFEw0kabf_qNauOPiH/view",
+      "final_url": "https://drive.google.com/file/d/1cUxKspEXgQ64s4OFEw0kabf_qNauOPiH/view",
+      "title": "LLM Interview Questions.pdf",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://dvc.org/",
+      "final_url": "https://dvc.org/",
+      "title": "Home – DVC",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://dynabench.org/",
+      "final_url": "https://dynabench.org/",
+      "title": "Dynabench",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://econ.trib.al/UG6UiOO",
+      "final_url": "https://www.economist.com/interactive/business/2025/06/16/corporate-culture?utm_campaign=editorial-social&utm_content=discovery.content&utm_medium=social-media.content.np&utm_source=facebook",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://ehudreiter.com/2020/02/06/cheat-by-overfitting-test-data/",
+      "final_url": "https://ehudreiter.com/2020/02/06/cheat-by-overfitting-test-data/",
+      "title": "Do people “cheat” by overfitting test data",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ehudreiter.com/2020/10/20/could-nlg-systems-injure-or-even-kill-people/",
+      "final_url": "https://ehudreiter.com/2020/10/20/could-nlg-systems-injure-or-even-kill-people/",
+      "title": "Could NLG systems injure or even kill people?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://elysia.weaviate.io",
+      "final_url": "https://elysia.weaviate.io/",
+      "title": "Elysia",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/gradient-boosting/index.html",
+      "final_url": "https://explained.ai/gradient-boosting/index.html",
+      "title": "How to explain gradient boosting",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/matrix-calculus/index.html",
+      "final_url": "https://explained.ai/matrix-calculus/index.html",
+      "title": "The Matrix Calculus You Need For Deep Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/regularization/index.html",
+      "final_url": "https://explained.ai/regularization/index.html",
+      "title": "A visual explanation for regularization of linear models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/rf-importance/index.html",
+      "final_url": "https://explained.ai/rf-importance/index.html",
+      "title": "Beware Default Random Forest Importances",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/rnn/index.html",
+      "final_url": "https://explained.ai/rnn/index.html",
+      "title": "Explaining RNNs without neural networks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://explained.ai/tensor-sensor/index.html",
+      "final_url": "https://explained.ai/tensor-sensor/index.html",
+      "title": "Clarifying exceptions and visualizing tensor operations in deep learning code",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://gephi.org/",
+      "final_url": "https://gephi.org/",
+      "title": "Gephi - The Open Graph Viz Platform",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://getfluently.app",
+      "final_url": "https://getfluently.app/",
+      "title": "Speak like you mean it",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/EpistasisLab/tpot",
+      "final_url": "https://github.com/EpistasisLab/tpot",
+      "title": "GitHub - EpistasisLab/tpot: A Python Automated Machine Learning tool that optimizes machine learning pipelines using genetic programming.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/OpenPipe/ART",
+      "final_url": "https://github.com/OpenPipe/ART",
+      "title": "GitHub - OpenPipe/ART: Agent Reinforcement Trainer: train multi-step agents for real-world tasks using GRPO. Give your agents on-the-job training. Reinforcement learning for Qwen3.6, GPT-OSS, Llama, and more!",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/QData/TextAttack",
+      "final_url": "https://github.com/QData/TextAttack",
+      "title": "GitHub - QData/TextAttack: TextAttack 🐙 is a Python framework for adversarial attacks, data augmentation, and model training in NLP https://textattack.readthedocs.io/en/master/",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/Shubhamsaboo/awesome-llm-apps",
+      "final_url": "https://github.com/Shubhamsaboo/awesome-llm-apps",
+      "title": "GitHub - Shubhamsaboo/awesome-llm-apps: 100+ AI Agents, Agent Skills and RAG Apps - Free and Open Source.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/alibaba/ROLL",
+      "final_url": "https://github.com/alibaba/ROLL",
+      "title": "GitHub - alibaba/ROLL: An Efficient and User-Friendly Scaling Library for Reinforcement Learning with Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/chiphuyen/aie-book/blob/main/resources.md",
+      "final_url": "https://github.com/chiphuyen/aie-book/blob/main/resources.md",
+      "title": "aie-book/resources.md at main · chiphuyen/aie-book",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/jason718/awesome-self-supervised-learning",
+      "final_url": "https://github.com/jason718/awesome-self-supervised-learning",
+      "title": "GitHub - jason718/awesome-self-supervised-learning: A curated list of awesome self-supervised methods",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/jasonwei20/eda_nlp",
+      "final_url": "https://github.com/jasonwei20/eda_nlp",
+      "title": "GitHub - jasonwei20/eda_nlp: Data augmentation for NLP, presented at EMNLP 2019",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/kevinwu23/StanfordFineTuneBench",
+      "final_url": "https://github.com/kevinwu23/StanfordFineTuneBench",
+      "title": "GitHub - kevinwu23/StanfordFineTuneBench",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/llmgenai/LLMInterviewQuestions/tree/main",
+      "final_url": "https://github.com/llmgenai/LLMInterviewQuestions/tree/main",
+      "title": "GitHub - llmgenai/LLMInterviewQuestions: This repository contains LLM (Large language model) interview question asked in top companies like Google, Nvidia , Meta , Microsoft & fortune 500 companies.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/mbzuai-oryx/Awesome-LLM-Post-training",
+      "final_url": "https://github.com/mbzuai-oryx/Awesome-LLM-Post-training",
+      "title": "GitHub - mbzuai-oryx/Awesome-LLM-Post-training: Awesome Reasoning LLM Tutorial/Survey/Guide",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/microsoft/OmniParser",
+      "final_url": "https://github.com/microsoft/OmniParser",
+      "title": "GitHub - microsoft/OmniParser: A simple screen parsing tool towards pure vision based GUI agent",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/mrdbourke/airbnb-amenity-detection",
+      "final_url": "https://github.com/mrdbourke/airbnb-amenity-detection",
+      "title": "GitHub - mrdbourke/airbnb-amenity-detection: Repo for 42 days project to replicate/improve Airbnb's amenity (object) detection pipeline.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/rasbt/LLMs-from-scratch?tab=readme-ov-file#bonus-material",
+      "final_url": "https://github.com/rasbt/LLMs-from-scratch?tab=readme-ov-file#bonus-material",
+      "title": "GitHub - rasbt/LLMs-from-scratch: Implement a ChatGPT-like LLM in PyTorch from scratch, step by step",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/ryanjgallagher/shifterator",
+      "final_url": "https://github.com/ryanjgallagher/shifterator",
+      "title": "GitHub - ryanjgallagher/shifterator: Interpretable data visualizations for understanding how texts differ at the word level",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/scikit-learn-contrib/imbalanced-learn",
+      "final_url": "https://github.com/scikit-learn-contrib/imbalanced-learn",
+      "title": "GitHub - scikit-learn-contrib/imbalanced-learn: A Python Package to Tackle the Curse of Imbalanced Datasets in Machine Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/varungodbole/prompt-tuning-playbook",
+      "final_url": "https://github.com/varungodbole/prompt-tuning-playbook",
+      "title": "GitHub - varungodbole/prompt-tuning-playbook: A playbook for effectively prompting post-trained LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://github.com/yaotingwangofficial/Awesome-MCoT",
+      "final_url": "https://github.com/yaotingwangofficial/Awesome-MCoT",
+      "title": "GitHub - yaotingwangofficial/Awesome-MCoT: Multimodal Chain-of-Thought Reasoning: A Comprehensive Survey",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://goo.gle/3XOO5sF",
+      "final_url": "https://research.google/blog/geospatial-reasoning-unlocking-insights-with-generative-ai-and-multiple-foundation-models/",
+      "title": "Geospatial Reasoning: Unlocking insights with generative AI and multiple foundation models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://goo.gle/42jJVKK",
+      "final_url": "https://sites.research.google/gr/geospatial-reasoning/",
+      "title": "Geospatial Reasoning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://goo.gle/4j9hkir",
+      "final_url": "https://forms.gle/qxqdMoB3gkbnxKrVA",
+      "title": null,
+      "reason": "destination-not-found",
+      "error": "shortener chain did not expose a final destination (the last link may be expired)"
+    },
+    {
+      "source_url": "https://graphdeeplearning.github.io/post/transformers-are-gnns/",
+      "final_url": "https://graphdeeplearning.github.io/post/transformers-are-gnns/",
+      "title": "Transformers are Graph Neural Networks | NTU Graph Deep Learning Lab",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://graphviz.org/",
+      "final_url": "https://graphviz.org/",
+      "title": "Graphviz",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://hubs.la/Q03fjNy90",
+      "final_url": "https://arxiv.org/abs/2503.21676?utm_campaign=9062674-Social%20Media%20Marketing&utm_content=329090827&utm_medium=social&utm_source=facebook&hss_channel=fbp-236305876563528",
+      "title": "How do language models learn facts? Dynamics, curricula and hallucinations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://hubs.la/Q03pKTVD0",
+      "final_url": "https://datasciencedojo.com/llm-bootcamp/",
+      "title": "LLM bootcamp | In-person and online | Data Science Dojo",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://hubs.la/Q03qVs4w0",
+      "final_url": "https://datasciencedojo.com/llm-bootcamp/",
+      "title": "LLM bootcamp | In-person and online | Data Science Dojo",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://hubs.li/Q03sRFkL0",
+      "final_url": "https://genai.works/mcp-servers?utm_campaign=14435928-%5BLIVE%5D-CAMP-PUBLIC_EXTERNAL-TOBO-LI-MCP_SERVICES_PUSH-2025_06&utm_content=335887231&utm_medium=social&utm_source=linkedin&hss_channel=lcp-70502230",
+      "title": "MCP Servers Directory | GenAI Works",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://hubstafftalent.net",
+      "final_url": "https://hubstafftalent.net/",
+      "title": "Hire Freelancers & Remote Workers For Free",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://huggingface.co/PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct",
+      "final_url": "https://huggingface.co/PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct",
+      "title": "PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct · Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://huggingface.co/infgrad/dewey_en_beta",
+      "final_url": "https://huggingface.co/infgrad/dewey_en_beta",
+      "title": "infgrad/dewey_en_beta · Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://huggingface.co/microsoft/OmniParser-v2.0",
+      "final_url": "https://huggingface.co/microsoft/OmniParser-v2.0",
+      "title": "microsoft/OmniParser-v2.0 · Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ieeexplore.ieee.org/document/8486793/",
+      "final_url": "https://ieeexplore.ieee.org/document/8486793/",
+      "title": "JavaScript is disabled",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://insights-workshop.github.io/",
+      "final_url": "https://insights-workshop.github.io/2026/",
+      "title": "2026",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://jax-ml.github.io/scaling-book/",
+      "final_url": "https://jax-ml.github.io/scaling-book/",
+      "title": "How to Scale Your Model",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://landscape.pytorch.org/",
+      "final_url": "https://landscape.pytorch.org/",
+      "title": "PyTorch Landscape",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://learning.oreilly.com/library/view/deep-reinforcement-learning/9781617295430/",
+      "final_url": "https://www.oreilly.com/library/view/deep-reinforcement-learning/9781617295430/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://learning.oreilly.com/library/view/reinforcement-learning/9781492072386/",
+      "final_url": "https://www.oreilly.com/library/view/reinforcement-learning/9781492072386/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://learning.oreilly.com/playlists/a41b2b9c-49bf-4c48-822b-c11d95973218/",
+      "final_url": "https://learning.oreilly.com/playlists/a41b2b9c-49bf-4c48-822b-c11d95973218/",
+      "title": "Expert Playlist: Reinforcement Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://levelup.gitconnected.com/qwen-3-mathematical-reasoning-fine-tuning-with-grpo-technique-1-2adc7d3fee20",
+      "final_url": "https://levelup.gitconnected.com/qwen-3-mathematical-reasoning-fine-tuning-with-grpo-technique-1-2adc7d3fee20",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/",
+      "final_url": "https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/",
+      "title": "The Transformer Family Version 2.0",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://limit-of-rlvr.github.io/",
+      "final_url": "https://limit-of-rlvr.github.io/",
+      "title": "Limit of RLVR",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://link.springer.com/book/10.1007/979-8-8688-1020-6",
+      "final_url": "https://link.springer.com/book/10.1007/979-8-8688-1020-6",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://linktr.ee/burkov",
+      "final_url": "https://linktr.ee/burkov",
+      "title": "Andriy Burkov Official: X | Linktree",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/d3uePWk2",
+      "final_url": "https://academy.openai.com/public/collections/sora-tutorials-2025-03-11?slugs=sora-tutorials-2025-03-11",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://lnkd.in/d8kGVA29",
+      "final_url": "https://www.deeplearning.ai/courses/generative-ai-for-everyone",
+      "title": "Generative AI for Everyoneㅤ",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/d9REmcqK",
+      "final_url": "https://aiengineering.beehiiv.com/subscribe",
+      "title": "AI Engineering",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dE66DbbA",
+      "final_url": "https://academy.openai.com/public/collections/chatgpt-at-work-2025-02-14?slugs=chatgpt-at-work-2025-02-14",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://lnkd.in/dFpn5j7U",
+      "final_url": "https://www.deeplearning.ai/courses/ai-python-for-beginners",
+      "title": "AI Python for Beginners",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dJ-dJY2q",
+      "final_url": "https://www.deeplearning.ai/courses/getting-started-with-mistral",
+      "title": "Getting Started with Mistral",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dQiQajaC",
+      "final_url": "https://www.deeplearning.ai/courses/multi-ai-agent-systems-with-crewai",
+      "title": "Multi AI Agent Systems with crewAI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dTvBKJGJ",
+      "final_url": "https://www.coursera.org/learn/fundamentals-of-ai-agents-using-rag-and-langchain",
+      "title": "Fundamentals of AI Agents Using RAG and LangChain",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dU8dxuJp",
+      "final_url": "https://www.deeplearning.ai/courses/ai-agentic-design-patterns-with-autogen",
+      "title": "AI Agentic Design Patterns with AutoGen",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dUf7gj7z",
+      "final_url": "https://www.deeplearning.ai/courses/chatgpt-building-system",
+      "title": "Building Systems with the ChatGPT API",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dZ3_4Dkb",
+      "final_url": "https://www.deeplearning.ai/courses/prompt-engineering-for-vision-models",
+      "title": "Prompt Engineering for Vision Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dfm_YPWa",
+      "final_url": "https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory",
+      "title": "LLMs as Operating Systems: Agent Memory",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dvW-VhGB",
+      "final_url": "https://academy.openai.com/public/collections/developer-build-hours-2025-03-20?slugs=developer-build-hours-2025-03-20",
+      "title": "Developer Build Hours | OpenAI Academy",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dvY3nzNx",
+      "final_url": "https://www.deeplearning.ai/courses/building-agentic-rag-with-llamaindex",
+      "title": "Building Agentic RAG with Llamaindex",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/dyeWMa72",
+      "final_url": "https://www.deeplearning.ai/courses/ai-agents-in-langgraph",
+      "title": "AI Agents in LangGraph",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/e-zCR3ft",
+      "final_url": "https://www.f5.com/glossary",
+      "title": "Glossary",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/e4AHNSeT",
+      "final_url": "https://redis.io/glossary/distributed-caching/",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://lnkd.in/e7reQ4VF",
+      "final_url": "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/",
+      "title": "What is a CDN? | Learning Center",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/e88kUZAm",
+      "final_url": "https://newsletter.systemdesign.one/p/cache-consistency",
+      "title": "How Meta Achieves 99.99999999% Cache Consistency 🎯",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eA4zYkjF",
+      "final_url": "https://www.pubnub.com/guides/websockets/",
+      "title": "What Are WebSockets?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eATMDjrK",
+      "final_url": "https://systemdesign.one/slack-architecture/",
+      "title": "Slack Architecture",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eC5Ek9_V",
+      "final_url": "https://github.com/yzhao062/pyod",
+      "title": "GitHub - yzhao062/pyod: A Python library for anomaly detection across tabular, time series, graph, text, image, and audio data. 60+ detectors, benchmark-backed ADEngine orchestration, and an agentic workflow for AI agents.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eDBATuux",
+      "final_url": "https://arxiv.org/abs/1803.03635",
+      "title": "The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eEQP6Apw",
+      "final_url": "https://newsletter.systemdesign.one/p/postgresql-scalability",
+      "title": "How Cloudflare Was Able to Support 55 Million Requests per Second With Only 15 Postgres Clusters",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eF_2KNKT",
+      "final_url": "https://www.mongodb.com/resources/products/capabilities/database-sharding-explained",
+      "title": "Database Sharding: Concepts & Examples",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eG3xPV-x",
+      "final_url": "https://www.enjoyalgorithms.com/blog/bloom-filter/",
+      "title": "Bloom Filter Introduction, Implementation and Application",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eGipZsDX",
+      "final_url": "https://arxiv.org/abs/2310.11441",
+      "title": "Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eGqxGAEz",
+      "final_url": "https://www.youtube.com/watch?v=jSdHmImyUjk&ab_channel=YannicKilcher",
+      "title": "JEPA - A Path Towards Autonomous Machine Intelligence (Paper Explained)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eGwaA62J",
+      "final_url": "https://systemdesign.one/distributed-counter-system-design/",
+      "title": "Distributed Counter System Design",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eHfXcnVs",
+      "final_url": "https://github.com/aburkov/theLMbook/blob/main/GRPO_Qwen_0_5_Instruct.ipynb",
+      "title": "theLMbook/GRPO_Qwen_0_5_Instruct.ipynb at main · aburkov/theLMbook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eKWwasEZ",
+      "final_url": "https://weaviate.io/blog/query-agent?utm_source=channels&utm_medium=vs_social&utm_campaign=agents&utm_content=honeypot_post_804092415",
+      "title": "Introducing the Weaviate Query Agent | Weaviate",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eKjcFfR6",
+      "final_url": "https://github.com/aburkov/theLMbook/blob/main/GRPO.py",
+      "title": "theLMbook/GRPO.py at main · aburkov/theLMbook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eM7Qv-rE",
+      "final_url": "https://github.com/stanford-oval/storm/",
+      "title": "GitHub - stanford-oval/storm: An LLM-powered knowledge curation system that researches a topic and generates a full-length report with citations.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ePxm6XxW",
+      "final_url": "https://huggingface.co/spaces/jadechoghari/ferret-demo",
+      "title": "Ferret Demo - a Hugging Face Space by jadechoghari",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eQc9FRjf",
+      "final_url": "https://www.spiceworks.com/tech/cloud/articles/horizontal-vs-vertical-cloud-scaling/",
+      "title": "Horizontal vs. Vertical Cloud Scaling: Key Differences and Similarities - Spiceworks",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eRBRtfk9",
+      "final_url": "https://martinfowler.com/articles/patterns-of-distributed-systems/heartbeat.html",
+      "title": "HeartBeat",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eRjNVAhU",
+      "final_url": "https://storm.genie.stanford.edu/",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://lnkd.in/eSYjuq-b",
+      "final_url": "https://blog.dreamfactory.com/what-is-idempotency",
+      "title": "Understanding Idempotency in APIs: Why It Matters and How DreamFactory Supports It",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eStETWQA",
+      "final_url": "https://medium.com/geekculture/design-patterns-for-microservices-circuit-breaker-pattern-276249ffab33",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/eSw7NBEs",
+      "final_url": "https://huggingface.co/blog/smolagents",
+      "title": "Introducing smolagents: simple agents that write actions in code.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eTZ5dHQx",
+      "final_url": "https://systemdesign.one/consistency-patterns/",
+      "title": "Consistency Patterns",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eTdqAhkx",
+      "final_url": "https://arxiv.org/abs/2402.14207",
+      "title": "Assisting in Writing Wikipedia-like Articles From Scratch with Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eU736g9Q",
+      "final_url": "https://newsletter.systemdesign.one/p/aws-scale",
+      "title": "How to Scale an App to 10 Million Users on AWS",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eUCxcXr2",
+      "final_url": "https://www.egnyte.com/guides/governance/data-redundancy",
+      "title": "Data Redundancy: Causes & Benefits I Egnyte",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eUrUJSBH",
+      "final_url": "https://arxiv.org/pdf/2309.04564",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://lnkd.in/eVCYxMZQ",
+      "final_url": "https://www.fortinet.com/resources/cyberglossary/proxy-server",
+      "title": "What is a Proxy Server? Definition, Uses & More | Fortinet",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eVeVWT3a",
+      "final_url": "https://medium.com/must-know-computer-science/system-design-message-queues-245612428a22",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/eWdwhGap",
+      "final_url": "https://aws.amazon.com/what-is/load-balancing/",
+      "title": "What is Load Balancing? - Load Balancing Algorithm Explained - AWS",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eXsuuthN",
+      "final_url": "https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html",
+      "title": "How to do distributed locking — Martin Kleppmann’s blog",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eZkyjptm",
+      "final_url": "https://medium.com/must-know-computer-science/system-design-caching-acbd1b02ca01",
+      "title": "System Design — Caching",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/e_8WKcDf",
+      "final_url": "https://huggingface.co/docs/transformers/main/en/model_doc/ijepa",
+      "title": "I-JEPA · Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ea8hcbqp",
+      "final_url": "https://newsletter.systemdesign.one/p/netflix-microservices",
+      "title": "Microservices Lessons From Netflix",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ebKcznNJ",
+      "final_url": "https://www.progress.com/tutorials/odbc/using-indexes",
+      "title": "How to Implement and Use Database Indexes",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ed4j8cfk",
+      "final_url": "https://www.lifewire.com/what-does-checksum-mean-2625825",
+      "title": "What Is a Checksum? Examples, Use Cases, and Calculators",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ed8yVjGp",
+      "final_url": "https://github.com/aburkov/theLMbook/blob/main/document_classifier_with_LLMs_as_labelers.ipynb",
+      "title": "theLMbook/document_classifier_with_LLMs_as_labelers.ipynb at main · aburkov/theLMbook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/edfTDq5R",
+      "final_url": "https://systemdesign.one/leaderboard-system-design/",
+      "title": "Leaderboard System Design",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eeqH9Hjh",
+      "final_url": "https://newsletter.systemdesign.one/p/how-does-uber-find-nearby-drivers",
+      "title": "How Uber Finds Nearby Drivers at 1 Million Requests per Second",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/efmJw4Dx",
+      "final_url": "https://newsletter.systemdesign.one/p/vitess-mysql",
+      "title": "How YouTube Was Able to Support 2.49 Billion Users With MySQL",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/efnSvwJp",
+      "final_url": "https://newsletter.systemdesign.one/p/cloud-spanner-database",
+      "title": "How Google Ads Was Able to Support 4.77 Billion Users With a SQL Database 🔥",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eftew-CE",
+      "final_url": "https://avinetworks.com/glossary/failover/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://lnkd.in/egFC33Zk",
+      "final_url": "https://thenewstack.io/techniques-for-scaling-applications-with-a-database/",
+      "title": "Techniques for Scaling Applications with a Database",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ehZjnuWx",
+      "final_url": "https://redis.io/blog/what-is-data-replication/",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://lnkd.in/ejXFjXGv",
+      "final_url": "https://ai.meta.com/blog/yann-lecun-ai-model-i-jepa/",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 400"
+    },
+    {
+      "source_url": "https://lnkd.in/ekJMjMG3",
+      "final_url": "https://newsletter.systemdesign.one/p/redis-use-cases",
+      "title": "Why Is Redis a Distributed Swiss Army Knife 💭",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/emMXTfjg",
+      "final_url": "https://openreview.net/challenge?redirect=%2Fforum%3Fid%3DBZ5a1r-kVsf",
+      "title": "Verifying your browser | OpenReview",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/en65fv-W",
+      "final_url": "https://newsletter.systemdesign.one/p/tinder-architecture",
+      "title": "How Tinder Scaled to 1.6 Billion Swipes per Day",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/erMkqwq4",
+      "final_url": "https://newsletter.systemdesign.one/p/idempotent-api",
+      "title": "How Stripe Prevents Double Payment Using Idempotent API",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/es6vJwit",
+      "final_url": "https://www.integrate.io/blog/the-sql-vs-nosql-difference/",
+      "title": "SQL vs NoSQL: 5 Critical Differences",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/es8Fp7Q5",
+      "final_url": "https://www.cloudflare.com/learning/dns/what-is-dns/",
+      "title": "What is DNS? | Learning Center",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/esPBGJ3a",
+      "final_url": "https://huggingface.co/blog/modernbert",
+      "title": "Finally, a Replacement for BERT: Introducing ModernBERT",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/euFmXyGS",
+      "final_url": "https://github.com/huggingface/smolagents",
+      "title": "GitHub - huggingface/smolagents: 🤗 smolagents: a barebones library for agents that think in code.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/eutGiK35",
+      "final_url": "https://newsletter.systemdesign.one/p/amazon-s3-durability",
+      "title": "How Amazon S3 Achieves 99.999999999% Durability",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/evFTZVQq",
+      "final_url": "https://systemdesign.one/url-shortening-system-design/",
+      "title": "URL Shortening System Design",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/evTZuSbi",
+      "final_url": "https://github.com/virattt/ai-hedge-fund",
+      "title": "GitHub - virattt/ai-hedge-fund: An AI Hedge Fund Team",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/exevmWrH",
+      "final_url": "https://huggingface.co/models?search=ferret-ui",
+      "title": "Models – Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g-F3Ayab",
+      "final_url": "https://arxiv.org/abs/2304.09842",
+      "title": "Chameleon: Plug-and-Play Compositional Reasoning with Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g-ym8Qhe",
+      "final_url": "https://www.kaggle.com/whitepaper-agent-companion",
+      "title": "Agents Companion",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g26KNXfb",
+      "final_url": "https://github.com/chiphuyen/dmls-book",
+      "title": "GitHub - chiphuyen/dmls-book: Summaries and resources for Designing Machine Learning Systems book (Chip Huyen, O'Reilly 2022)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g2ACr56Q",
+      "final_url": "https://hackernoon.com/eventual-vs-strong-consistency-in-distributed-databases-282fdad37cf7",
+      "title": "Eventual vs Strong Consistency in Distributed Databases | HackerNoon",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g3EYA3nz",
+      "final_url": "https://www.datadoghq.com/knowledge-center/serverless-architecture/",
+      "title": "What is Serverless Architecture? | Datadog",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g3T7Q-9n",
+      "final_url": "https://github.com/DovAmir/awesome-design-patterns",
+      "title": "GitHub - DovAmir/awesome-design-patterns: A curated list of software and architecture related design patterns.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g3ZaMAYZ",
+      "final_url": "https://arxiv.org/abs/2407.21783",
+      "title": "The Llama 3 Herd of Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g3ZuAVqr",
+      "final_url": "https://eugeneyan.com/writing/real-time-recommendations/",
+      "title": "Real-time Machine Learning For Recommendations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g57WvPqc",
+      "final_url": "https://www.payscale.com/for-individuals",
+      "title": "What Should You Be Paid? Salary and Wages | Payscale",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g5HHZrJK",
+      "final_url": "https://github.com/NirDiamant/GenAI_Agents",
+      "title": "GitHub - NirDiamant/GenAI_Agents: 50+ tutorials and implementations for Generative AI Agent techniques, from basic conversational bots to complex multi-agent systems.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g5q9XUtc",
+      "final_url": "https://arxiv.org/abs/2406.03689",
+      "title": "Evaluating the World Model Implicit in a Generative Model",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g6Qw-tdE",
+      "final_url": "https://www.kickresume.com/en/ai-cover-letter-writer/",
+      "title": "Best AI Cover Letter Generator | Free to Try",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g6SAWv33",
+      "final_url": "https://eugeneyan.com/writing/recsys-llm/",
+      "title": "Improving Recommendation Systems & Search in the Age of LLMs",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g7_kspz4",
+      "final_url": "https://docs.google.com/document/d/1rqj7dkuvl7Byd5KQPUJRxc19BJt8wo0yHNwK84KfU3Q/edit",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 401"
+    },
+    {
+      "source_url": "https://lnkd.in/g7qRV4Fn",
+      "final_url": "https://engineering.grab.com/llm-powered-data-classification",
+      "title": "LLM-powered data classification for data entities at scale",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g96g3RZM",
+      "final_url": "https://www.amazon.com/LLM-Engineers-Handbook-engineering-production/dp/1836200072/",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9Kxa7hG",
+      "final_url": "https://addyo.substack.com/p/the-prompt-engineering-playbook-for",
+      "title": "The Prompt Engineering Playbook for Programmers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9SkerVi",
+      "final_url": "https://github.com/patchy631/ai-engineering-hub/tree/main/llama-4-rag",
+      "title": "ai-engineering-hub/llama-4-rag at main · patchy631/ai-engineering-hub",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9TWPHYV",
+      "final_url": "https://www.amazon.com/Hands-Large-Language-Models-Understanding/dp/1098150961/",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9e-kHxF",
+      "final_url": "https://www.deeplearning.ai/courses/building-agentic-rag-with-llamaindex",
+      "title": "Building Agentic RAG with Llamaindex",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/g9hQrKQR",
+      "final_url": "https://arxiv.org/abs/2410.05229",
+      "title": "GSM-Symbolic: Understanding the Limitations of Mathematical Reasoning in Large Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gAbRbdHT",
+      "final_url": "https://microsoft.github.io/autogen/dev/user-guide/agentchat-user-guide/index.html",
+      "title": "AgentChat — AutoGen",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gAqV6bpb",
+      "final_url": "https://eugeneyan.com/writing/reinforcement-learning-for-recsys-and-search/",
+      "title": "Reinforcement Learning for Recommendations and Search",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gBKHzqAe",
+      "final_url": "https://atlan.com/batch-processing-vs-stream-processing/",
+      "title": "Batch Processing vs Stream Processing: Key Differences for 2026",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gBKdKCZE",
+      "final_url": "https://eugeneyan.com/writing/patterns-for-personalization/",
+      "title": "Patterns for Personalization in Recommendations and Search",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gCJc8jiT",
+      "final_url": "https://github.com/nilbuild/developer-roadmap",
+      "title": "GitHub - nilbuild/developer-roadmap: Interactive roadmaps, guides and other educational content to help developers grow in their careers.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gCRhKTYH",
+      "final_url": "https://arxiv.org/pdf/2309.07864",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://lnkd.in/gD44Yfuh",
+      "final_url": "https://arxiv.org/abs/2306.08121",
+      "title": "Better Generalization with Semantic IDs: A Case Study in Ranking for Recommendations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gDM7VWcu",
+      "final_url": "https://github.com/Sumanth077/Hands-On-AI-Engineering",
+      "title": "GitHub - Sumanth077/Hands-On-AI-Engineering: A curated collection of practical AI projects implementing OCR systems, RAG, AI agents, and other AI use cases.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gDavx_Nz",
+      "final_url": "https://arxiv.org/abs/2303.16634",
+      "title": "G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gDp4pX32",
+      "final_url": "https://github.com/aishwaryanr/awesome-generative-ai-guide?utm_source=linkedin",
+      "title": "GitHub - aishwaryanr/awesome-generative-ai-guide: A one stop repository for generative AI research updates, interview resources, notebooks and much more!",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gDt3Sknr",
+      "final_url": "https://github.com/dair-ai/Prompt-Engineering-Guide",
+      "title": "GitHub - dair-ai/Prompt-Engineering-Guide: 🐙 Guides, papers, lessons, notebooks and resources for prompt engineering, context engineering, RAG, and AI Agents.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gEVW2wXf",
+      "final_url": "https://github.com/Olshansk/interview",
+      "title": "GitHub - Olshansk/interview: Everything you need to prepare for your technical interview",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gEYj_ZGZ",
+      "final_url": "https://github.com/TheAlgorithms?trk=public_post_comment-text",
+      "title": "The Algorithms",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gE_dMbYa",
+      "final_url": "https://www.deeplearning.ai/courses/ai-agentic-design-patterns-with-autogen",
+      "title": "AI Agentic Design Patterns with AutoGen",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gF3zKHMf",
+      "final_url": "https://medium.com/pinterest-engineering/how-we-built-text-to-sql-at-pinterest-30bad30dabff",
+      "title": "How we built Text-to-SQL at Pinterest",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gFDBfhJm",
+      "final_url": "https://aws.amazon.com/blogs/machine-learning/how-amazon-finance-automation-built-a-generative-ai-qa-chat-assistant-using-amazon-bedrock/",
+      "title": "How Amazon Finance Automation built a generative AI Q&A chat assistant using Amazon Bedrock | Amazon Web Services",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gFmhrpzW",
+      "final_url": "https://github.com/mtdvio/every-programmer-should-know",
+      "title": "GitHub - mtdvio/every-programmer-should-know: A collection of (mostly) technical things every software developer should know about",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gGithBVP",
+      "final_url": "https://github.com/microsoft/ML-For-Beginners",
+      "title": "GitHub - microsoft/ML-For-Beginners: 12 weeks, 26 lessons, 52 quizzes, classic Machine Learning for all",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gHPtcyPY",
+      "final_url": "https://www.dailydoseofds.com/p/multimodal-rag-using-deepseeks-janus/",
+      "title": "[Hands-on] Multimodal RAG using DeepSeek's Janus",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gHmfzjN4",
+      "final_url": "https://eugeneyan.com/writing/search-query-matching/",
+      "title": "Search: Query Matching via Lexical, Graph, and Embedding Methods",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gJ9i6p-E",
+      "final_url": "https://gitlab.aicrowd.com/jiazunchen/kdd2024cup-crag-db3",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 503"
+    },
+    {
+      "source_url": "https://lnkd.in/gJc6CP3z",
+      "final_url": "https://huyenchip.com/2025/01/07/agents.html",
+      "title": "Agents",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gMRgd68d",
+      "final_url": "https://www.amazon.com/Build-Large-Language-Model-Scratch/dp/1633437167/",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gNTftgsa",
+      "final_url": "https://www.youtube.com/watch?v=lP1Pdu8HrVY&t=63s&ab_channel=DesigningWithAI",
+      "title": "The New OpenAI Agents SDK (Compared with AutoGen!)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gRvrCkSh",
+      "final_url": "https://arxiv.org/abs/2404.16130",
+      "title": "From Local to Global: A Graph RAG Approach to Query-Focused Summarization",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gSBsmijw",
+      "final_url": "https://aws.amazon.com/compare/the-difference-between-throughput-and-latency/",
+      "title": "Throughput vs Latency - Difference Between Computer Network Performances - AWS",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gTJpMh6D",
+      "final_url": "https://github.com/jwasham/coding-interview-university",
+      "title": "GitHub - jwasham/coding-interview-university: A complete computer science study plan to become a software engineer.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gUP2-j7m",
+      "final_url": "https://github.com/mlabonne/llm-course?utm_source=linkedin",
+      "title": "GitHub - mlabonne/llm-course: Course to get into Large Language Models (LLMs) with roadmaps and Colab notebooks.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gUPJmWNM",
+      "final_url": "https://github.com/mlabonne/llm-course",
+      "title": "GitHub - mlabonne/llm-course: Course to get into Large Language Models (LLMs) with roadmaps and Colab notebooks.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gUcVEhUx",
+      "final_url": "https://medium.com/@sourabhatta1819/consensus-in-distributed-system-ac79f8ba2b8c",
+      "title": "Consensus in Distributed System",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gV7NunUD",
+      "final_url": "https://www.bmc.com/blogs/cap-theorem/",
+      "title": "CAP Theorem Explained: Consistency, Availability & Partition Tolerance",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gVm5gmv7",
+      "final_url": "https://github.com/microsoft/ai-agents-for-beginners",
+      "title": "GitHub - microsoft/ai-agents-for-beginners: 18 Lessons to Get Started Building AI Agents",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gW7F4X82",
+      "final_url": "https://eugeneyan.com/writing/bandits/",
+      "title": "Bandits for Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gWD-TE-3",
+      "final_url": "https://huggingface.co/collections/tianzhechu/sftvsrl-models-and-data",
+      "title": "SFTvsRL Models & Data - a tianzhechu Collection",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gWS9gqcE",
+      "final_url": "https://arxiv.org/abs/1906.00080",
+      "title": "Gmail Smart Compose: Real-Time Assisted Writing",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gXMe_x3r",
+      "final_url": "https://tianzhechu.com/SFTvsRL/",
+      "title": "SFT Memorizes, RL Generalizes",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gYZ8Acth",
+      "final_url": "https://www.techtarget.com/it-infrastructure/tip/Synchronous-vs-asynchronous-communication-The-differences",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://lnkd.in/gYuRU2tJ",
+      "final_url": "https://github.com/Significant-Gravitas/AutoGPT?utm_source=linkedin",
+      "title": "GitHub - Significant-Gravitas/AutoGPT: AutoGPT is the vision of accessible AI for everyone, to use and to build on. Our mission is to provide the tools, so that you can focus on what matters.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gZ9pqeia",
+      "final_url": "https://grow.google/intl/uk/",
+      "title": "Training & Tools to Grow Your Business or Career, from Google- Grow with Google",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ga5FJuH2",
+      "final_url": "https://www.dynatrace.com/knowledge-base/distributed-tracing/",
+      "title": "What is Distributed tracing?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gaCVWBJM",
+      "final_url": "https://arpitbhayani.me/blogs/consistent-hashing/",
+      "title": "Consistent Hashing - What It Is and How to Implement It",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gaEFnU_g",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688047",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/gaRKcrh2",
+      "final_url": "https://www.ziprecruiter.com/Search-Jobs-Near-Me",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/gaiZgzpA",
+      "final_url": "https://github.com/NirDiamant/GenAI_Agents",
+      "title": "GitHub - NirDiamant/GenAI_Agents: 50+ tutorials and implementations for Generative AI Agent techniques, from basic conversational bots to complex multi-agent systems.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gan-X6nU",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688098",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/gbXxR4Dp",
+      "final_url": "https://arxiv.org/abs/2210.03629",
+      "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gbcJYqmb",
+      "final_url": "https://github.com/patchy631/ai-engineering-hub/tree/main/DeepSeek-finetuning",
+      "title": "ai-engineering-hub/DeepSeek-finetuning at main · patchy631/ai-engineering-hub",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gcCxjKAa",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688062",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/ge6xqTRQ",
+      "final_url": "https://huggingface.co/learn/cookbook/en/advanced_rag",
+      "title": "Advanced RAG on Hugging Face documentation using LangChain · Hugging Face",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gee7cvya",
+      "final_url": "https://arxiv.org/abs/2405.11441",
+      "title": "EmbSum: Leveraging the Summarization Capabilities of Large Language Models for Content-Based Recommendations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gfZ-q3b5",
+      "final_url": "https://arxiv.org/pdf/2501.17161v1",
+      "title": "SFT Memorizes, RL Generalizes: A Comparative Study of Foundation Model Post-training",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gfkzKZYk",
+      "final_url": "https://aiengineering.beehiiv.com/",
+      "title": "AI Engineering",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gfszwHb5",
+      "final_url": "https://arxiv.org/abs/2310.19453",
+      "title": "FLIP: Fine-grained Alignment between ID-based Models and Pretrained Language Models for CTR Prediction",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ggqQaUwm",
+      "final_url": "https://www.amazon.com/AI-Engineering-Building-Applications-Foundation/dp/1098166302/",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ggzdZVhM",
+      "final_url": "https://www.cockroachlabs.com/blog/what-is-fault-tolerance/",
+      "title": "What is fault tolerance, and how to build fault-tolerant systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gh5AMcE6",
+      "final_url": "https://arxiv.org/abs/2410.00005",
+      "title": "Winning Solution For Meta KDD Cup' 24",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ghNfhuy2",
+      "final_url": "https://www.dailydoseofds.com/p/building-a-100-local-mini-chatgpt/",
+      "title": "Building a 100% local mini-ChatGPT",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/ghcbQySg",
+      "final_url": "https://abdulrwahab.medium.com/api-architecture-best-practices-for-designing-rest-apis-bf907025f5f",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/ghcxpVXd",
+      "final_url": "https://www.kaggle.com/whitepaper-agents",
+      "title": "Agents",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gi6xKmDc",
+      "final_url": "https://join.dailydoseofds.com/",
+      "title": "DailyDoseofDS MCP PDF",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gjkrHkGu",
+      "final_url": "https://www.imperva.com/learn/application-security/rate-limiting/",
+      "title": "What is Rate Limiting | Types & Algorithms | Imperva",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gjvwKZmC",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688031",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/gkhBGRTC",
+      "final_url": "https://arxiv.org/abs/2409.10309",
+      "title": "beeFormer: Bridging the Gap Between Semantic and Interaction Similarity in Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gm-3GNYC",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688035",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://lnkd.in/gmGng6_m",
+      "final_url": "https://github.com/NirDiamant/GenAI_Agents?utm_source=linkedin",
+      "title": "GitHub - NirDiamant/GenAI_Agents: 50+ tutorials and implementations for Generative AI Agent techniques, from basic conversational bots to complex multi-agent systems.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gmZX8gHG",
+      "final_url": "https://arxiv.org/abs/2408.10394",
+      "title": "Joint Modeling of Search and Recommendations Via an Unified Contextual Recommender (UniCoRn)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gmgtwpjf",
+      "final_url": "https://www.deeplearning.ai/courses/ai-agents-in-langgraph",
+      "title": "AI Agents in LangGraph",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gmiUe-nv",
+      "final_url": "https://arxiv.org/abs/2410.10934",
+      "title": "Agent-as-a-Judge: Evaluate Agents with Agents",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gmihrZZt",
+      "final_url": "https://newsletter.victordibia.com/p/a-friendly-introduction-to-the-autogen",
+      "title": "A Friendly Introduction to the AutoGen Framework (v0.4 API)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gmwpV865",
+      "final_url": "https://github.com/yangshun/tech-interview-handbook",
+      "title": "GitHub - yangshun/tech-interview-handbook: Curated coding interview preparation materials for busy software engineers",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gn2RhT_m",
+      "final_url": "https://github.com/GokuMohandas/Made-With-ML",
+      "title": "GitHub - GokuMohandas/Made-With-ML: Learn how to develop, deploy and iterate on production-grade ML applications.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gnpcDUBD",
+      "final_url": "https://arxiv.org/abs/2410.16823",
+      "title": "Bridging Search and Recommendation in Generative Retrieval: Does One Task Help the Other?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gnq6efUq",
+      "final_url": "https://dl.acm.org/doi/10.1145/3640457.3688043",
+      "title": "Leveraging LLM generated labels to reduce bad matches in job recommendations | Proceedings of the 18th ACM Conference on Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gnwhsN84",
+      "final_url": "https://www.dailydoseofds.com/p/rag-over-audio-files/",
+      "title": "[Hands-on] RAG over audio files",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gpQMxV9u",
+      "final_url": "https://redis.io/glossary/acid-transactions/",
+      "title": null,
+      "reason": "response-too-large",
+      "error": "response exceeded 2097152 bytes"
+    },
+    {
+      "source_url": "https://lnkd.in/gpvPemeG",
+      "final_url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models",
+      "title": "GitHub - HandsOnLLM/Hands-On-Large-Language-Models: Official code repo for the O'Reilly Book - \"Hands-On Large Language Models\"",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gq2N7AUb",
+      "final_url": "https://arxiv.org/abs/2211.05102",
+      "title": "Efficiently Scaling Transformer Inference",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gqr5uQqg",
+      "final_url": "https://docs.google.com/spreadsheets/d/19jzLgRruG9kjUQNKtCg1ZjdD6l6weA6qRXG5zLIAhC8/edit",
+      "title": "[Make a Copy] Anthropic's Prompt Engineering Interactive Tutorial [PUBLIC ACCESS]",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/grVdK9X5",
+      "final_url": "https://github.com/donnemartin/system-design-primer",
+      "title": "GitHub - donnemartin/system-design-primer: Learn how to design large-scale systems. Prep for the system design interview. Includes Anki flashcards.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/grpEFGfD",
+      "final_url": "https://cloud.google.com/learn/what-is-disaster-recovery",
+      "title": "What is Disaster Recovery?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gs-KZ-_8",
+      "final_url": "https://www.dailydoseofds.com/p/corrective-rag-agentic-workflow/",
+      "title": "Corrective RAG Agentic Workflow",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gs7htCMG",
+      "final_url": "https://aws.amazon.com/compare/the-difference-between-rpc-and-rest/",
+      "title": "RPC vs REST - Difference Between API Architectures - AWS",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gsRf2Sw6",
+      "final_url": "https://www.linkedin.com/blog/engineering/generative-ai/musings-on-building-a-generative-ai-product",
+      "title": "Musings on Building a Generative AI Product",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gsTk5nXx",
+      "final_url": "https://github.com/aishwaryanr/awesome-generative-ai-guide",
+      "title": "GitHub - aishwaryanr/awesome-generative-ai-guide: A one stop repository for generative AI research updates, interview resources, notebooks and much more!",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gsfXeXH3",
+      "final_url": "https://www.deeplearning.ai/courses/multi-ai-agent-systems-with-crewai",
+      "title": "Multi AI Agent Systems with crewAI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gsp9jsdn",
+      "final_url": "https://www.dailydoseofds.com/mcp-powered-agentic-rag/",
+      "title": "MCP-powered Agentic RAG",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gt84khQG",
+      "final_url": "https://www.f5.com/products/nginx",
+      "title": "F5 NGINX: Built for cloud-native apps. Ready for AI traffic.",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/guGNA7hK",
+      "final_url": "https://www.dailydoseofds.com/p/build-a-reasoning-model-like-deepseek-r1/",
+      "title": "Build a Reasoning Model Like DeepSeek-R1",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/guivZ_ve",
+      "final_url": "https://www.amazon.com/Hundred-Page-Language-Models-Book-hands/dp/1778042724/",
+      "title": "Amazon.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gvSSK-45",
+      "final_url": "https://github.com/alex/what-happens-when",
+      "title": "GitHub - alex/what-happens-when: An attempt to answer the age old interview question \"What happens when you type google.com into your browser and press enter?\"",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gvSWwTJ7",
+      "final_url": "https://incidentdatabase.ai/",
+      "title": "Welcome to the Artificial Intelligence Incident Database",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gvkckQGY",
+      "final_url": "https://highscalability.com/gossip-protocol-explained/",
+      "title": "Gossip Protocol Explained - High Scalability -",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gwmxGWCe",
+      "final_url": "https://towardsdatascience.com/retrieval-augmented-generation-rag-from-theory-to-langchain-implementation-4e9bd5f6a4f2",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://lnkd.in/gxXc2Cnm",
+      "final_url": "https://github.com/patchy631/ai-engineering-hub/tree/main/book-writer-flow",
+      "title": "ai-engineering-hub/book-writer-flow at main · patchy631/ai-engineering-hub",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gxcK_ff",
+      "final_url": "https://eugeneyan.com/writing/system-design-for-discovery/",
+      "title": "System Design for Recommendations and Search",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gy3kRzep",
+      "final_url": "https://medium.com/hashmapinc/the-what-why-and-how-of-a-microservices-architecture-4179579423a9",
+      "title": "The What, Why, and How of a Microservices Architecture",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lnkd.in/gyKwKr_c",
+      "final_url": "https://arxiv.org/abs/2405.02429",
+      "title": "CALRec: Contrastive Alignment of Generative LLMs for Sequential Recommendation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://lvdmaaten.github.io/tsne/",
+      "final_url": "https://lvdmaaten.github.io/tsne/",
+      "title": "t-SNE",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ma-lab-berkeley.github.io/deep-representation-learning-book/",
+      "final_url": "https://ma-lab-berkeley.github.io/deep-representation-learning-book/",
+      "title": "Principles and Practice of Deep Representation Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://machinelearningmastery.com/discover-feature-engineering-how-to-engineer-features-and-how-to-get-good-at-it/",
+      "final_url": "https://machinelearningmastery.com/discover-feature-engineering-how-to-engineer-features-and-how-to-get-good-at-it/",
+      "title": "Discover Feature Engineering, How to Engineer Features and How to Get Good at It - MachineLearningMastery.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://machinelearningmastery.com/understanding-rag-part-ix-fine-tuning-llms-for-rag/",
+      "final_url": "https://machinelearningmastery.com/understanding-rag-part-ix-fine-tuning-llms-for-rag/",
+      "title": "Understanding RAG Part IX: Fine-Tuning LLMs for RAG - MachineLearningMastery.com",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/@karpathy/software-2-0-a64152b37c35",
+      "final_url": "https://karpathy.medium.com/software-2-0-a64152b37c35",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://medium.com/data-from-the-trenches/explaining-bias-in-your-data-3a5a383243ef",
+      "final_url": "https://medium.com/data-from-the-trenches/explaining-bias-in-your-data-3a5a383243ef",
+      "title": "Explaining Bias In Your Data",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/data-from-the-trenches/how-do-gradient-boosting-algorithms-handle-categorical-variables-e56ace858ba2",
+      "final_url": "https://medium.com/data-from-the-trenches/how-do-gradient-boosting-algorithms-handle-categorical-variables-e56ace858ba2",
+      "title": "How Do Gradient Boosting Algorithms Handle Categorical Variables?",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/data-from-the-trenches/the-many-flavors-of-gradient-boosting-algorithms-2b4125607e13",
+      "final_url": "https://medium.com/data-from-the-trenches/the-many-flavors-of-gradient-boosting-algorithms-2b4125607e13",
+      "title": "The Many Flavors of Gradient Boosting Algorithms",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://medium.com/recombee-blog/machine-learning-for-recommender-systems-part-1-algorithms-evaluation-and-cold-start-6f696683d0ed",
+      "final_url": "https://medium.com/recombee-blog/machine-learning-for-recommender-systems-part-1-algorithms-evaluation-and-cold-start-6f696683d0ed",
+      "title": "Machine Learning for Recommender systems — Part 1 (algorithms, evaluation and cold start)",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf",
+      "final_url": "https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://mml-book.github.io/",
+      "final_url": "https://mml-book.github.io/",
+      "title": "Mathematics for Machine Learning",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://narrativescience.com/resource/blog/why-we-dont-have-a-machine-learning-team-at-narrative-science",
+      "final_url": "https://www.tableau.com/about/blog",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://netflixtechblog.com/uda-unified-data-architecture-6a6aee261d8d",
+      "final_url": "https://netflixtechblog.com/uda-unified-data-architecture-6a6aee261d8d",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://newsletter.theaiedge.io/cp/150902092",
+      "final_url": "https://newsletter.theaiedge.io/cp/150902092",
+      "title": "The Different Agentic Patterns",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://open.substack.com/pub/xaiguy/p/llama-nemotron-nvidias-foundation",
+      "final_url": "https://www.llmwatch.com/p/llama-nemotron-nvidias-foundation?triedRedirect=true",
+      "title": "Llama-Nemotron: NVIDIA's Foundation Model for Agentic AI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pair-code.github.io/what-if-tool/",
+      "final_url": "https://pair-code.github.io/what-if-tool/",
+      "title": "What-If Tool",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pair.withgoogle.com/guidebook/",
+      "final_url": "https://pair.withgoogle.com/guidebook/",
+      "title": "People + AI Guidebook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://poloclub.github.io/diffusion-explainer",
+      "final_url": "https://poloclub.github.io/diffusion-explainer/",
+      "title": "Diffusion Explainer: Stable Diffusion Explained with Visualization",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf",
+      "final_url": "https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf",
+      "title": "kdd2010ntu.dvi",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pub.towardsai.net/practical-guide-to-distilling-large-models-into-small-models-a-novel-approach-with-extended-1a49d53163a1",
+      "final_url": "https://pub.towardsai.net/practical-guide-to-distilling-large-models-into-small-models-a-novel-approach-with-extended-1a49d53163a1",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://pythonot.github.io/",
+      "final_url": "https://pythonot.github.io/",
+      "title": "POT: Python Optimal Transport — POT Python Optimal Transport 0.9.7 documentation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pytorch-geometric.readthedocs.io/en/latest/",
+      "final_url": "https://pytorch-geometric.readthedocs.io/en/latest/",
+      "title": "PyG Documentation — pytorch_geometric documentation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://pytorch.org/hub/",
+      "final_url": "https://pytorch.org/hub/",
+      "title": "PyTorch HubFor Researchers – PyTorch",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://rb.gy/e30xgt",
+      "final_url": "https://www.techprofree.com/data-science-from-scratch-learning-pdf-notes/",
+      "title": "Data Science With Python From Scratch Learning PDF Notes - Techprofree",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://rb.gy/y6fzzx",
+      "final_url": "https://www.techprofree.com/artificial-intelligence-and-big-data/",
+      "title": "Artificial Intelligence and Big Data - Techprofree",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://research.google/pubs/pub43146/",
+      "final_url": "https://research.google/pubs/machine-learning-the-high-interest-credit-card-of-technical-debt/",
+      "title": "Machine Learning: The High Interest Credit Card of Technical Debt",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://sakana.ai/transformer-squared",
+      "final_url": "https://sakana.ai/transformer-squared/",
+      "title": "Sakana AI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://scikit-learn.org/stable/tutorial/machine_learning_map/index.html",
+      "final_url": "https://scikit-learn.org/stable/machine_learning_map.html",
+      "title": "14. Choosing the right estimator",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://services.google.com/fh/files/misc/gemini-for-google-workspace-prompting-guide-101.pdf",
+      "final_url": "https://services.google.com/fh/files/misc/gemini-for-google-workspace-prompting-guide-101.pdf",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://shorturl.at/2juRE",
+      "final_url": "https://www.shorturl.at/2juRE",
+      "title": null,
+      "reason": "destination-not-found",
+      "error": "shortener chain did not expose a final destination (the last link may be expired)"
+    },
+    {
+      "source_url": "https://skillsyncer.com",
+      "final_url": "https://skillsyncer.com/",
+      "title": "Free ATS Resume Scanner | SkillSyncer",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://stanford.io/4kPDVkA",
+      "final_url": "https://hai.stanford.edu/policy/simulating-human-behavior-with-ai-agents?utm_source=facebook&utm_medium=social&utm_content=Stanford%20HAI_facebook_HAI_202506040802_sf225800336&utm_campaign=&sf225800336=1",
+      "title": "Simulating Human Behavior with AI Agents | Stanford HAI",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://statisticsglobe.com/webinar-data-analysis-visualization-r",
+      "final_url": "https://statisticsglobe.com/webinar-data-analysis-visualization-r",
+      "title": "Live Webinar: Data Analysis & Visualization in R",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://stats.stackexchange.com/questions/451827/whats-the-intitution-behind-contrastive-learning-or-approach",
+      "final_url": "https://stats.stackexchange.com/questions/451827/whats-the-intitution-behind-contrastive-learning-or-approach",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://textattack.readthedocs.io/en/latest/",
+      "final_url": "https://textattack.readthedocs.io/en/latest/",
+      "title": "TextAttack Documentation — TextAttack 0.3.10 documentation",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://theaisummer.com/deep-learning-biology-alphafold/",
+      "final_url": "https://theaisummer.com/deep-learning-biology-alphafold/",
+      "title": "Deep learning on computational biology and bioinformatics tutorial: from DNA to protein folding and alphafold2 | AI Summer",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://towardsdatascience.com/6-different-ways-to-compensate-for-missing-values-data-imputation-with-examples-6022d9ca0779",
+      "final_url": "https://towardsdatascience.com/6-different-ways-to-compensate-for-missing-values-data-imputation-with-examples-6022d9ca0779/",
+      "title": "6 Different Ways to Compensate for Missing Data (Data Imputation with examples) | Towards Data Science",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://towardsdatascience.com/building-an-image-similarity-search-engine-with-faiss-and-clip-2211126d08fa",
+      "final_url": "https://towardsdatascience.com/building-an-image-similarity-search-engine-with-faiss-and-clip-2211126d08fa/",
+      "title": "Building an Image Similarity Search Engine with FAISS and CLIP | Towards Data Science",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://towardsdatascience.com/getting-started-with-markov-decision-processes-reinforcement-learning-ada7b4572ffb",
+      "final_url": "https://towardsdatascience.com/getting-started-with-markov-decision-processes-reinforcement-learning-ada7b4572ffb",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://towardsdatascience.com/model-free-prediction-reinforcement-learning-507297e8e2ad",
+      "final_url": "https://towardsdatascience.com/model-free-prediction-reinforcement-learning-507297e8e2ad",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://towardsdatascience.com/planning-by-dynamic-programming-reinforcement-learning-ed4924bbaa4c",
+      "final_url": "https://towardsdatascience.com/planning-by-dynamic-programming-reinforcement-learning-ed4924bbaa4c",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://towardsdatascience.com/reinforcement-learning-an-introduction-to-the-concepts-applications-and-code-ced6fbfd882d",
+      "final_url": "https://towardsdatascience.com/reinforcement-learning-an-introduction-to-the-concepts-applications-and-code-ced6fbfd882d",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://towardsdatascience.com/support-vector-machine-simply-explained-fee28eba5496",
+      "final_url": "https://towardsdatascience.com/",
+      "title": "Towards Data Science",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://towardsdatascience.com/these-are-the-easiest-data-augmentation-techniques-in-natural-language-processing-you-can-think-of-88e393fd610",
+      "final_url": "https://towardsdatascience.com/these-are-the-easiest-data-augmentation-techniques-in-natural-language-processing-you-can-think-of-88e393fd610",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "source_url": "https://toxicdegeneration.allenai.org/",
+      "final_url": "https://toxicdegeneration.allenai.org/",
+      "title": null,
+      "reason": "request-error",
+      "error": "HTTPSConnectionPool(host='toxicdegeneration.allenai.org', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPSConnection(host='toxicdegeneration.allenai.org', port=443) at 0x10a7c1450>, 'Connection to toxicdegeneration.allenai.org timed out. (connect timeout=8.0)'))"
+    },
+    {
+      "source_url": "https://web.stanford.edu/class/cs384/",
+      "final_url": "https://web.stanford.edu/class/cs384/",
+      "title": "Stanford CS 384 | Seminar on Ethical and Social Issues in Natural Language Processing",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf",
+      "final_url": "https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf",
+      "final_url": "https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.aclweb.org/anthology/2020.acl-main.421.pdf",
+      "final_url": "https://aclanthology.org/2020.acl-main.421.pdf",
+      "title": "On the Cross-lingual Transferability of Monolingual Representations",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.aclweb.org/anthology/2020.acl-main.463.pdf",
+      "final_url": "https://aclanthology.org/2020.acl-main.463.pdf",
+      "title": "Climbing towards NLU: On Meaning, Form, and Understanding in the Age of Data",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.aclweb.org/anthology/P12-2032",
+      "final_url": "https://aclanthology.org/P12-2032/",
+      "title": "A Comprehensive Gold Standard for the Enron Organizational Hierarchy",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.adaptive-ml.com/post/from-zero-to-ppo",
+      "final_url": "https://www.adaptive-ml.com/post/from-zero-to-ppo",
+      "title": "From Zero to PPO: Understanding the Path to Helpful AI Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.apress.com/us/write-for-us",
+      "final_url": "https://link.springer.com/brands/apress/why-publish-with-apress",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.careerflow.ai/",
+      "final_url": "https://www.careerflow.ai/",
+      "title": "Careerflow - Your Career Copilot | Powerful AI Job Search Tools",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.coursera.org/specializations/ai-for-medicine",
+      "final_url": "https://www.coursera.org/specializations/ai-for-medicine",
+      "title": "AI for Medicine",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.cs.ubc.ca/~murphyk/MLbook/",
+      "final_url": "https://www.cs.ubc.ca/~murphyk/MLbook/",
+      "title": "Machine learning textbook",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.davidsilver.uk/teaching/",
+      "final_url": "https://davidstarsilver.wordpress.com/teaching/",
+      "title": "Teaching",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.ele.uri.edu/faculty/he/PDFfiles/ImbalancedLearning.pdf",
+      "final_url": "https://web.uri.edu/cisa/",
+      "title": "Computational Intelligence and Self-Adaptive Systems – College of Engineering",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.facebook.com/share/p/1BCdXyJCVw/?mibextid=wwXIfr",
+      "final_url": "https://www.facebook.com/share/p/1BCdXyJCVw/?mibextid=wwXIfr",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 400"
+    },
+    {
+      "source_url": "https://www.jstatsoft.org/article/view/v045i03/v45i03.pdf",
+      "final_url": "https://www.jstatsoft.org/article/view/v045i03/v45i03.pdf",
+      "title": null,
+      "reason": "unsafe-url",
+      "error": "unsafe URL: destination does not resolve exclusively to public addresses"
+    },
+    {
+      "source_url": "https://www.kaggle.com/jessemostipak/animal-crossing",
+      "final_url": "https://www.kaggle.com/datasets/jessemostipak/animal-crossing",
+      "title": "Animal Crossing Reviews",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.kaggle.com/learn/geospatial-analysis",
+      "final_url": "https://www.kaggle.com/learn/geospatial-analysis",
+      "title": "Learn Geospatial Analysis Tutorials | Kaggle",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.kaggle.com/whitepaper-prompt-engineering",
+      "final_url": "https://www.kaggle.com/whitepaper-prompt-engineering",
+      "title": "Prompt Engineering",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.kdd.org/kdd2016/subtopic/view/collaborative-knowledge-base-embedding-for-recommender-systems",
+      "final_url": "https://www.kdd.org/kdd2016/subtopic/view/collaborative-knowledge-base-embedding-for-recommender-systems",
+      "title": "Collaborative Knowledge Base Embedding for Recommender Systems",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.latent.space/p/2025-papers",
+      "final_url": "https://www.latent.space/p/2025-papers",
+      "title": "The 2025 AI Engineering Reading List",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.linkedin.com/posts/addyosmani_ai-programming-softwareengineering-activity-7335190957706936321-cqba",
+      "final_url": "https://www.linkedin.com/posts/addyosmani_ai-programming-softwareengineering-activity-7335190957706936321-cqba",
+      "title": "\"The Prompt Engineering Playbook for Programmers\" | Addy Osmani",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.linkedin.com/posts/avi-chawla_10-mcp-ai-agents-and-rag-projects-for-ai-activity-7317122234542616576-QKi4",
+      "final_url": "https://www.linkedin.com/posts/avi-chawla_10-mcp-ai-agents-and-rag-projects-for-ai-activity-7317122234542616576-QKi4",
+      "title": "AI projects for engineers: MCP, RAG, and more | Avi Chawla posted on the topic | LinkedIn",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.linkedin.com/posts/bsnisar_multi-agent-architectures-are-the-future-activity-7315736713400610816-BYz2",
+      "final_url": "https://www.linkedin.com/posts/bsnisar_multi-agent-architectures-are-the-future-activity-7315736713400610816-BYz2",
+      "title": "EIP: How to structure systems into workflows | Bohdan Snisar posted on the topic | LinkedIn",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.linkedin.com/posts/victorialslocum_have-you-tried-out-agentic-rag-yet-this-activity-7316069708347170817-qjHa",
+      "final_url": "https://www.linkedin.com/posts/victorialslocum_have-you-tried-out-agentic-rag-yet-this-activity-7316069708347170817-qjHa",
+      "title": "Have you tried out agentic RAG yet? This is how Elysia does it 🔽 Try out the demo here: https://elysia.weaviate.io 𝗪𝗵𝗲𝗻 𝗮 𝘂𝘀𝗲𝗿 𝗾𝘂𝗲𝗿𝘆 𝗰𝗼𝗺𝗲𝘀 𝗶𝗻: 1) The decision agent is… | Victoria Slocum | 17 comments",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.linkedin.com/pulse/how-well-can-transformers-build-world-models-benjamin-han-eoqzc/",
+      "final_url": "https://www.linkedin.com/pulse/how-well-can-transformers-build-world-models-benjamin-han-eoqzc/",
+      "title": "How Well Can Transformers Build World Models",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.mechanize.work/blog/the-upcoming-gpt-3-moment-for-rl/",
+      "final_url": "https://www.mechanize.work/blog/the-upcoming-gpt-3-moment-for-rl/",
+      "title": "The upcoming GPT-3 moment for RL",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.metaview.ai",
+      "final_url": "https://www.metaview.ai/",
+      "title": "Metaview: The Agentic Recruiting Platform",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.microsoft.com/en-us/research/blog/deepspeed-extreme-scale-model-training-for-everyone/",
+      "final_url": "https://www.microsoft.com/en-us/research/blog/deepspeed-extreme-scale-model-training-for-everyone/",
+      "title": "DeepSpeed: Extreme-scale model training for everyone - Microsoft Research",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.microsoft.com/en-us/research/uploads/prod/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf",
+      "final_url": "https://www.microsoft.com/en-us/research/wp-content/uploads/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.perplexity.ai/page/google-shares-viral-prompt-eng-TEzNkJMNSm2kdu.xiZ8YWQ",
+      "final_url": "https://www.perplexity.ai/page/google-shares-viral-prompt-eng-TEzNkJMNSm2kdu.xiZ8YWQ",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.sciencedirect.com/science/article/pii/S1568163724003994",
+      "final_url": "https://www.sciencedirect.com/science/article/pii/S1568163724003994",
+      "title": null,
+      "reason": "http-error",
+      "error": "HTTP 403"
+    },
+    {
+      "source_url": "https://www.semanticscholar.org/",
+      "final_url": "https://www.semanticscholar.org/",
+      "title": "Semantic Scholar | AI-Powered Research Tool",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.tensorflow.org/tutorials/keras/keras_tuner",
+      "final_url": "https://www.tensorflow.org/tutorials/keras/keras_tuner",
+      "title": null,
+      "reason": "redirect-loop",
+      "error": "redirect loop detected"
+    },
+    {
+      "source_url": "https://www.unofficialgoogledatascience.com/2016/10/practical-advice-for-analysis-of-large.html",
+      "final_url": "https://www.unofficialgoogledatascience.com/2016/10/practical-advice-for-analysis-of-large.html",
+      "title": "Practical advice for analysis of large, complex data sets",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.wikiwand.com/en/Probably_approximately_correct_learning",
+      "final_url": "https://www.wikiwand.com/en/Probably_approximately_correct_learning",
+      "title": "Probably approximately correct learning - Wikiwand",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.wikiwand.com/en/T-distributed_stochastic_neighbor_embedding",
+      "final_url": "https://www.wikiwand.com/en/T-distributed_stochastic_neighbor_embedding",
+      "title": "T-distributed stochastic neighbor embedding - Wikiwand",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.wikiwand.com/en/Vitality_curve",
+      "final_url": "https://www.wikiwand.com/en/Vitality_curve",
+      "title": "Vitality curve - Wikiwand",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/c/YannicKilcher",
+      "final_url": "https://www.youtube.com/c/YannicKilcher?cbrd=1&ucbcb=1",
+      "title": "Yannic Kilcher",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://www.youtube.com/playlist?list=PLtmWHNX-gukIc92m1K0P6bIOnZb-mg0hY",
+      "final_url": "https://consent.youtube.com/ml?continue=https://www.youtube.com/playlist?list%3DPLtmWHNX-gukIc92m1K0P6bIOnZb-mg0hY%26cbrd%3D1&gl=GB&hl=en-GB&cm=2&pc=yt&src=1&rffu=true&escs=AZ-r6Z63eUTpVmauQONshaladcGH3eUX6dT78Yzyq2e0-dldlTenb2227chHFTiWKaE3LZ3TprfOtBfxFJgBspeY1CX-sUvFKBeM",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=pq9BgYm0Wew",
+      "final_url": "https://www.youtube.com/watch?v=pq9BgYm0Wew",
+      "title": "Snapshots: Exploring Shifterator with Kaggle Notebooks | Kaggle",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://youtu.be/MZUSwO6rzG8",
+      "final_url": "https://www.youtube.com/watch?v=MZUSwO6rzG8&feature=youtu.be",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://youtu.be/QdEuh2UVbu0",
+      "final_url": "https://www.youtube.com/watch?v=QdEuh2UVbu0&feature=youtu.be",
+      "title": "DeepSeek R1 Theory Overview | GRPO + RL + SFT",
+      "reason": null,
+      "error": null
+    },
+    {
+      "source_url": "https://youtu.be/SkY6PR3FbVM",
+      "final_url": "https://www.youtube.com/watch?v=SkY6PR3FbVM&feature=youtu.be",
+      "title": null,
+      "reason": "title-not-found",
+      "error": "no trustworthy title found"
+    },
+    {
+      "source_url": "https://youtu.be/r4UG8YfKseE?si=SiaFCH4rJ9UF-T1y",
+      "final_url": "https://www.youtube.com/watch?si=SiaFCH4rJ9UF-T1y&v=r4UG8YfKseE&feature=youtu.be",
+      "title": "Transformers^2 - Self-Adaptive LLMs | SVD Fine-tuning | End of LoRA fine tuning? | (paper explained)",
+      "reason": null,
+      "error": null
+    }
+  ]
+}

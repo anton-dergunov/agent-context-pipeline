@@ -1,6 +1,6 @@
-# Instagram Extraction
+# Instagram extraction
 
-This project downloads each Instagram post into `instagram_output/<shortcode>/` and prepares its media, on-screen text, and spoken audio for a later LLM step. Instagram network access is handled by Instaloader; OCR and transcription are performed locally. No LLM, hosted OCR, or hosted transcription API is called.
+`instagram-extract` downloads each Instagram post into `instagram_output/<shortcode>/` and recovers its on-screen text and spoken audio. It runs standalone and as the `instagram` handler of the pipeline's `content-extraction` step. Instagram network access is handled by Instaloader; OCR and transcription run locally. No language model, hosted OCR or hosted transcription service is called.
 
 ## Setup
 
@@ -28,7 +28,7 @@ Public post metadata sometimes works anonymously, but Instagram requires a logge
 
    ```bash
    UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-     --input-file benchmarks/data/instagram_urls.txt \
+     --input-file tests/fixtures/instagram_urls.txt \
      --cookies-from-browser safari
    ```
 
@@ -40,7 +40,7 @@ Public post metadata sometimes works anonymously, but Instagram requires a logge
 
    ```bash
    UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-     --input-file benchmarks/data/instagram_urls.txt \
+     --input-file tests/fixtures/instagram_urls.txt \
      --cookies-file /absolute/private/path/instagram-cookies.txt
    ```
 
@@ -50,7 +50,7 @@ Public post metadata sometimes works anonymously, but Instagram requires a logge
 
    ```bash
    UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-     --input-file benchmarks/data/instagram_urls.txt \
+     --input-file tests/fixtures/instagram_urls.txt \
      --instagram-user YOUR_USERNAME \
      --session-file /absolute/private/path/session-YOUR_USERNAME
    ```
@@ -63,7 +63,7 @@ URLs can come from a file, positional arguments, or both:
 
 ```bash
 UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-  --input-file benchmarks/data/instagram_urls.txt \
+  --input-file tests/fixtures/instagram_urls.txt \
   --max-comments 50
 
 UV_CACHE_DIR=.uv-cache uv run instagram-extract \
@@ -87,7 +87,7 @@ Pi, where Surya was measured at 8.3 s/frame. `--image-ocr-engine` and
 Recognition covers **English, Spanish and Russian from one model** — the
 PP-OCRv5 Cyrillic recognizer, whose charset was verified to cover Latin,
 Cyrillic and Spanish accents in full. Chinese needs a separate model; enable it
-by uncommenting `"ch"` in `DEFAULT_SCRIPTS` in `info_triage/extractors/instagram/engines.py`.
+by uncommenting `"ch"` in `DEFAULT_SCRIPTS` in `info_triage/extractors/media/engines.py`.
 With more than one script enabled the engine calibrates on the first frames
 containing text and then keeps the best-scoring model for the rest of the file.
 `--rec-script` forces a specific one.
@@ -98,8 +98,8 @@ On-screen text stays put for seconds, so OCRing every frame re-reads the same
 words dozens of times. The default samples **3 frames per second**, which OCRs
 10.6% of frames and retains 89.3% of substantial overlay text; what it drops is
 dominated by unstable single-frame noise. `--video-mode all` restores exhaustive
-OCR for regression comparisons. See [research/ocr-video-findings.md](research/ocr-video-findings.md)
-for the full measurements and for the approaches that were tried and rejected.
+OCR for regression comparisons. The full measurements, and the approaches that were tried and
+rejected, are in [`experiments/video-ocr/`](../../experiments/video-ocr/README.md).
 
 Useful controls:
 
@@ -110,7 +110,7 @@ Useful controls:
 --video-sample-fps 3.0       measured knee of the accuracy curve
 --video-max-height 800       downscale before OCR; 640 is faster, 0 disables
 --rec-script auto|cyrillic|latin|ch|...
---threads N                  inference threads (see Resource limits)
+--threads N                  inference threads (see the deployment guide)
 --transcription-backend best|faster-whisper|mlx
 --transcription-model tiny|base|small|medium|large-v3|turbo
 --transcription-language CODE  force a spoken language; default detects it
@@ -144,7 +144,8 @@ costs**, appending each run to `bench_results.json`. Measured so far, over
 
 ### Speech transcription
 
-The reviewed production defaults are platform-aware:
+The production defaults are platform-aware, chosen in
+[`experiments/transcription-models/`](../../experiments/transcription-models/README.md):
 
 | Platform | Backend | Model | Compute | Threads |
 |---|---|---|---|---:|
@@ -164,7 +165,7 @@ All choices can be overridden through the CLI controls above or with
 ```bash
 # Explicitly use the normal Mac default.
 UV_CACHE_DIR=.uv-cache uv run --extra mac-transcription instagram-extract \
-  --input-file benchmarks/data/instagram_urls.txt \
+  --input-file tests/fixtures/instagram_urls.txt \
   --transcription-backend mlx --transcription-model medium
 ```
 
@@ -176,9 +177,10 @@ UV_CACHE_DIR=.uv-cache uv run instagram-transcription-bench \
   --telegram-audio /absolute/path/to/second.ogg
 ```
 
-It tests every downloaded video named by `benchmarks/data/instagram_urls.txt`, the two
-explicit audio files, and a fixed ten-sample FLEURS set for each of English,
-Spanish, Russian, and Mandarin. Audio and model downloads stay in ignored cache
+It tests every downloaded video named by `tests/fixtures/instagram_urls.txt`, the two
+explicit audio files, and the fixed ten-sample FLEURS set for each of English,
+Spanish, Russian, and Mandarin listed in
+`experiments/transcription-models/fleurs_samples.tsv`. Audio and model downloads stay in ignored cache
 directories. The report compares ROUGE-L and token Jaccard against both FLEURS
 reference text and large-v3, and includes peak memory, timing, exact real-world
 transcripts, and VAD-on/off results for the expected music-only posts.
@@ -200,10 +202,10 @@ docker buildx build --platform linux/amd64 -t info-triage:latest --load .
 
 # Run the extractor CLI from that same image with explicit input/output mounts.
 docker run --rm --entrypoint instagram-extract \
-  -v "$PWD/benchmarks:/work/benchmarks:ro" \
+  -v "$PWD/tests/fixtures:/work/fixtures:ro" \
   -v "$PWD/instagram_output:/work/instagram_output" \
   info-triage:latest \
-  --input-file /work/benchmarks/data/instagram_urls.txt \
+  --input-file /work/fixtures/instagram_urls.txt \
   --output-dir /work/instagram_output
 ```
 
@@ -212,27 +214,8 @@ Pi. The Pi requires 64-bit Raspberry Pi OS. Locally verified image sizes were
 approximately 1.28 GB (`amd64`) and 1.15 GB (`arm64`), including the 486 MB
 Whisper checkpoint.
 
-### Resource limits
-
-A **Dockerfile cannot set CPU or memory limits** — image build and runtime
-resource control are separate concerns. They live in `compose.yaml`, in
-`docker run` options, or in the Synology Container Manager UI.
-
-The Synology kernel does not expose the CPU CFS scheduler support required by
-Docker's `NanoCPUs` quota, so the Compose configuration does not set `cpus`.
-Instead, `cpu_shares: 512` gives the container a lower relative CPU priority
-during contention; it is not a hard one-CPU limit. ONNX Runtime, CTranslate2,
-and OpenMP can size thread pools from the **host** CPU count, so the image also
-pins both OCR and transcription to one thread.
-
-Defaults are tuned for the upgraded NAS (2-core/4-thread Ryzen R1600, 20 GB
-memory): lower relative CPU priority, an 8 GB hard memory ceiling, and one
-compute thread. The limit is a ceiling rather than a reservation and leaves
-roughly 12 GB for DSM, filesystem cache, and other containers. Setting
-`memswap_limit` to the same value prevents additional container swap usage.
-Whisper small measured 1,347 MB peak RSS on the benchmark Mac; the extra
-headroom supports larger future workflows. OCR and transcription models are
-loaded sequentially so their peaks do not add together.
+CPU and memory limits are runtime settings, not image settings. They are described with the
+deployment in [`synology-deployment.md`](../operations/synology-deployment.md#resource-limits).
 
 ## Output
 
@@ -259,7 +242,8 @@ raw/transcript.txt               combined spoken text for the post
 ```
 
 Comments are retrieved and kept on disk but never enter `content.md`: they were
-measured at roughly 38% of an Instagram post's tokens and none of its signal.
+measured at roughly 38% of an Instagram post's text and none of its signal
+([`experiments/item-contract/`](../../experiments/item-contract/README.md)).
 
 Comment output separately identifies the chronologically first scanned comment/reply by the post owner, and includes like counts so downstream code can re-rank the selected comments.
 

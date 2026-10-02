@@ -12,14 +12,13 @@ __pycache__
 .pytest_cache
 .uv-cache
 .whisper_models
-benchmarks
 docs
+experiments
 instagram_output
 linkedin_output
 url_output
 secrets
 tests
-tools
 *.part
 *cookies*.txt
 bench_results.json

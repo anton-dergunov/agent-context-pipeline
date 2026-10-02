@@ -28,7 +28,7 @@ ROUTES = ("info", "job", "clip", "lang")
 #: consumed by other scripts, which have nothing to do with the plans.
 NEIGHBOUR_ROUTE = "info"
 #: Words of an item's Lead that reach its neighbour query. Measured; see
-#: `docs/Related-notes-design.md` §3.
+#: `docs/architecture/related-notes.md`.
 NEIGHBOUR_LEAD_WORDS = 120
 #: Where the two corpora live, unless the settings file or the environment says
 #: otherwise.
@@ -555,7 +555,7 @@ def _duplicate_note(duplicate: Duplicate, positions: dict[str, int]) -> str:
 
     Addressed to `/route` rather than to the reader, and worded the way
     `neighbours.py`'s block is for the same measured reason
-    (`docs/Related-notes-design.md` §6): a bare "duplicate of 1" leaves the agent
+    (`docs/architecture/related-notes.md`): a bare "duplicate of 1" leaves the agent
     to work out whether it still has to open anything.
     """
     where = f"item {positions[duplicate.of]} (`{duplicate.of}`)"
@@ -711,10 +711,11 @@ def _legacy_headline(index: str) -> str:
     """Name an item captured before `index.md` carried a `headline:` field.
 
     Only what the index itself holds is in reach — `sync.py` reads no other file
-    (`docs/DESIGN.md`: the index is the one file the laptop side has to read), and by
-    here the caption and the transcript are two directories down. So this is a
-    weaker chain than `index.py`'s on purpose, and it is transitional: the inbox
-    drains daily, and every item captured from now on arrives with a headline.
+    (`docs/architecture/item-contract.md`: the index is the one file the laptop side
+    has to read), and by here the caption and the transcript are two directories
+    down. So this is a weaker chain than `index.py`'s on purpose, and it is
+    transitional: the inbox drains daily, and every item captured from now on
+    arrives with a headline.
     """
     openings = sorted(
         ((position, label, text) for position, (label, text) in enumerate(_lead_openings(index))),

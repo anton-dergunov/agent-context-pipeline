@@ -3,17 +3,18 @@
 Laptop-side enrichment, run by `sync.py` after the items are already delivered. It
 must not import the daemon: `sync.py` is deliberately a separate program.
 
-The shape here is measured, not chosen — see `docs/Related-notes-design.md`:
+The shape here is measured, not chosen — see `docs/architecture/related-notes.md`,
+and `experiments/related-notes/README.md` for the numbers:
 
-- BM25 recall, no vector index. An embedding earns nothing on this corpus (§3a): BM25
+- BM25 recall, no vector index. An embedding earns nothing on this corpus: BM25
   alone puts the gold unit in the rerank pool 15/15 times.
-- One BM25 index per corpus, never a shared one (§6b). Sharing IDF and average
+- One BM25 index per corpus, never a shared one. Sharing IDF and average
   document length lets vault growth move Org-side ranking, for no reason at all.
 - A cross-encoder rerank against a *short* query, scored as a raw logit. The long
   retrieval query saturates the cross-encoder at 1.0 for every candidate, and the
-  sigmoid saturates at both ends, leaving nothing for the abstain gate to read (§3).
+  sigmoid saturates at both ends, leaving nothing for the abstain gate to read.
 - At most two rows per corpus. Precision falls off a cliff after rank 1–2, so a third
-  row costs a verification read and buys nothing (§4).
+  row costs a verification read and buys nothing.
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ you're we're isn't doesn't""".split()
 #: A token may carry `.`, `#`, `+` and `-` so that `gpt-4.1`, `c#` and `node.js`
 #: survive. The cost is that a word ending a sentence keeps its full stop and is a
 #: different term from the same word mid-sentence. That is what every number in
-#: `docs/Related-notes-design.md` was measured with; re-measure before changing it.
+#: `experiments/related-notes/README.md` was measured with; re-measure before changing it.
 TOKEN = re.compile(r"[a-z0-9][a-z0-9+.#_-]*")
 
 #: How many BM25 hits per corpus reach the reranker. 20 + 20 = the measured pool of 40.
@@ -90,7 +91,8 @@ BLOCK_END = "<!-- neighbours:end -->"
 BLOCK = re.compile(rf"\n*{re.escape(BLOCK_BEGIN)}.*?{re.escape(BLOCK_END)}\n*", re.S)
 PROBLEMS_HEADING = "\n## Problems\n"
 
-#: The wording is load-bearing and measured (design §6). The identical rows under a
+#: The wording is load-bearing and measured ("Effect on routing" in
+#: `experiments/related-notes/README.md`). The identical rows under a
 #: bare `## Related` heading cost 1.3% *more* tokens than no field at all and drove the
 #: agent to `MERGE` every item; this version cut tokens 15.5% and restored a correct
 #: mixed verdict set. Do not tidy it.
@@ -330,7 +332,8 @@ class Index:
     """Both corpora, each with its own BM25 index.
 
     Separate indices are the point: they keep Org-side ranking exactly invariant as the
-    vault grows, which a shared index does not (design §6b).
+    vault grows, which a shared index does not (the growth test in
+    `experiments/related-notes/README.md`).
     """
 
     units: dict[str, list[Unit]]

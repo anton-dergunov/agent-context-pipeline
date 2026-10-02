@@ -1,11 +1,34 @@
-# Video OCR: Measurements and Design Decisions
+# Experiment · reading on-screen text from video fast enough
 
-Everything here was measured on the working corpus in `instagram_output/`:
-**9 videos, 437.6 s, 12,493 decoded frames**, plus **43 carousel images** with
-476 stored text segments. Machine: Apple Silicon, macOS.
+**Question.** Per-frame OCR of a short video took about 28 minutes for 7 minutes of footage. What can
+be skipped without losing the overlay text, and which engine can run on a NAS with no GPU?
 
-The point of this document is that the rejected options are recorded with the
-number that killed them, so they do not get re-proposed.
+**Status.** Measured early August 2026 on Apple Silicon. Shipped: sample 3 frames per second at a
+maximum height of 800, Apple Vision on macOS, RapidOCR with the PP-OCRv5 Cyrillic recognizer
+elsewhere. 14 times faster on macOS for 89% of the substantial text. Throughput on the NAS itself is
+still not measured (section 8).
+
+**Serves.** [`docs/extractors/instagram.md`](../../docs/extractors/instagram.md), and the Shorts
+path in [`docs/extractors/youtube.md`](../../docs/extractors/youtube.md).
+
+**Corpus.** The posts in [`tests/fixtures/instagram_urls.txt`](../../tests/fixtures/instagram_urls.txt):
+**9 videos, 437.6 s, 12,493 decoded frames**, plus **43 carousel images** with 476 stored text
+segments. The downloaded media and per-frame OCR are not committed.
+
+**Apparatus.** `compare_ocr.py` scores candidates against already-stored results, and
+`instagram-ocr-bench` times a whole run on any machine:
+
+```bash
+uv run python experiments/video-ocr/compare_ocr.py --root instagram_output sampling
+uv run instagram-ocr-bench --label "my machine"
+```
+
+`compare_ocr.py` reads the layout the corpus was stored in when it was measured, with `ocr/` and
+`media/` directly under each post. Extractions now keep both under `raw/`, so point `--root` at a
+corpus in the older layout or adjust its glob patterns first.
+
+The rejected options are recorded with the number that killed them, so they do not get proposed
+again.
 
 ---
 
@@ -204,7 +227,8 @@ no per-frame language guessing. Confirmed on video:
 | latin | 279 | 47.6% |
 
 Chinese needs a separate model (`ch`), so the multi-script machinery is kept:
-adding an entry to `DEFAULT_SCRIPTS` in `engines.py` enables calibration, which
+adding an entry to `DEFAULT_SCRIPTS` in `extractors/media/engines.py` enables
+calibration, which
 scores each candidate over the first frames containing text and then locks in
 the winner. With one entry — the default — calibration never runs.
 

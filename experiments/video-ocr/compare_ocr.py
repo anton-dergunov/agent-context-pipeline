@@ -20,13 +20,13 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from rapidfuzz.fuzz import partial_ratio, ratio  # noqa: E402
 
-from info_triage.extractors.instagram.dedup import _key, merge_frames  # noqa: E402
-from info_triage.extractors.instagram.models import OCRFrame, OCRLine  # noqa: E402
-from info_triage.extractors.instagram.ocr import filter_thresholds  # noqa: E402
+from info_triage.extractors.media.dedup import _key, merge_frames  # noqa: E402
+from info_triage.extractors.media.models import OCRFrame, OCRLine  # noqa: E402
+from info_triage.extractors.media.ocr import filter_thresholds  # noqa: E402
 
 DEFAULT_ROOT = "instagram_output"
 
@@ -132,7 +132,7 @@ def cmd_sampling(args) -> int:
 def cmd_images(args) -> int:
     from PIL import Image
 
-    from info_triage.extractors.instagram.engines import RapidOCREngine
+    from info_triage.extractors.media.engines import RapidOCREngine
 
     engine = RapidOCREngine(
         scripts=tuple(args.scripts.split(",")),
@@ -231,7 +231,7 @@ def sample_frames(path: str, fps_target: float, limit: int, max_height: int):
 def cmd_bakeoff(args) -> int:
     from PIL import Image
 
-    from info_triage.extractors.instagram.engines import RapidOCREngine
+    from info_triage.extractors.media.engines import RapidOCREngine
 
     videos = sorted(glob.glob(f"{args.root}/*/media/*.mp4"))[: args.videos]
     reference: dict[str, set[str]] = {}

@@ -1,8 +1,8 @@
-# Standalone YouTube extraction
+# YouTube extraction
 
-`youtube-extract` is an offline preparation tool. It is intentionally not a
-Telegram processor: it does not register a `ProcessingWorker`, modify inbox
-items, or generate `message.md`.
+`youtube-extract` retrieves a video's metadata, captions and comments, and for a
+Short also its media, on-screen text and spoken audio. It runs standalone and as
+the `youtube` handler of the pipeline's `content-extraction` step.
 
 Install the pinned yt-dlp nightly and its EJS support with the normal project
 environment:

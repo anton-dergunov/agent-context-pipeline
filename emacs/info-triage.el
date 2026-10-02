@@ -7,7 +7,8 @@
 ;; commands without anything else.  A fuller integration — the queue as a
 ;; read-only buffer with single-key commands, per-file-type opening, back and
 ;; forward — lives in the `agentic-org-planner' configuration instead, because
-;; it depends on that configuration's window management.  See `docs/EMACS.md'.
+;; it depends on that configuration's window management.  See
+;; `docs/reviewing-in-emacs.md'.
 ;;
 ;; Load it from your init with:
 ;;

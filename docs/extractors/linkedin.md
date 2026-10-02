@@ -1,6 +1,6 @@
-# LinkedIn Extraction
+# LinkedIn extraction
 
-`linkedin-extract` downloads the text, content images, and the comments that LinkedIn includes in the anonymous public HTML for a post. It does not use a LinkedIn account, API token, browser cookies, browser automation, JavaScript, OCR, or an outbound URL resolver.
+`linkedin-extract` downloads the text, content images, and the comments that LinkedIn includes in the anonymous public HTML for a post. It does not use a LinkedIn account, API token, browser cookies, browser automation, JavaScript, OCR, or an outbound URL resolver. It runs standalone and as the `linkedin` handler of the pipeline's `content-extraction` step.
 
 ## Important access note
 

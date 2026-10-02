@@ -1,0 +1,1120 @@
+{
+  "schema_version": 1,
+  "attempted": 97,
+  "manifest_counts": {
+    "html": 50,
+    "pdf": 14,
+    "research": 33
+  },
+  "outcomes": {
+    "complete": 86,
+    "failed": 11
+  },
+  "by_route": {
+    "document": {
+      "complete": 53,
+      "failed": 8
+    },
+    "pmlr": {
+      "complete": 3
+    },
+    "acl": {
+      "complete": 4
+    },
+    "arxiv": {
+      "complete": 20
+    },
+    "openreview": {
+      "failed": 2
+    },
+    "cvf": {
+      "complete": 2
+    },
+    "neurips": {
+      "complete": 2
+    },
+    "jmlr": {
+      "complete": 2
+    },
+    "researchgate": {
+      "failed": 1
+    }
+  },
+  "failure_reasons": {
+    "access-blocked": 2,
+    "html-no-extractable-text": 2,
+    "http-error": 1,
+    "metadata-unavailable": 3,
+    "request-error": 2,
+    "unsafe-url": 1
+  },
+  "items": [
+    {
+      "manifest_group": "html",
+      "url": "https://limit-of-rlvr.github.io/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/limit-of-rlvr-github-io-index-595d1200c4",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/mbzuai-oryx/Awesome-LLM-Post-training",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-awesome-llm-post-training-5d530081fc",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://elysia.weaviate.io",
+      "handler": "document",
+      "provider": null,
+      "output": "html/elysia-weaviate-io-index-afa78fb383",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.perplexity.ai/page/google-shares-viral-prompt-eng-TEzNkJMNSm2kdu.xiZ8YWQ",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-perplexity-ai-google-shares-viral-prompt-eng-teznkjmnsm2kdu-8c3c480b72",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "html-no-extractable-text",
+      "error": "Trafilatura could not extract readable content"
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://statisticsglobe.com/webinar-data-analysis-visualization-r",
+      "handler": "document",
+      "provider": null,
+      "output": "html/statisticsglobe-com-webinar-data-analysis-visualization-r-96b9f35bd2",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://machinelearningmastery.com/understanding-rag-part-ix-fine-tuning-llms-for-rag/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/machinelearningmastery-com-understanding-rag-part-ix-fine-tuning-llms--15c1aa99df",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://huggingface.co/infgrad/dewey_en_beta",
+      "handler": "document",
+      "provider": null,
+      "output": "html/huggingface-co-dewey-en-beta-678bc650e6",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://link.springer.com/book/10.1007/979-8-8688-1020-6",
+      "handler": "document",
+      "provider": null,
+      "output": "html/link-springer-com-979-8-8688-1020-6-f98f85d060",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.apress.com/us/write-for-us",
+      "handler": "document",
+      "provider": null,
+      "output": "html/link-springer-com-why-publish-with-apress-82a091789c",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://skillsyncer.com",
+      "handler": "document",
+      "provider": null,
+      "output": "html/skillsyncer-com-index-fa5c5f5688",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.metaview.ai",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-metaview-ai-index-8ae0b46c0c",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://app.yoodli.ai",
+      "handler": "document",
+      "provider": null,
+      "output": "html/yoodli-ai-index-d3f3da548a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.careerflow.ai/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-careerflow-ai-index-74166411df",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://hubstafftalent.net",
+      "handler": "document",
+      "provider": null,
+      "output": "html/hubstafftalent-net-index-1e6e518dab",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/llmgenai/LLMInterviewQuestions/tree/main",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-main-72814102f3",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/chiphuyen/aie-book/blob/main/resources.md",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-resources-45bcd10dfc",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.adaptive-ml.com/post/from-zero-to-ppo",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-adaptive-ml-com-from-zero-to-ppo-7ec9b66ca5",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/rasbt/LLMs-from-scratch?tab=readme-ov-file#bonus-material",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-llms-from-scratch-46d994b2e6",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/varungodbole/prompt-tuning-playbook",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-prompt-tuning-playbook-07a177c873",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/kevinwu23/StanfordFineTuneBench",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-stanfordfinetunebench-a425d01bee",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://huggingface.co/PatronusAI/Llama-3-Patronus-Lynx-70B-Instruct",
+      "handler": "document",
+      "provider": null,
+      "output": "html/huggingface-co-llama-3-patronus-lynx-70b-instruct-38c989f4e7",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://huggingface.co/microsoft/OmniParser-v2.0",
+      "handler": "document",
+      "provider": null,
+      "output": "html/huggingface-co-omniparser-v2-e21ca7c859",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/microsoft/OmniParser",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-omniparser-680e938c84",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://graphdeeplearning.github.io/post/transformers-are-gnns/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/graphdeeplearning-github-io-transformers-are-gnns-96ff50852a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://ai.googleblog.com/2020/11/the-language-interpretability-tool-lit.html",
+      "handler": "document",
+      "provider": null,
+      "output": "html/research-google-the-language-interpretability-tool-lit-interactive-exp-8d49eb0926",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://commoncrawl.org/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/commoncrawl-org-index-b323e64961",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://narrativescience.com/resource/blog/why-we-dont-have-a-machine-learning-team-at-narrative-science",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-tableau-com-blog-31e176b457",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.microsoft.com/en-us/research/blog/deepspeed-extreme-scale-model-training-for-everyone/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-microsoft-com-deepspeed-extreme-scale-model-training-for-everyone-8e80438b9e",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://web.stanford.edu/class/cs384/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/web-stanford-edu-cs384-b63516854f",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://books.google.com/ngrams/info",
+      "handler": "document",
+      "provider": null,
+      "output": "html/books-google-com-info-6232ef83e7",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://blog.research.google/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/research-google-blog-cdfa64e9c7",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://blog.research.google/2020/04/xtreme-massively-multilingual-multi.html",
+      "handler": "document",
+      "provider": null,
+      "output": "html/research-google-xtreme-a-massively-multilingual-multi-task-benchmark-f-c09ee1e45a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://developers.google.com/machine-learning/guides/rules-of-ml",
+      "handler": "document",
+      "provider": null,
+      "output": "html/developers-google-com-rules-of-ml-64ad1f501a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://pair.withgoogle.com/guidebook/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/pair-withgoogle-com-guidebook-9f0318b116",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "html-no-extractable-text",
+      "error": "Trafilatura could not extract readable content"
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://developers.google.com/machine-learning/guides/good-data-analysis",
+      "handler": "document",
+      "provider": null,
+      "output": "html/developers-google-com-good-data-analysis-6a0867c385",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.unofficialgoogledatascience.com/2016/10/practical-advice-for-analysis-of-large.html",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-unofficialgoogledatascience-com-practical-advice-for-analysis-of-l-606d64d388",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://developers.google.com/machine-learning/crash-course",
+      "handler": "document",
+      "provider": null,
+      "output": "html/developers-google-com-crash-course-5ed0284526",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://developers.google.com/machine-learning/gan",
+      "handler": "document",
+      "provider": null,
+      "output": "html/developers-google-com-gan-c1a0865279",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://amitness.com/2020/03/illustrated-simclr/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/amitness-com-simclr-015cee5c8f",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://stats.stackexchange.com/questions/451827/whats-the-intitution-behind-contrastive-learning-or-approach",
+      "handler": "document",
+      "provider": null,
+      "output": "html/stats-stackexchange-com-whats-the-intitution-behind-contrastive-learni-6afcf2cb31",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "access-blocked",
+      "error": "HTTP 403"
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.coursera.org/specializations/ai-for-medicine",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-coursera-org-ai-for-medicine-47dd2af30d",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://www.wikiwand.com/en/Probably_approximately_correct_learning",
+      "handler": "document",
+      "provider": null,
+      "output": "html/www-wikiwand-com-probably-approximately-correct-learning-211b99228b",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://pythonot.github.io/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/pythonot-github-io-index-7eecf3dc27",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://bibinlp.umiacs.umd.edu/sharedtask.html",
+      "handler": "document",
+      "provider": null,
+      "output": "html/bibinlp-umiacs-umd-edu-sharedtask-3ad4a9b75c",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://dynabench.org/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/dynabench-org-index-a33debe3cc",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://github.com/jason718/awesome-self-supervised-learning",
+      "handler": "document",
+      "provider": null,
+      "output": "html/github-com-awesome-self-supervised-learning-dccbc663ed",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://insights-workshop.github.io/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/insights-workshop-github-io-index-e8d7e011a8",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://ehudreiter.com/2020/10/20/could-nlg-systems-injure-or-even-kill-people/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/ehudreiter-com-could-nlg-systems-injure-or-even-kill-people-3aa233fccd",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://toxicdegeneration.allenai.org/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/toxicdegeneration-allenai-org-index-1cc44ab00a",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "request-error",
+      "error": "request failed: HTTPSConnectionPool(host='toxicdegeneration.allenai.org', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<HTTPSConnection(host='toxicdegeneration.allenai.org', port=443) at 0x115b83890>, 'Connection to toxicdegeneration.allenai.org timed out. (connect timeout=15.0)'))"
+    },
+    {
+      "manifest_group": "html",
+      "url": "https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/",
+      "handler": "document",
+      "provider": null,
+      "output": "html/lilianweng-github-io-2023-01-27-the-transformer-family-v2-99f4c93917",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "http://proceedings.mlr.press/v70/shrikumar17a/shrikumar17a.pdf",
+      "handler": "research",
+      "provider": "pmlr",
+      "output": "research/pmlr-v70-shrikumar17a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "http://staff.ustc.edu.cn/~hexn/papers/sigir18-bipartiteNE.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/staff-ustc-edu-cn-sigir18-bipartitene-85542572ed",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "http://www.perozzi.net/publications/14_kdd_deepwalk.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/www-perozzi-net-14-kdd-deepwalk-1f9a695b56",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "request-error",
+      "error": "request failed: HTTPConnectionPool(host='www.perozzi.net', port=80): Max retries exceeded with url: /publications/14_kdd_deepwalk.pdf (Caused by ConnectTimeoutError(<HTTPConnection(host='www.perozzi.net', port=80) at 0x11278b610>, 'Connection to www.perozzi.net timed out. (connect timeout=15.0)'))"
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://dl.acm.org/doi/pdf/10.1145/3394486.3403226",
+      "handler": "document",
+      "provider": null,
+      "output": "html/dl-acm-org-3394486-74e50c1fa1",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "access-blocked",
+      "error": "HTTP 403"
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://ml-site.cdn-apple.com/papers/the-illusion-of-thinking.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/ml-site-cdn-apple-com-the-illusion-of-thinking-aa4766aa97",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://pslcdatashop.web.cmu.edu/KDDCup/workshop/papers/kdd2010ntu.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/pslcdatashop-web-cmu-edu-kdd2010ntu-5cc210906a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://services.google.com/fh/files/misc/gemini-for-google-workspace-prompting-guide-101.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/services-google-com-gemini-for-google-workspace-prompting-guide-101-804d8bfb35",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "http-error",
+      "error": "HTTP 404"
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/www-cdn-anthropic-com-58284b19e702b49db9302d5b6f135ad8871e7658-25076b54c8",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www-cs-faculty.stanford.edu/people/jure/pubs/node2vec-kdd16.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/www-cs-faculty-stanford-edu-node2vec-kdd16-cc351daf4b",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www.aclweb.org/anthology/2020.acl-main.421.pdf",
+      "handler": "research",
+      "provider": "acl",
+      "output": "research/acl-2020.acl-main.421",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www.aclweb.org/anthology/2020.acl-main.463.pdf",
+      "handler": "research",
+      "provider": "acl",
+      "output": "research/acl-2020.acl-main.463",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www.ele.uri.edu/faculty/he/PDFfiles/ImbalancedLearning.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "html/web-uri-edu-cisa-a64ec238aa",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www.jstatsoft.org/article/view/v045i03/v45i03.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/www-jstatsoft-org-v45i03-7921b1f512",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "unsafe-url",
+      "error": "unsafe URL: destination does not resolve exclusively to public addresses"
+    },
+    {
+      "manifest_group": "pdf",
+      "url": "https://www.microsoft.com/en-us/research/uploads/prod/2020/03/trec2019-deeplearning-overview-5e725254303da.pdf",
+      "handler": "document",
+      "provider": null,
+      "output": "pdf/www-microsoft-com-trec2019-deeplearning-overview-5e725254303da-3632af1918",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2504.13837",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2504.13837",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2504.17192",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2504.17192",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2501.09223",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2501.09223",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2504.12860",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2504.12860",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2410.04840",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2410.04840",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2504.11536",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2504.11536",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2502.21321",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2502.21321",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2504.07128",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2504.07128",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2503.20376",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2503.20376",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2412.05265",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2412.05265",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2503.24322",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2503.24322",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2409.04109",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2409.04109",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2503.21620",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2503.21620",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2503.19173",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2503.19173",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2503.13657",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2503.13657",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/2010.00747",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2010.00747",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/pdf/2003.00911",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2003.00911",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/html/2002.00293",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-2002.00293",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/1807.03748",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-1807.03748",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://arxiv.org/abs/1709.05584v3.pdf",
+      "handler": "research",
+      "provider": "arxiv",
+      "output": "research/arxiv-1709.05584v3",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://aclanthology.org/2025.acl-long.461/",
+      "handler": "research",
+      "provider": "acl",
+      "output": "research/acl-2025.acl-long.461",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://aclanthology.org/Q19-1029.pdf",
+      "handler": "research",
+      "provider": "acl",
+      "output": "research/acl-Q19-1029",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://proceedings.mlr.press/v70/shrikumar17a.html",
+      "handler": "research",
+      "provider": "pmlr",
+      "output": "research/pmlr-v70-shrikumar17a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://proceedings.mlr.press/v108/abel20a.html",
+      "handler": "research",
+      "provider": "pmlr",
+      "output": "research/pmlr-v108-abel20a",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://openreview.net/forum?id=BZ5a1r-kVsf",
+      "handler": "research",
+      "provider": "openreview",
+      "output": "research/openreview-BZ5a1r-kVsf",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "metadata-unavailable",
+      "error": "OpenReview metadata endpoint did not return JSON; OpenReview metadata endpoint did not return JSON"
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://openreview.net/forum?id=RDEaIfOiJM",
+      "handler": "research",
+      "provider": "openreview",
+      "output": "research/openreview-RDEaIfOiJM",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "metadata-unavailable",
+      "error": "OpenReview metadata endpoint did not return JSON; OpenReview metadata endpoint did not return JSON"
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://openaccess.thecvf.com/content/CVPR2025/html/Yang_Distraction_is_All_You_Need_for_Multimodal_Large_Language_Model_CVPR_2025_paper.html",
+      "handler": "research",
+      "provider": "cvf",
+      "output": "research/cvf-content-CVPR2025-Yang_Distraction_is_All_You_Need_for_Multimodal_Large_Language_Model_CVPR_2025_paper",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://openaccess.thecvf.com/content/CVPR2025/html/Ge_AutoPresent_Designing_Structured_Visuals_from_Scratch_CVPR_2025_paper.html",
+      "handler": "research",
+      "provider": "cvf",
+      "output": "research/cvf-content-CVPR2025-Ge_AutoPresent_Designing_Structured_Visuals_from_Scratch_CVPR_2025_paper",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/b78c69286221bbce7d12f98b5b45f337-Abstract-Conference.html",
+      "handler": "research",
+      "provider": "neurips",
+      "output": "research/neurips-b78c69286221bbce7d12f98b5b45f337",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/0f25eb6e9dc26c933a5d7516abf1eb8c-Abstract-Conference.html",
+      "handler": "research",
+      "provider": "neurips",
+      "output": "research/neurips-0f25eb6e9dc26c933a5d7516abf1eb8c",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://www.jmlr.org/papers/v25/24-0196.html",
+      "handler": "research",
+      "provider": "jmlr",
+      "output": "research/jmlr-v25-24-0196",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://www.jmlr.org/papers/v26/23-025.html",
+      "handler": "research",
+      "provider": "jmlr",
+      "output": "research/jmlr-v26-23-025",
+      "returncode": 0,
+      "status": "complete",
+      "reason": null,
+      "error": null
+    },
+    {
+      "manifest_group": "research",
+      "url": "https://www.researchgate.net/publication/404837031_PRISM-X_Experiments_on_Personalised_Fine-Tuning_with_Human_and_Simulated_Users",
+      "handler": "research",
+      "provider": "researchgate",
+      "output": "research/researchgate-404837031",
+      "returncode": 1,
+      "status": "failed",
+      "reason": "metadata-unavailable",
+      "error": "HTTP 403"
+    }
+  ]
+}

@@ -161,7 +161,7 @@ class BM25Tests(unittest.TestCase):
             )
 
     def test_each_corpus_keeps_its_own_index(self):
-        """Design §6b: a shared index lets vault growth move Org-side ranking."""
+        """A shared index lets vault growth move Org-side ranking."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             org_root, vault_root = corpus(root)

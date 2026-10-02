@@ -397,13 +397,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-file",
         type=_path,
-        default=_path("benchmarks/data/instagram_urls.txt"),
+        default=_path("tests/fixtures/instagram_urls.txt"),
     )
     parser.add_argument("--instagram-output", type=_path, default=_path("instagram_output"))
     parser.add_argument(
         "--fleurs-manifest",
         type=_path,
-        default=_path("benchmarks/data/transcription_benchmark_samples.tsv"),
+        default=_path("experiments/transcription-models/fleurs_samples.tsv"),
     )
     parser.add_argument("--work-dir", type=_path, default=_path(".bench_transcription"))
     parser.add_argument("--model-cache", type=_path, default=_path(".whisper_models"))
