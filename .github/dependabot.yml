@@ -9,6 +9,14 @@ updates:
         patterns:
           - instaloader
           - yt-dlp
+    # Both are capped in pyproject.toml on purpose: av decodes audio for transcription and
+    # transformers is bound to the pinned surya-ocr. A new major is a measured change, not a
+    # bump, so Dependabot does not widen these caps.
+    ignore:
+      - dependency-name: av
+        update-types: ["version-update:semver-major"]
+      - dependency-name: transformers
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

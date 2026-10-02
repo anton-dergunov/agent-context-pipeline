@@ -1,0 +1,55 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is what the Docker image runs; 3.14 is the laptop's, from .python-version.
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+
+      # No extras: the image installs none, and the tests do not need torch or surya.
+      - name: Install
+        run: uv sync --locked
+
+      - name: Test
+        run: uv run pytest
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+
+      # experiments/ holds measurement scripts that are not held to the application's lint.
+      # ruff format --check is left out until the files that predate line-length = 100 are
+      # reformatted.
+      - name: Lint
+        run: uvx ruff check src tests
+
+      - name: Check the shell scripts parse
+        run: bash -n deploy.sh run.sh sync.sh
+
+      - name: Check the extension scripts parse
+        run: |
+          for script in extension/background.js extension/content/content.js extension/options/options.js; do
+            node --check "$script"
+          done
