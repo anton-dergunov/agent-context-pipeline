@@ -2,7 +2,7 @@
 
 The dashboard at `http://192.168.1.10:8000` is plain HTTP, LAN-only, and
 protected only by network reachability plus the `POST /capture` bearer token
-(`GET /` is deliberately unauthenticated — see `AGENTS.md`). Tailscale is a
+(`GET /` is deliberately unauthenticated). Tailscale is a
 second, separate way to reach the NAS, including from outside the LAN, and
 Tailscale can also terminate real HTTPS for its own hostname
 (`server.example-tailnet.ts.net`) using certificates it provisions and renews

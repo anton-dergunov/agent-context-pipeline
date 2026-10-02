@@ -38,7 +38,7 @@ Expected cost of a 20-item day: **~6k tokens for the whole digest**, versus
 ### 1.1 Where `/route` actually spends its budget
 
 I parsed all 90 session transcripts in
-`~/.claude/projects/-Users-anton-Library-CloudStorage-Dropbox-notes-org/`
+`~/.claude/projects/<org-repo>/`
 (77 of them mention routing). Tool-call totals across all sessions:
 
 | Tool | Calls |

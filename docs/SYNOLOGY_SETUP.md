@@ -860,7 +860,7 @@ set -euo pipefail
 
 REMOTE="server"
 REMOTE_DIR="/volume1/docker/info-triage"
-URL="http://192.168.1.10:8000/health"
+PORT=8000
 
 if [[ ! -f .env ]]; then
     echo "Missing .env with Telegram credentials" >&2
@@ -893,6 +893,10 @@ ssh "$REMOTE" \
     'sudo -n /usr/local/sbin/deploy-container info-triage'
 
 echo "==> Health check"
+
+# The NAS address lives in ~/.ssh/config with the rest of the "$REMOTE" alias.
+HOST="$(ssh -G "$REMOTE" | awk '$1 == "hostname" { print $2 }')"
+URL="http://${HOST:-$REMOTE}:${PORT}/health"
 
 health_check_status=0
 health_check_output=$(curl --fail --silent --show-error \

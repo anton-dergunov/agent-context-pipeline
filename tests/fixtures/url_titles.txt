@@ -64,7 +64,7 @@ https://medium.com/the-leading-indicator/mcp-is-dead-1b24fe6a3e64
 https://www.langchain.com
 https://www.llamaindex.ai
 
-# Source: /Users/anton/projects/archive/text-cleanup/dataset/Unsorted.org
+# Source: dataset/Unsorted.org
 http://arxiv.org/abs/1704.01212
 http://arxiv.org/abs/1705.10359
 http://arxiv.org/abs/1711.07553

@@ -1,8 +1,7 @@
 # Message contract — implementation plan
 
 Written 2026-08-14. Companion to [`Message-contract-design.md`](Message-contract-design.md)
-(the *what* and *why*, accepted in full) and
-[`Message-contract-session-notes.md`](Message-contract-session-notes.md) (the evidence).
+(the *what* and *why*, accepted in full).
 
 **How to use this file.** Each `## Session N` below is one Claude Code session.
 Paste the fenced *Prompt* block, then let the session read the *Notes* under it
@@ -266,8 +265,8 @@ else in the skill changes — in particular, do not touch the finding ceiling or
 add any batching or slicing rules.
 
 Then I will capture a handful of items by hand and route them, to close the loop
-once end to end. Record in docs/Message-contract-session-notes.md what the index
-was missing and what /route still had to go and find.
+once end to end. Record what the index was missing and what /route still had to
+go and find.
 ```
 
 **Notes.** This is the checkpoint the whole plan is ordered around — the loop has

@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 
-INBOX = Path("/Users/anton/info-triage-inbox/info")
+INBOX = Path.home() / "info-triage-inbox" / "info"
 
 
 def item_query(d: Path, lead_words: int = 120) -> dict:

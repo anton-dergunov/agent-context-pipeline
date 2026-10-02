@@ -16,6 +16,9 @@ printf '\n' >>"$COMMAND_LOG"
 if [ "${FAIL_COMMAND:-}" = "$command_name" ]; then
     exit 23
 fi
+if [ "$command_name" = "ssh" ] && [ "${1:-}" = "-G" ]; then
+    printf 'user someone\nhostname server.test\nport 22\n'
+fi
 """
 
 
@@ -70,7 +73,7 @@ class DeployScriptTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 [command[0] for command in commands],
-                ["ssh", "rsync", "rsync", "ssh", "ssh", "curl"],
+                ["ssh", "rsync", "rsync", "ssh", "ssh", "ssh", "curl"],
             )
             mirror = commands[1]
             self.assertIn("--delete", mirror)
@@ -80,8 +83,9 @@ class DeployScriptTests(unittest.TestCase):
             self.assertEqual(commands[2][-2:], [".env", "server:/volume1/docker/info-triage/.env"])
             self.assertIn("chmod 600", commands[3][2])
             self.assertIn("deploy-container info-triage", commands[4][2])
+            self.assertEqual(commands[5], ["ssh", "-G", "server"])
             self.assertEqual(
-                commands[5],
+                commands[6],
                 [
                     "curl",
                     "--fail",
@@ -98,7 +102,7 @@ class DeployScriptTests(unittest.TestCase):
                     "1",
                     "--retry-max-time",
                     "60",
-                    "http://192.168.1.10:8000/health",
+                    "http://server.test:8000/health",
                 ],
             )
             self.assertIn("Deployment complete", result.stdout)

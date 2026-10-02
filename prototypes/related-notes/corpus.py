@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-ORG_ROOT = Path("/Users/anton/Library/CloudStorage/Dropbox/notes/org")
-VAULT_ROOT = Path("/Users/anton/Library/CloudStorage/Dropbox/notes/obsidian")
+# The same variables and defaults `info_triage/sync.py` reads.
+NOTES = Path.home() / "Library/CloudStorage/Dropbox/notes"
+ORG_ROOT = Path(os.environ.get("INFO_TRIAGE_ORG_ROOT") or NOTES / "org").expanduser()
+VAULT_ROOT = Path(os.environ.get("INFO_TRIAGE_OBSIDIAN_ROOT") or NOTES / "obsidian").expanduser()
 
 ORG_SKIP = {"workspace.org", "init.org"}
 VAULT_SKIP_DIRS = {".git", ".obsidian", ".smart-env", ".trash", "image", "scripts",

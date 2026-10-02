@@ -541,5 +541,5 @@ def test_url_title_fixture_is_a_deduplicated_529_url_corpus():
     assert [line for line in lines if line.startswith("# Source:")] == [
         "# Source: youtube_output/*/llm_input.txt",
         "# Source: medium_output/*/article.md",
-        "# Source: /Users/anton/projects/archive/text-cleanup/dataset/Unsorted.org",
+        "# Source: dataset/Unsorted.org",
     ]

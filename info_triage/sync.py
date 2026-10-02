@@ -544,8 +544,9 @@ def _has_sources(index: str) -> bool:
 
 #: The only sections a collapsed duplicate repeats. `## Captured` is the one that
 #: can legitimately differ — the same link saved twice with two different notes —
-#: and `## Problems` may not be dropped from any view: `AGENTS.md` names the three
-#: places a failure surfaces, and all three are meant to keep saying it.
+#: and `## Problems` may not be dropped from any view: a failure surfaces in three
+#: places — the run log, the dashboard and the item — and all three are meant to
+#: keep saying it.
 DUPLICATE_SECTIONS = ("Captured", "Problems")
 
 
@@ -710,7 +711,7 @@ def _legacy_headline(index: str) -> str:
     """Name an item captured before `index.md` carried a `headline:` field.
 
     Only what the index itself holds is in reach — `sync.py` reads no other file
-    (`AGENTS.md`: the index is the one file the laptop side has to read), and by
+    (`docs/DESIGN.md`: the index is the one file the laptop side has to read), and by
     here the caption and the transcript are two directories down. So this is a
     weaker chain than `index.py`'s on purpose, and it is transitional: the inbox
     drains daily, and every item captured from now on arrives with a headline.
@@ -946,7 +947,7 @@ def annotate_inbox(config: SyncConfig) -> None:
     index it needs is read into memory before the slow part begins, and every write is
     conditional on the item still being there.
 
-    Enrichment, in the sense `AGENTS.md` gives the word: nothing here may fail a sync.
+    Enrichment, like everything after capture: nothing here may fail a sync.
     """
     route_dir = config.local_inbox / NEIGHBOUR_ROUTE
     if not config.annotate or not route_dir.is_dir():

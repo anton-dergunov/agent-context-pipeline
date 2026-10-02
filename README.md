@@ -1,14 +1,19 @@
-# Personal Information Triage and Capture System
+# Agent context pipeline
 
-## Overview
+A self-hosted pipeline between what I come across during the day and the coding agent that files it. Capturing something takes one tap; the pipeline retrieves it, turns it into clean Markdown, and delivers an inbox the agent can work through without fetching anything itself.
 
-A self-hosted application for capturing information from different devices and sources, processing it automatically, and routing it into a central inbox for later review.
+## What it does
 
-The system acts as a universal capture and triage layer between information encountered during the day and the tools where that information will eventually be stored or acted upon.
+- **Capture from any device.** Share to a Telegram bot from the phone's share sheet, press a shortcut in Chrome ([`extension/`](extension/)), or send from the command line or a script.
+- **Extraction to clean Markdown.** Web pages, PDFs and research papers, plus dedicated handling for YouTube, Instagram, LinkedIn and Medium. Text shown in images and video is recovered by OCR, and speech by transcription, both running locally.
+- **Links and titles resolved.** Shortened links are followed, tracking parameters are dropped, and bare links get their page titles.
+- **Related notes looked up ahead of the agent.** Each item arrives with pointers to the existing notes and plans it most likely belongs with, so the agent starts from candidates instead of a search. [`docs/Related-notes-design.md`](docs/Related-notes-design.md) measures what that saves in tokens.
+- **One file per item.** Every item is a self-contained directory, and its `index.md` is the only file the agent has to read: what was captured, what was retrieved and how long each body is, and what went wrong if anything did.
+- **Nothing captured is lost.** Everything after capture is enrichment. A step that fails is recorded on the item, and the item still arrives.
 
-Instead of immediately deciding what to do with something, I can simply share it to the server. The server retrieves the content, extracts useful information, classifies it, performs initial processing, and stores it for later manual review.
+Capturing is immediate and deciding is deferred: what to do with an item is settled later, in a review session with the agent, not at the moment of saving it.
 
-The goal is to make capturing information extremely low-friction while keeping the final organization and decision-making process under manual control.
+The Python package and its commands keep the project's original name, `info-triage`.
 
 ## Current Prototype
 
@@ -80,6 +85,15 @@ edited by editing the Telegram message.
 The endpoint requires a bearer token and is otherwise reachable from the whole
 LAN, exactly as the dashboard already is. Reaching it from elsewhere is a job
 for Tailscale or the equivalent, not for the endpoint itself.
+
+### Capturing from the browser
+
+[`extension/`](extension/) is a Chrome extension that sends the current page,
+any selected text and a note to the same endpoint. Load it unpacked from that
+directory, set the server address and token on its options page, and press
+`Ctrl+Shift+K` (`Command+Shift+K` on a Mac). The dialog stays open after
+sending, and sending again updates the same item instead of capturing a second
+one.
 
 Each completed item keeps `metadata.json` at its root and everything captured
 under `capture/`: a materialized `source.md`, a processed
@@ -210,7 +224,7 @@ multilingual `faster-whisper` small) during the build and runs offline at
 runtime. The Surya and MLX extras are intentionally not installed in Docker.
 
 The read-only processing dashboard is available at `http://localhost:8000/`
-locally and `http://192.168.1.10:8000/` on the NAS. Its Processors tab shows
+locally and `http://<server>:8000/` on the NAS. Its Processors tab shows
 lifetime outcome totals and searchable failure-reason keys.
 
 After completing the one-time NAS rename described in

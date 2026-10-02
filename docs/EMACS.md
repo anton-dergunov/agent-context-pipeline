@@ -160,7 +160,7 @@ it` and the run carries on. When it finishes it rewrites `triage.md` alone, so
 the `triage.org` buffer in front of you never changes under you.
 
 Where it looks is set in `~/.config/info-triage/sync.toml` (under
-`$XDG_CONFIG_HOME` when that is set):
+`$XDG_CONFIG_HOME` when that is set). The paths below are an example:
 
 ```toml
 [neighbours]
