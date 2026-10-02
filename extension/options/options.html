@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Info Triage Capture Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-brand">
+        <img src="../icons/icon-48.png" alt="Info Triage Logo" class="logo">
+        <div>
+          <h1>Info Triage Capture</h1>
+          <p class="subtitle">Extension & API Configuration</p>
+        </div>
+      </div>
+    </header>
+
+    <div id="status-toast" class="toast hidden"></div>
+
+    <main class="main-content">
+      <!-- Network & API Credentials Section -->
+      <section class="card">
+        <h2>API Settings</h2>
+        <p class="section-desc">Configure your Info Triage Capture endpoint connection details and authorization token.</p>
+
+        <form id="options-form" autocomplete="off">
+          <div class="form-grid">
+            <div class="form-group span-2">
+              <label for="url">INFO_TRIAGE_CAPTURE_URL</label>
+              <input type="text" id="url" placeholder="e.g.  <your-server-domain> or https://..." required>
+              <span class="field-help">Server hostname or domain (e.g. <code> <your-server-domain></code>)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="port">INFO_TRIAGE_CAPTURE_PORT</label>
+              <input type="text" id="port" placeholder="8443" required>
+              <span class="field-help">Target port (e.g. <code>8443</code>)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="transport">Transport Protocol</label>
+              <select id="transport">
+                <option value="https">https (Secure)</option>
+                <option value="http">http</option>
+              </select>
+              <span class="field-help">Network transport protocol</span>
+            </div>
+
+            <div class="form-group span-2">
+              <label for="token">INFO_TRIAGE_CAPTURE_TOKEN</label>
+              <div class="password-wrapper">
+                <input type="password" id="token" placeholder="Bearer authorization token" required>
+                <button type="button" id="toggle-token-visibility" class="btn-icon" title="Toggle visibility">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <span class="field-help">Bearer token sent in HTTP Authorization header</span>
+            </div>
+          </div>
+
+          <!-- Routes Manager Section -->
+          <div class="divider"></div>
+
+          <div class="routes-section">
+            <div class="section-header">
+              <div>
+                <h3>Capture Routes</h3>
+                <p class="section-desc">Manage capture route categories available in the extension drop-down list.</p>
+              </div>
+              <div class="default-route-picker">
+                <label for="default-route">Default Route:</label>
+                <select id="default-route"></select>
+              </div>
+            </div>
+
+            <div id="routes-list" class="routes-list">
+              <!-- Route items rendered dynamically -->
+            </div>
+
+            <div class="add-route-box">
+              <input type="text" id="new-route-input" placeholder="New route name (e.g. note, bookmark)..." spellcheck="false">
+              <button type="button" id="add-route-btn" class="btn btn-secondary">+ Add Route</button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Keyboard Shortcut Info -->
+          <div class="shortcut-section">
+            <h3>Keyboard Shortcut</h3>
+            <p class="section-desc">Trigger text & URL capture using a key combination without clicking the toolbar icon.</p>
+            <div class="shortcut-box">
+              <div class="shortcut-badge">
+                <span class="shortcut-label">Default Key Combo:</span>
+                <kbd id="shortcut-display">Command + Shift + K (Mac) / Ctrl + Shift + K (Win)</kbd>
+              </div>
+              <p class="field-help">To customize or change this shortcut, open Chrome's native shortcuts manager at <code id="shortcuts-link">chrome://extensions/shortcuts</code>.</p>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Action Buttons -->
+          <div class="actions">
+            <div class="left-actions">
+              <button type="button" id="test-btn" class="btn btn-outline">
+                <span class="spinner hidden" id="test-spinner"></span>
+                <span>Test Connection</span>
+              </button>
+              <button type="button" id="reset-btn" class="btn btn-ghost">Reset Routes</button>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
