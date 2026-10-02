@@ -65,14 +65,17 @@ processing:
 # first one is the default for a capture that names no route. Steps execute in
 # exactly this order, and removing a step disables it for that route.
 #
-# `token_env` names the variable in .env that holds the route's bot token. Leave
-# it out for a route with no bot: such a route is fed by POST /capture alone (the
-# browser extension, the command line), so the daemon runs without any bot at all.
+# `token_env` names the variable in .env that holds the route's bot token. A route
+# without it has no bot and is fed by POST /capture alone (the browser extension,
+# the command line), which is how this file ships: the daemon starts with no
+# Telegram setup at all. To give a route a bot, create one with BotFather, put its
+# token in .env and uncomment the route's `token_env` line. A token that is named
+# here and missing or rejected stops the daemon, on purpose.
 routes:
   # The default route: things to read and think about, filed later with an agent.
   # This is the only route here that cleans, resolves, retrieves or transcribes.
   - name: info
-    token_env: TELEGRAM_BOT_TOKEN_INFO
+    # token_env: TELEGRAM_BOT_TOKEN_INFO
     steps:
       - name: voice-transcription
         # The portable CPU backend. Changing the container model requires a rebuild.
@@ -138,7 +141,7 @@ routes:
   # index-render needs it to fill `canonical_url`. The captured text is never
   # transformed.
   - name: job
-    token_env: TELEGRAM_BOT_TOKEN_JOB
+    # token_env: TELEGRAM_BOT_TOKEN_JOB
     steps:
       - name: link-discovery
       - name: index-render
@@ -148,7 +151,7 @@ routes:
   # Video clips to download later. Downloading happens on the laptop, so nothing
   # here retrieves, transcribes or OCRs; the URL is the payload.
   - name: clip
-    token_env: TELEGRAM_BOT_TOKEN_CLIP
+    # token_env: TELEGRAM_BOT_TOKEN_CLIP
     steps:
       - name: link-discovery
       - name: index-render

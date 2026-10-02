@@ -23,11 +23,11 @@ the document for that topic, or when it is no longer wanted. Git keeps what it s
   far.
 - **A stronger deployment boundary.** Root-controlled Compose and Docker definitions, with the
   deployment account limited to application source; see
-  [`operations/synology-deployment.md`](operations/synology-deployment.md#10-what-this-does-not-protect-against).
+  [`operations/synology.md`](operations/synology.md#what-this-does-not-protect-against).
 
 ## Extraction
 
-- **Throughput on the target hardware.** OCR and transcription were measured on a laptop. The NAS
+- **Throughput on the target hardware.** OCR and transcription were measured on a laptop. The server
   figure is an estimate; run `experiments/video-ocr/bench.py` there
   ([`experiments/video-ocr/`](../experiments/video-ocr/README.md)).
 - **The original source of a Medium story.** A story cross-posted from a personal site could be

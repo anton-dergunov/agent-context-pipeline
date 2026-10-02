@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Info Triage Capture",
-  "version": "1.0.0",
-  "description": "Capture page URLs, selected text, and user intent to the Info Triage API.",
+  "version": "1.1.0",
+  "description": "Capture the current page, selected text and a note to a self-hosted Info Triage server.",
   "permissions": [
     "storage",
     "activeTab",

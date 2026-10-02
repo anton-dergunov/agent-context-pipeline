@@ -1,94 +1,69 @@
-# HTTPS Access to Info Triage via Tailscale
+# Reaching the server from elsewhere, over HTTPS
 
-The dashboard at `http://192.168.1.10:8000` is plain HTTP, LAN-only, and
-protected only by network reachability plus the `POST /capture` bearer token
-(`GET /` is deliberately unauthenticated). Tailscale is a
-second, separate way to reach the NAS, including from outside the LAN, and
-Tailscale can also terminate real HTTPS for its own hostname
-(`server.example-tailnet.ts.net`) using certificates it provisions and renews
-automatically. Plain `https://server.example-tailnet.ts.net:8000/` fails with
-`ERR_SSL_PROTOCOL_ERROR` because port 8000 only ever speaks HTTP; this sets up
-a genuine HTTPS endpoint instead.
+The server speaks plain HTTP on port 8000, to the local network only. The dashboard is
+unauthenticated and captures are protected by the bearer token alone, so the port should never be
+forwarded on a router. To capture from outside the house, and to give the browser extension an HTTPS
+address, put the server on a private network. This page uses [Tailscale](https://tailscale.com/);
+any equivalent works.
 
-A real trusted HTTPS certificate is not obtainable for the LAN IP
-(`192.168.1.10`) — no public CA issues certificates for private IP
-addresses — so this only applies to the Tailscale hostname.
+Tailscale gives every machine a stable name such as `my-server.my-tailnet.ts.net` and can terminate
+real HTTPS for that name, with certificates it provisions and renews itself. A trusted certificate
+is not obtainable for a LAN address such as `192.168.1.10`, because no public authority issues one
+for a private IP address, so HTTPS is only available under the tailnet name.
 
-## Why a dedicated port
+## Setup
 
-`tailscale serve status` already shows an existing mapping on the default
-HTTPS port:
+1. Install Tailscale on the server and on every device you capture from, signed in to the same
+   tailnet.
+2. In the Tailscale admin console, enable **MagicDNS** and **HTTPS certificates**.
+3. On the server, forward an HTTPS port to the daemon:
+
+   ```bash
+   sudo tailscale serve --bg --https=8443 http://127.0.0.1:8000
+   tailscale serve status
+   ```
+
+`--bg` stores the mapping in Tailscale's own state, so this is a one-time setup that survives
+restarts of the server and of the container; `deploy.sh` does not repeat it.
+
+Port 8443 and not the default 443, so that this mapping does not take the place of another service
+already served on the tailnet name. Any free port will do.
+
+Use `tailscale serve`, never `tailscale funnel`: Funnel publishes a service to the whole internet.
+
+## Using it
 
 ```text
-https://server.example-tailnet.ts.net (tailnet only)
-|-- / proxy http://127.0.0.1:8080
+https://my-server.my-tailnet.ts.net:8443/
 ```
 
-Port 8080 is FreshRSS, not info-triage — confirmed by `curl
-http://127.0.0.1:8080/`, which returns FreshRSS's login redirect. That mapping
-must stay untouched, so info-triage's HTTPS mapping uses a different port,
-`8443`, rather than replacing it.
+reaches the same dashboard as `http://192.168.1.10:8000/`, from any device on the tailnet.
 
-## One-time root setup on the NAS
+- **Browser extension**: enter that address as the Server URL on its options page.
+- **Command line**: `INFO_TRIAGE_CAPTURE_URL=https://my-server.my-tailnet.ts.net:8443` in `.env`.
+- **`deploy.sh` and `sync.sh`** keep using SSH, with whatever address the SSH alias has. Pointing
+  the alias's `HostName` at the tailnet name makes them work from outside the house too.
 
-`tailscale serve` requires root (it writes to `tailscaled`'s local state).
-Following the same least-privilege pattern
-[`synology-deployment.md`](synology-deployment.md#6-the-restricted-deployment-command) uses for
-`deploy-container` — a narrowly scoped, single-purpose root wrapper plus a
-matching sudoers rule — rather than granting `deploy` broad Tailscale control
-(`tailscale up --operator=...` would also permit `tailscale funnel`, which
-exposes a service to the public internet; this setup deliberately avoids
-that).
+`https://my-server.my-tailnet.ts.net:8000/` does not work and fails with a protocol error: port 8000
+only ever speaks HTTP.
 
-As root on the NAS (`ssh server` then `sudo -i`):
+## Without passwordless root
+
+`tailscale serve` needs root, because it writes to the Tailscale daemon's state. On a server where
+the deployment account has no general `sudo`, such as the Synology setup in
+[`synology.md`](synology.md#the-restricted-deployment-command), use the same pattern as the deploy
+command: one root-owned script that does exactly this, and a sudoers rule for exactly that script.
 
 ```sh
-cat > /usr/local/sbin/enable-tailscale-serve <<'EOF'
 #!/bin/sh
+# /usr/local/sbin/enable-tailscale-serve, owned by root, mode 755
 set -eu
 exec /usr/local/bin/tailscale serve --bg --https=8443 http://127.0.0.1:8000
-EOF
-chown root:root /usr/local/sbin/enable-tailscale-serve
-chmod 755 /usr/local/sbin/enable-tailscale-serve
+```
 
-cat > /etc/sudoers.d/tailscale-serve <<'EOF'
+```sudoers
 deploy ALL=(root) NOPASSWD: /usr/local/sbin/enable-tailscale-serve
-EOF
-chown root:root /etc/sudoers.d/tailscale-serve
-chmod 440 /etc/sudoers.d/tailscale-serve
-visudo -c
-
-/usr/local/sbin/enable-tailscale-serve
 ```
 
-`tailscale serve --bg` persists the mapping in `tailscaled`'s state, so this
-is a one-time setup, not something `deploy.sh` needs to repeat on every
-deployment. It survives NAS/container restarts as long as the Tailscale
-package itself keeps running.
-
-## Verifying and reapplying from the Mac over SSH
-
-The sudoers rule covers exactly the wrapper script, so this works
-non-interactively, the same way `deploy.sh` calls `deploy-container`:
-
-```bash
-ssh server 'sudo -n /usr/local/sbin/enable-tailscale-serve'
-ssh server '/usr/local/bin/tailscale serve status'
-```
-
-`tailscale status` and `tailscale serve status` are both read-only and never
-need sudo. By contrast, `ssh server 'sudo -n /usr/local/bin/tailscale serve ...'`
-with any other target should fail with `sudo: a password is required` —
-sudoers matches the literal command line, so only the exact wrapper-script
-invocation is passwordless.
-
-## Access
-
-```text
-https://server.example-tailnet.ts.net:8443/
-```
-
-reaches the same dashboard as `http://192.168.1.10:8000/`, over a
-Tailscale-issued certificate, from any device on the tailnet — Tailscale
-handles renewal, so there is nothing to maintain here beyond the one-time
-setup above.
+This is narrower than `tailscale up --operator=deploy`, which would also let that account run
+`tailscale funnel`.

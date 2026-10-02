@@ -254,36 +254,6 @@ code {
   color: var(--primary);
 }
 
-.route-chip .remove-route {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.route-chip .remove-route:hover {
-  color: var(--danger);
-  background: #fee2e2;
-}
-
-.add-route-box {
-  display: flex;
-  gap: 8px;
-}
-
-.add-route-box input {
-  flex: 1;
-}
-
-/* Shortcut Section */
 .shortcut-section {
   display: flex;
   flex-direction: column;

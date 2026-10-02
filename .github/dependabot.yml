@@ -9,3 +9,7 @@ updates:
         patterns:
           - instaloader
           - yt-dlp
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

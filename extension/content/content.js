@@ -1,8 +1,5 @@
 (function () {
-  const DEFAULTS = {
-    routes: ['info', 'job', 'clip', 'lang'],
-    defaultRoute: 'info'
-  };
+  const ROUTES_CACHE_KEY = 'routesCache';
 
   // Listen for message from background script to open capture dialog
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -23,10 +20,14 @@
     const selection = window.getSelection ? window.getSelection().toString().trim() : '';
     const pageUrl = window.location.href;
 
-    // Load stored routes and default route
-    const stored = await chrome.storage.sync.get(DEFAULTS);
-    const routesList = Array.isArray(stored.routes) && stored.routes.length > 0 ? stored.routes : DEFAULTS.routes;
-    const defaultRoute = stored.defaultRoute && routesList.includes(stored.defaultRoute) ? stored.defaultRoute : routesList[0];
+    // The routes the server last reported, read from local storage so the dialog
+    // never waits for the network. They are refreshed once it is on screen.
+    const [stored, cached] = await Promise.all([
+      chrome.storage.sync.get({ defaultRoute: '' }),
+      chrome.storage.local.get(ROUTES_CACHE_KEY)
+    ]);
+    const preferredRoute = stored.defaultRoute || '';
+    let knownRoutes = cached[ROUTES_CACHE_KEY] || null;
 
     // Initial text value: URL + selection formatted with Selection: prefix and quotes, else URL
     const initialText = selection ? `${pageUrl}\n\nSelection:\n"${selection}"` : pageUrl;
@@ -305,9 +306,7 @@
 
             <div class="field">
               <label for="route-select">Route</label>
-              <select id="route-select">
-                ${routesList.map(r => `<option value="${escapeHtml(r)}" ${r === defaultRoute ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
-              </select>
+              <select id="route-select">${routeOptions(knownRoutes, preferredRoute)}</select>
             </div>
 
             <div class="field">
@@ -356,6 +355,18 @@
     const sendBtnText = shadow.getElementById('send-btn-text');
 
     intentInput.focus();
+
+    // Refresh the route list behind the open dialog. The list on screen changes
+    // only if the server's differs, and a route the user already picked is kept.
+    let routeChosenByUser = false;
+    routeSelect.addEventListener('change', () => { routeChosenByUser = true; });
+    chrome.runtime.sendMessage({ action: 'REFRESH_ROUTES' }).then((response) => {
+      if (!response || !response.success || !host.isConnected || isCaptured) return;
+      if (JSON.stringify(response.routes.routes) === JSON.stringify(knownRoutes && knownRoutes.routes)) return;
+      knownRoutes = response.routes;
+      const keep = routeChosenByUser ? routeSelect.value : preferredRoute;
+      routeSelect.innerHTML = routeOptions(knownRoutes, keep);
+    }).catch(() => {});
 
     // Stop all key events inside shadow DOM modal from propagating out to host page (e.g. GitHub shortcuts)
     function stopEventLeakage(e) {
@@ -455,10 +466,14 @@
       }
 
       const payload = {
-        route: selectedRoute,
         text: finalText,
         source: 'chrome-extension'
       };
+      // No route known yet: leave it out and the server files the item under its
+      // default route, or keeps a replaced item where it is.
+      if (selectedRoute) {
+        payload.route = selectedRoute;
+      }
 
       if (currentCapturedId) {
         payload.id = currentCapturedId;
@@ -484,7 +499,14 @@
             currentCapturedId = handle;
           }
           isCaptured = true;
-          lastSavedRoute = selectedRoute;
+          // The server says where the item landed; show that in the drop-down.
+          if (response.data && response.data.route) {
+            if (![...routeSelect.options].some((option) => option.value === response.data.route)) {
+              routeSelect.add(new Option(response.data.route, response.data.route));
+            }
+            routeSelect.value = response.data.route;
+          }
+          lastSavedRoute = routeSelect.value;
           lastSavedText = textContent;
           lastSavedIntent = intentText;
 
@@ -506,8 +528,7 @@
       if (idStr.includes('/')) {
         return idStr;
       }
-      const routeStr = String(data.route || 'info');
-      return `${routeStr}/${idStr}`;
+      return data.route ? `${data.route}/${idStr}` : null;
     }
 
     function setLoading(isLoading) {
@@ -567,6 +588,18 @@
         </div>
       `;
     }
+  }
+
+  // The <option>s for the route drop-down. With no route list yet there is one
+  // entry that names no route, and the server picks its default.
+  function routeOptions(known, preferred) {
+    if (!known || !Array.isArray(known.routes) || known.routes.length === 0) {
+      return '<option value="">server default</option>';
+    }
+    const selected = known.routes.includes(preferred) ? preferred : known.default;
+    return known.routes.map((route) =>
+      `<option value="${escapeHtml(route)}" ${route === selected ? 'selected' : ''}>${escapeHtml(route)}</option>`
+    ).join('');
   }
 
   function getIsoTimestampWithOffset() {

@@ -1,11 +1,16 @@
-const DEFAULTS = {
-  url: '',
-  port: '',
+// Settings live in chrome.storage.sync, so they follow the browser profile.
+// The route list the server last reported lives in chrome.storage.local: it is
+// a cache, refreshed in the background, and the dialog never waits for it.
+const SETTINGS_DEFAULTS = {
+  serverUrl: '',
   token: '',
-  transport: 'https',
-  routes: ['info', 'job', 'clip', 'lang'],
-  defaultRoute: 'info'
+  // Empty means "whatever the server calls its default".
+  defaultRoute: ''
 };
+const ROUTES_CACHE_KEY = 'routesCache';
+
+chrome.runtime.onInstalled.addListener(() => { refreshRoutes(); });
+chrome.runtime.onStartup.addListener(() => { refreshRoutes(); });
 
 // Listen for action icon click in toolbar
 chrome.action.onClicked.addListener(async (tab) => {
@@ -30,154 +35,99 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// Helper to construct API endpoint cleanly
-function buildEndpoint(url, port, transport) {
-  let cleanHost = (url || '').trim();
-  cleanHost = cleanHost.replace(/^https?:\/\//i, '');
-  cleanHost = cleanHost.replace(/\/+$/, '');
-  cleanHost = cleanHost.replace(/:\d+$/, '');
-  const cleanPort = (port || '8443').trim();
-  const cleanTransport = (transport || 'https').trim();
-  return `${cleanTransport}://${cleanHost}:${cleanPort}/capture`;
+// The server's base address, as typed on the options page, without a trailing
+// slash. Null when it is missing or not an http(s) URL.
+function baseUrl(serverUrl) {
+  const value = (serverUrl || '').trim().replace(/\/+$/, '');
+  return /^https?:\/\/[^/\s]+/i.test(value) ? value : null;
 }
 
-// Handle runtime messages from content script & options page
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'CAPTURE_API') {
-    handleCaptureApi(message.payload, sendResponse);
-    return true; // Keep message channel open for async response
+// One request to the server. Resolves to {success, status, data, error}; never throws.
+async function callServer(settings, method, path, body, timeoutMs) {
+  const base = baseUrl(settings.serverUrl);
+  if (!base || !(settings.token || '').trim()) {
+    return {
+      success: false,
+      status: 0,
+      error: 'Set the server URL (with http:// or https://) and the capture token on the extension\'s options page.'
+    };
   }
 
-  if (message.action === 'TEST_API_CONNECTION') {
-    handleTestConnection(message.config, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-});
-
-async function handleCaptureApi(payload, sendResponse) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const config = await chrome.storage.sync.get(DEFAULTS);
-    if (!config.url || !config.port || !config.token) {
-      sendResponse({
-        success: false,
-        status: 401,
-        error: 'Missing API configuration. Please configure URL, Port, and Bearer Token in the extension Options page.'
-      });
-      return;
+    const headers = { 'Authorization': `Bearer ${settings.token.trim()}` };
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
     }
-
-    const endpoint = buildEndpoint(config.url, config.port, config.transport);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.token.trim()}`
-      },
-      body: JSON.stringify(payload),
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal
     });
-
-    clearTimeout(timeoutId);
-
     let data = {};
     try {
       data = await res.json();
     } catch (e) {
       data = {};
     }
-
-    if (res.ok && (res.status === 200 || res.status === 201)) {
-      sendResponse({
-        success: true,
-        status: res.status,
-        data: data
-      });
-    } else {
-      const errorMsg = data.error || `HTTP ${res.status} ${res.statusText || 'Server Error'}`;
-      sendResponse({
-        success: false,
-        status: res.status,
-        error: errorMsg,
-        data: data
-      });
+    if (res.ok) {
+      return { success: true, status: res.status, data };
     }
-  } catch (err) {
-    let msg = err.message;
-    if (err.name === 'AbortError') {
-      msg = 'Request timed out after 20 seconds.';
-    }
-    sendResponse({
+    return {
       success: false,
-      status: 0,
-      error: msg
-    });
-  }
-}
-
-async function handleTestConnection(providedConfig, sendResponse) {
-  try {
-    const stored = await chrome.storage.sync.get(DEFAULTS);
-    const config = providedConfig || stored;
-    const endpoint = buildEndpoint(config.url, config.port, config.transport);
-
-    // Send a test ping payload with route "info"
-    const now = new Date();
-    const tzo = -now.getTimezoneOffset();
-    const dif = tzo >= 0 ? '+' : '-';
-    const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
-    const isoTimestamp = now.getFullYear() + '-' +
-      pad(now.getMonth() + 1) + '-' +
-      pad(now.getDate()) + 'T' +
-      pad(now.getHours()) + ':' +
-      pad(now.getMinutes()) + ':' +
-      pad(now.getSeconds()) +
-      dif + pad(tzo / 60) + ':' + pad(tzo % 60);
-
-    const testPayload = {
-      route: config.defaultRoute || 'info',
-      text: 'Test connection from Info Triage Capture options page',
-      source: 'chrome-extension',
-      captured_at: isoTimestamp
+      status: res.status,
+      error: data.error || `HTTP ${res.status} ${res.statusText || 'Server Error'}`,
+      data
     };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.token}`
-      },
-      body: JSON.stringify(testPayload),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    let data = {};
-    try {
-      data = await res.json();
-    } catch (e) {}
-
-    if (res.ok && (res.status === 200 || res.status === 201)) {
-      sendResponse({ success: true, status: res.status, data });
-    } else {
-      sendResponse({
-        success: false,
-        status: res.status,
-        error: data.error || `HTTP ${res.status} ${res.statusText}`
-      });
-    }
   } catch (err) {
-    sendResponse({
+    return {
       success: false,
       status: 0,
-      error: err.message || 'Network error'
-    });
+      error: err.name === 'AbortError'
+        ? `Request timed out after ${timeoutMs / 1000} seconds.`
+        : (err.message || 'Network error')
+    };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
+
+// Ask the server which routes it has and remember the answer. SETTINGS lets the
+// options page try values it has not saved yet; a trial run is not cached.
+async function refreshRoutes(settings) {
+  const trial = settings !== undefined;
+  const effective = trial ? settings : await chrome.storage.sync.get(SETTINGS_DEFAULTS);
+  const response = await callServer(effective, 'GET', '/routes', undefined, 10000);
+  if (response.success && Array.isArray(response.data.routes) && response.data.routes.length > 0) {
+    const routes = {
+      routes: response.data.routes.map(String),
+      default: String(response.data.default || response.data.routes[0]),
+      fetchedAt: new Date().toISOString()
+    };
+    if (!trial) {
+      await chrome.storage.local.set({ [ROUTES_CACHE_KEY]: routes });
+    }
+    return { success: true, status: response.status, routes };
+  }
+  if (response.success) {
+    return { success: false, status: response.status, error: 'The server answered without a route list.' };
+  }
+  return response;
+}
+
+// Handle runtime messages from content script & options page
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'CAPTURE_API') {
+    chrome.storage.sync.get(SETTINGS_DEFAULTS)
+      .then((settings) => callServer(settings, 'POST', '/capture', message.payload, 20000))
+      .then(sendResponse);
+    return true; // Keep message channel open for async response
+  }
+
+  if (message.action === 'REFRESH_ROUTES') {
+    refreshRoutes(message.settings).then(sendResponse);
+    return true;
+  }
+});

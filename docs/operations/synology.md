@@ -1,33 +1,31 @@
 # Deploying to a Synology NAS
 
-The one-time setup that lets `./deploy.sh` copy the project to a Synology NAS, rebuild the container
-and check that it came up, with no password prompt and without handing the deployment account
-unrestricted Docker.
+What a Synology needs on top of [`deployment.md`](deployment.md): DSM's own switches for SSH and
+rsync, and a way to rebuild the container with no password prompt and without handing the
+deployment account unrestricted Docker.
 
 The values used throughout are examples:
 
-- NAS LAN address `192.168.1.10`, reachable as the SSH alias `server`
+- NAS LAN address `192.168.1.10`, reachable as the SSH alias `nas`
 - deployment account `deploy`, a DSM administrator
 - deployment directory `/volume1/docker/info-triage`
 - application port `8000`
 
-```text
-Mac ── ./deploy.sh
-        │  rsync over SSH (public-key authentication)
-        ▼
-NAS  /volume1/docker/info-triage
-        │  sudo -n /usr/local/sbin/deploy-container info-triage   (the one passwordless command)
-        ▼
-     docker compose up -d --build
-        │
-        ▼
-Mac ── health check against http://<nas>:8000/health
+They go into `.env` like this:
+
+```dotenv
+INFO_TRIAGE_SERVER=nas
+INFO_TRIAGE_SERVER_DIR=/volume1/docker/info-triage
+INFO_TRIAGE_DEPLOY_COMMAND=sudo -n /usr/local/sbin/deploy-container info-triage
+# The first user DSM creates is 1026, in the group users (100): check with `id` on the NAS.
+INFO_TRIAGE_UID=1026
+INFO_TRIAGE_GID=100
 ```
 
 > **Scope.** SSH is for the local network only. Do not forward TCP port 22 on the router for this
 > workflow, and check that UPnP has not created such a mapping.
 
-## 1. Container Manager
+## Container Manager
 
 In DSM, open **Package Center**, search for **Container Manager** and install it. It provides the
 Docker engine and Compose. Check over SSH:
@@ -37,7 +35,7 @@ sudo docker version
 sudo docker compose version
 ```
 
-## 2. The deployment directory
+## The deployment directory
 
 The application lives in the `docker` shared folder:
 
@@ -48,7 +46,7 @@ mkdir -p /volume1/docker/info-triage
 Not in `/volume1/@docker`: directories beginning with `@` are DSM internals. The `deploy` account
 needs write access here, because `rsync` copies files into it.
 
-## 3. SSH
+## SSH
 
 **Control Panel → Terminal & SNMP → Terminal → Enable SSH service.** Port 22 is fine on the LAN. Do
 not enable Telnet.
@@ -57,22 +55,22 @@ not enable Telnet.
 ssh deploy@192.168.1.10 whoami     # deploy
 ```
 
-## 4. Public-key authentication
+## Public-key authentication
 
 On the Mac, create a key if there is none (`ssh-keygen -t ed25519`) and install the public key on
 the NAS as `/var/services/homes/deploy/.ssh/authorized_keys`, with `chmod 700 ~/.ssh` and
 `chmod 600 ~/.ssh/authorized_keys`.
 
-Add an alias to `~/.ssh/config` on the Mac. `deploy.sh` and `sync.sh` both use the name `server`:
+Add an alias to `~/.ssh/config` on the Mac, and name it in `.env` as `INFO_TRIAGE_SERVER`:
 
 ```sshconfig
-Host server
+Host nas
     HostName 192.168.1.10
     User deploy
     IdentityFile ~/.ssh/id_ed25519
 ```
 
-`ssh server 'whoami'` should now print `deploy` without asking for a password.
+`ssh nas 'whoami'` should now print `deploy` without asking for a password.
 
 ### The post-quantum warning
 
@@ -83,7 +81,7 @@ provides one, the warning can be silenced for this alias only, which also remove
 `rsync` that `sync.sh` runs:
 
 ```sshconfig
-Host server
+Host nas
     …
     WarnWeakCrypto no-pq-kex
 ```
@@ -92,7 +90,7 @@ This hides the warning and does not make the connection post-quantum safe. Keep 
 alias. See OpenSSH's [post-quantum guidance](https://www.openssh.com/pq.html) and the
 [`WarnWeakCrypto` option](https://man.openbsd.org/ssh_config#WarnWeakCrypto).
 
-## 5. rsync
+## rsync
 
 Working SSH does not mean DSM permits rsync. Two settings are required:
 
@@ -102,19 +100,19 @@ Working SSH does not mean DSM permits rsync. Two settings are required:
 
 ```bash
 echo info-triage >/tmp/rsync-test.txt
-rsync -av /tmp/rsync-test.txt server:/volume1/docker/info-triage/
-ssh server 'cat /volume1/docker/info-triage/rsync-test.txt'     # info-triage
+rsync -av /tmp/rsync-test.txt nas:/volume1/docker/info-triage/
+ssh nas 'cat /volume1/docker/info-triage/rsync-test.txt'     # info-triage
 ```
 
 The Mac and the NAS do not need the same rsync version.
 
-## 6. The restricted deployment command
+## The restricted deployment command
 
 ### Why passwordless SSH is not enough
 
-`ssh server 'sudo docker ps'` passes two checks: SSH authenticates as `deploy` with the key, and
-then `sudo` asks for `deploy`'s DSM password. So `ssh server 'whoami'` works unattended while
-`ssh server 'sudo -n docker ps'` fails with `sudo: a password is required`.
+`ssh nas 'sudo docker ps'` passes two checks: SSH authenticates as `deploy` with the key, and
+then `sudo` asks for `deploy`'s DSM password. So `ssh nas 'whoami'` works unattended while
+`ssh nas 'sudo -n docker ps'` fails with `sudo: a password is required`.
 
 Do not solve this with `deploy ALL=(ALL) NOPASSWD: ALL`, and do not grant passwordless
 `/usr/local/bin/docker` either: control of Docker is equivalent to root. Expose one specific command
@@ -185,73 +183,30 @@ visudo -c
 From a separate terminal on the Mac:
 
 ```bash
-ssh server 'sudo -n /usr/local/sbin/deploy-container info-triage'   # works, no password
-ssh server 'sudo -n /usr/local/bin/docker ps'                       # sudo: a password is required
+ssh nas 'sudo -n /usr/local/sbin/deploy-container info-triage'   # works, no password
+ssh nas 'sudo -n /usr/local/bin/docker ps'                       # sudo: a password is required
 ```
 
 That difference is intended.
 
-## 7. Deploying
+## Deploying
 
-The Mac holds the source of truth. The NAS copy is a deployment target.
+With the settings above in `.env`:
 
 ```bash
-./run.sh                               # local test: docker compose up --build
-curl http://localhost:8000/health
-
 ./deploy.sh
 ```
 
-[`deploy.sh`](../../deploy.sh) stops at the first failing command. It:
+[`deployment.md`](deployment.md#what-deploysh-does) lists what it does. Two things are particular to
+a Synology:
 
-1. creates `data/staging/<route>/` and `data/inbox/<route>/` for every route;
-2. mirrors the project with `rsync -az --delete`, excluding `.git/`, `.env`, `data/`, `logs/`,
-   `.venv/`, `__pycache__/` and `.DS_Store`;
-3. copies `.env` separately and sets its mode to `600`;
-4. runs the one passwordless command, which rebuilds and restarts the container;
-5. polls `GET /health` from the Mac for up to 60 seconds, taking the address from the `server`
-   alias, and reports success only when the service answers.
+- The container runs as `1026:100`, the account that owns the deployment directory, so that
+  `sync.sh` can remove processed items over SSH.
+- Compose's `cpus` setting cannot be used: the Synology kernel does not expose the scheduler support
+  Docker needs for a CPU quota. `compose.yaml` uses `cpu_shares` instead, which lowers priority
+  without a hard limit.
 
-`--delete` makes the remote tree mirror the local one: anything present remotely and absent locally
-is removed unless excluded. That is why `data/` is excluded. **A deployment preserves the remote
-`data/` directory.** The one exception is a schema change the store refuses to migrate, such as the
-move to routes, after which `data/` has to be deleted by hand.
-
-Only one process may poll a Telegram bot token at a time. Stop any locally running copy before
-deploying.
-
-### The container
-
-[`compose.yaml`](../../compose.yaml) and the [`Dockerfile`](../../Dockerfile) are the reference;
-what matters about them:
-
-- The container runs as user and group `1026:100`, so that deletions driven from the laptop can
-  remove item directories the container created.
-- `./data` is mounted at `/app/data`, and port 8000 is published to the LAN.
-- The image preloads and validates the OCR model and the Whisper model named in `config.yaml`, and
-  runs with model downloads disabled. Changing the transcription model means rebuilding the image.
-- The PyTorch-based OCR engine and the Apple Silicon transcription backend are workstation extras
-  and are not in the image. Neither is the `neighbours` extra.
-- If `web.port` changes in `config.yaml`, the Compose port mapping and health-check URL change with
-  it. The daemon reads no separate `PORT` variable.
-
-### Resource limits
-
-A Dockerfile cannot set CPU or memory limits. They are runtime settings and live in `compose.yaml`.
-
-- **Memory.** `mem_limit: 8g` with `memswap_limit` equal to it. This is a ceiling, not a
-  reservation, and a guard against a runaway process, not a fit: the measured peak for Whisper
-  `small` is about 1.3 GB, and OCR and transcription models are loaded one after the other so their
-  peaks do not add. On a NAS with 20 GB it leaves about 12 GB for DSM, the file cache and other
-  containers.
-- **CPU.** `cpu_shares: 512` lowers the container's priority under contention. It is not a hard
-  limit. Compose `cpus` cannot be used: the Synology kernel does not expose the scheduler support
-  Docker needs for a CPU quota.
-- **Threads.** This matters more than the CPU setting. ONNX Runtime, CTranslate2 and OpenMP size
-  their thread pools from the host's CPU count and ignore the container's limits, so the image pins
-  OCR and transcription to one thread each.
-
-## 8. Monitoring
+## Monitoring
 
 In DSM, **Container Manager → Container** shows the `info-triage` container's state, CPU and memory
 use, logs and port mappings. The dashboard at `http://192.168.1.10:8000/` shows what the application
@@ -269,18 +224,18 @@ sudo docker compose \
 `ps` in place of `logs …` shows the status. The passwordless rule deliberately does not cover these.
 If unattended monitoring is wanted later, add a second narrowly scoped root-owned command.
 
-## 9. Checklist
+## Checklist
 
 | Check | Expected |
 |---|---|
-| `ssh server 'whoami'` | `deploy`, no password prompt |
-| `rsync -av /tmp/rsync-test.txt server:/volume1/docker/info-triage/` | succeeds, no password |
-| `ssh server 'sudo -n /usr/local/sbin/deploy-container info-triage'` | succeeds, no password |
-| `ssh server 'sudo -n /usr/local/bin/docker ps'` | fails: a password is required |
+| `ssh nas 'whoami'` | `deploy`, no password prompt |
+| `rsync -av /tmp/rsync-test.txt nas:/volume1/docker/info-triage/` | succeeds, no password |
+| `ssh nas 'sudo -n /usr/local/sbin/deploy-container info-triage'` | succeeds, no password |
+| `ssh nas 'sudo -n /usr/local/bin/docker ps'` | fails: a password is required |
 | `curl http://192.168.1.10:8000/health` | `Info Triage is running` |
 | router port forwards and UPnP mappings | none for TCP 22 |
 
-## 10. What this does not protect against
+## What this does not protect against
 
 The wrapper limits direct passwordless Docker, but it is **not a complete privilege boundary**.
 `deploy` can `rsync` a new `compose.yaml` or `Dockerfile` into the deployment directory, and the

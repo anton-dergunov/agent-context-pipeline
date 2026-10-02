@@ -139,7 +139,7 @@ Markdown.
   advertises whatever file is on screen, and this one is on screen for a whole session while holding
   strictly less.
 
-Using it from Emacs is covered in [`reviewing-in-emacs.md`](../reviewing-in-emacs.md).
+Working the queue, with an agent and optionally from Emacs, is covered in [`reviewing.md`](../reviewing.md).
 
 ### Repeat captures
 

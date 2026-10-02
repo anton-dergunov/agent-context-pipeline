@@ -122,8 +122,23 @@ def test_shipped_pass_through_routes_never_retrieve_or_transform():
     assert config.route_names == ("info", "job", "clip")
     assert [step.name for step in config.route("job").steps] == ["link-discovery", "index-render"]
     assert [step.name for step in config.route("clip").steps] == ["link-discovery", "index-render"]
-    assert len({route.token_env for route in config.routes}) == 3
+    # No bot is declared, so a first run needs no Telegram setup.
+    assert [route.token_env for route in config.routes] == [None, None, None]
     assert config.capture_token_env == "INFO_TRIAGE_CAPTURE_TOKEN"
+
+
+def test_uncommenting_the_shipped_token_lines_gives_every_route_its_own_bot(tmp_path):
+    path = tmp_path / "config.yaml"
+    text = (REPOSITORY / "config.example.yaml").read_text(encoding="utf-8")
+    path.write_text(text.replace("    # token_env: ", "    token_env: "), encoding="utf-8")
+
+    config = load_config(path)
+
+    assert [route.token_env for route in config.routes] == [
+        "TELEGRAM_BOT_TOKEN_INFO",
+        "TELEGRAM_BOT_TOKEN_JOB",
+        "TELEGRAM_BOT_TOKEN_CLIP",
+    ]
 
 
 def test_routes_are_whatever_the_configuration_declares(tmp_path):

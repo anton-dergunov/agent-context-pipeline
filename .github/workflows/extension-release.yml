@@ -1,0 +1,65 @@
+name: Release the browser extension
+
+# Push a tag named extension-v<version>, where <version> is the one in
+# extension/manifest.json, and a GitHub Release appears with the zip to install.
+on:
+  push:
+    tags:
+      - "extension-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from the manifest
+        id: manifest
+        run: echo "version=$(jq -r .version extension/manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a tag that disagrees with the manifest
+        if: github.ref_type == 'tag'
+        env:
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "extension-v$VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest version $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Check the scripts parse
+        run: |
+          for script in extension/background.js extension/content/content.js extension/options/options.js; do
+            node --check "$script"
+          done
+
+      - name: Package
+        env:
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          mkdir -p dist
+          cp -R extension "dist/info-triage-capture"
+          rm -f "dist/info-triage-capture/README.md"
+          cd dist
+          zip -r "info-triage-capture-$VERSION.zip" info-triage-capture
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/info-triage-capture-$VERSION.zip" \
+            --title "Browser extension $VERSION" \
+            --notes "Download the zip, unpack it, and load the folder in Chrome: see extension/README.md."
+
+      - name: Keep the package when run by hand
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: info-triage-capture-${{ steps.manifest.outputs.version }}
+          path: dist/*.zip

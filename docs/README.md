@@ -38,13 +38,15 @@ coding agent everything it needs to file it. The front page is the repository
 - [`extractors/medium.md`](extractors/medium.md) — articles, member previews, authenticated access.
 - [`extractors/youtube.md`](extractors/youtube.md) — metadata, captions, comments, and Shorts.
 
-**Operations** — running it.
-[`operations/setup.md`](operations/setup.md) ·
-[`operations/synology-deployment.md`](operations/synology-deployment.md) ·
-[`operations/tailscale-https.md`](operations/tailscale-https.md)
+**Operations** — installing and running it.
 
-**Review** — working the inbox.
-[`reviewing-in-emacs.md`](reviewing-in-emacs.md)
+- [`operations/setup.md`](operations/setup.md) — from a fresh clone to a working inbox; routes; every setting.
+- [`operations/deployment.md`](operations/deployment.md) — running the server on another machine.
+- [`operations/synology.md`](operations/synology.md) — the extra steps on a Synology NAS.
+- [`operations/tailscale-https.md`](operations/tailscale-https.md) — reaching the server from elsewhere, over HTTPS.
+
+**Review** — working the inbox with an agent, and optionally from Emacs:
+[`reviewing.md`](reviewing.md)
 
 **Experiments** — the measurements behind the decisions, with their apparatus and results:
 [`../experiments/`](../experiments/README.md).

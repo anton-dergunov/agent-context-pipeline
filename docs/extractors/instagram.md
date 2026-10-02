@@ -215,7 +215,7 @@ approximately 1.28 GB (`amd64`) and 1.15 GB (`arm64`), including the 486 MB
 Whisper checkpoint.
 
 CPU and memory limits are runtime settings, not image settings. They are described with the
-deployment in [`synology-deployment.md`](../operations/synology-deployment.md#resource-limits).
+deployment in [`deployment.md`](../operations/deployment.md#resource-limits).
 
 ## Output
 

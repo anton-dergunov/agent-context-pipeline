@@ -126,9 +126,8 @@ both silently miss messages. A declared token that is missing or rejected stops 
 of leaving one route unpolled. A route with no configured pipeline delivers its
 items unprocessed and logs loudly; a configuration mistake may not withhold a capture.
 
-In this codebase "route" has two other, unrelated meanings: `extractors/router.py:route_url()`
-decides which extractor handles a URL, and the `/route` skill is the laptop-side act of filing an
-item.
+In this codebase "route" has one other, unrelated meaning: `extractors/router.py:route_url()`
+decides which extractor handles a URL.
 
 ## Capture
 
