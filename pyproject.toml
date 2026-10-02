@@ -37,7 +37,7 @@ dependencies = [
 # but is intentionally excluded from the portable Linux production image.
 surya = [
     "surya-ocr==0.17.0",
-    "transformers>=4.56.1,<5",
+    "transformers>=4.56.1,<6",
 ]
 # The cross-encoder that ranks an item's possible neighbours runs on the laptop, in
 # sync.py, and has no business on the server: the Docker image installs no extras. Without
