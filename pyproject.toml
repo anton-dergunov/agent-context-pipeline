@@ -20,7 +20,7 @@ dependencies = [
     "pillow>=10.2,<11",
     "pdfplumber>=0.11.9,<0.12",
     "pypdf>=6.14,<7",
-    "python-telegram-bot==21.7",
+    "python-telegram-bot==22.8",
     "pyyaml>=6,<7",
     "pyobjc-framework-quartz>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
     "pyobjc-framework-vision>=11.0; sys_platform == 'darwin' and python_version < '3.14'",
