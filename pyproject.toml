@@ -6,7 +6,7 @@ license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "av>=12,<17",
+    "av>=12,<20",
     "beautifulsoup4>=4.12,<5",
     "browser-cookie3>=0.20.1",
     "curl-cffi>=0.13,<1",
