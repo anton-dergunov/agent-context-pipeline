@@ -2,6 +2,8 @@
 
 A self-hosted pipeline between what you come across during the day and the coding agent that files it. Capturing something takes one tap; the pipeline retrieves it, turns it into clean Markdown, and delivers an inbox the agent can work through without fetching anything itself.
 
+![One item's way through the pipeline: a LinkedIn post is captured from the browser with a selected quote and an intent; the server cleans it, finds and resolves its link, extracts the post and follows the author's comment to the arXiv paper it discusses, then renders index.md; ./sync.sh brings it to the laptop and adds possible neighbours from the user's own notes; the item appears as number 7 in triage.org, and the agent is asked to file item 7.](assets/overview.png)
+
 ## What it does
 
 - **Capture from any device.** Share to a Telegram bot from the phone's share sheet, press a shortcut in Chrome, or send from the command line or a script.
