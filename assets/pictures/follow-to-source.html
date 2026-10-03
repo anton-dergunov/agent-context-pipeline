@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/follow-to-source.png. The two LinkedIn lanes are real items from the
+  owner's inbox (2026-08-18_7 and 2026-08-18_15), quoted from their index.md and extractions; the
+  link-list lane is the example in docs/architecture/item-contract.md. Provider counts are from
+  experiments/url-extraction-corpus. Render with assets/pictures/render.sh follow-to-source.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Following to the source</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .lanes { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; }
+  .lane { display: grid; grid-template-columns: 268px 24px 118px 24px 1fr 24px 168px; align-items: center; }
+  .card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px 9px; font-size: 10.5px; line-height: 1.38; }
+  .card .src { font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--muted); display: block; margin-bottom: 1px; }
+  .card .hype { color: #3d4349; }
+  .card .meta { color: var(--muted); font-size: 10px; }
+  .card.target { border-color: #9cc3f5; background: #f3f8ff; }
+  .card.target b { font-weight: 650; }
+  .via { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.3; }
+  .via b { color: var(--ink); font-weight: 600; display: block; }
+  .ar { color: var(--muted); text-align: center; font-size: 15px; }
+  .result { font: 10px/1.5 var(--mono); background: var(--s-bg); border: 1px solid #e3dcc5; border-radius: 8px; padding: 5px 8px; color: var(--s-text); }
+  .result .k { color: var(--s-key); }
+  .papers { flex: none; margin-top: 10px; display: flex; gap: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .papers .left { flex: 1 1 auto; }
+  .papers h3 { font-size: 12.5px; font-weight: 650; margin-bottom: 5px; }
+  .papers .chips { margin: 0 0 5px; }
+  .papers .chip b { color: var(--ok); font-weight: 600; }
+  .papers .tree { width: 372px; font-size: 10px; padding: 6px 9px; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>Past the post, to what it is about</h1>
+    <span class="sub">one hop, chosen per source — the paper or repository becomes the item, the post’s excitement stays a footnote</span>
+  </div>
+
+  <div class="main" style="flex-direction: column; gap: 0">
+    <div class="lanes">
+      <div class="lane">
+        <div class="card"><span class="src">LINKEDIN POST · 330 WORDS · 19 COMMENTS</span><span class="hype">🥷 How to Steal Reasoning Without Reasoning Traces — “This paper from Cornell Tech shows it doesn’t work…”</span></div>
+        <div class="ar">→</div>
+        <div class="via"><b>the author’s comment</b>is where the paper link was</div>
+        <div class="ar">→</div>
+        <div class="card target"><span class="src">ARXIV 2603.07267 · 6,384 WORDS + PDF</span><b>How to Steal Reasoning Without Reasoning Traces</b><br><span class="meta">Tingwei Zhang, John X. Morris, Vitaly Shmatikov · 2026-03-07</span></div>
+        <div class="ar">→</div>
+        <div class="result"><span class="k">kind:</span> paper<br><span class="k">lead:</span> abstract<br><span class="k">sources:</span> 2, paper first</div>
+      </div>
+
+      <div class="lane">
+        <div class="card"><span class="src">LINKEDIN POST · 142 WORDS</span><span class="hype">🔥 NVIDIA just released an open-source RL framework built specifically for AI agents 🤖🧠 … The most interesting part? 👇</span></div>
+        <div class="ar">→</div>
+        <div class="via"><b>the author’s comment</b>the post itself links only a company page</div>
+        <div class="ar">→</div>
+        <div class="card target"><span class="src">GITHUB · 4,155 WORDS</span><b>NVIDIA-NeMo/labs-molt</b><br><span class="meta">“An agentic-first RL framework for research.” Ray · vLLM · NVIDIA AutoModel</span></div>
+        <div class="ar">→</div>
+        <div class="result"><span class="k">sources:</span> 3<br>repo 4,155 words<br>post 142 words</div>
+      </div>
+
+      <div class="lane">
+        <div class="card"><span class="src">A POST WITH 43 LINKS</span><span class="hype">“I invested almost 3 hours picking the best resources for 43 system design concepts.”</span></div>
+        <div class="ar">→</div>
+        <div class="via"><b>8 links or more</b>read as a list, not a document</div>
+        <div class="ar">→</div>
+        <div class="card target"><span class="src">43 RESOLVED TITLES · 2 BODIES</span><b>Throughput vs Latency</b> · <b>The CAP Theorem</b> · …<br><span class="meta">every link titled; only two extracted</span></div>
+        <div class="ar">→</div>
+        <div class="result"><span class="k">kind:</span> linklist<br><span class="k">link_count:</span> 43<br>~600 tokens</div>
+      </div>
+      <div class="caption" style="margin-top: 2px">A YouTube video offers up to three links from its description, where technical channels put the paper and the code. Whatever is followed never follows anything in turn.</div>
+    </div>
+
+    <div class="papers">
+      <div class="left">
+        <h3>Every paper in one shape, whichever site it came from</h3>
+        <div class="chips">
+          <span class="chip">arXiv <b>20/20</b></span><span class="chip">ACL Anthology <b>4/4</b></span><span class="chip">PMLR <b>3/3</b></span><span class="chip">CVF <b>2/2</b></span><span class="chip">NeurIPS <b>2/2</b></span><span class="chip">JMLR <b>2/2</b></span><span class="chip">OpenReview</span><span class="chip">ResearchGate</span>
+        </div>
+        <div class="caption">Retrieved and converted on the server from a real collection of links. In index.md a paper’s lead is its complete abstract, and its body is one file away, with a word count, so the agent decides whether 6,000 words are worth reading.</div>
+      </div>
+      <div class="tree">extracted/02-research-arxiv-2603.07267/
+├─ <span class="hl">content.md</span>   <span class="dim">title, authors, date, abstract, body</span>
+├─ metadata.json
+├─ status.json   <span class="dim">complete｜partial｜blocked｜failed</span>
+└─ raw/paper.pdf · raw/paper.html</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>86 of 97</b><span>real saved links retrieved and converted to Markdown; each failure has a stable reason</span><i>experiments/url-extraction-corpus</i></div>
+    <div class="stat"><b>1 hop</b><span>exactly, by construction: an extraction offers links, a followed one offers none</span><i>docs/architecture/preprocessing.md</i></div>
+    <div class="stat"><b>600 vs 107,000</b><span>tokens for a list of 43 links as titles, against all 43 bodies</span><i>docs/architecture/item-contract.md</i></div>
+    <div class="stat"><b>On disk</b><span>every body is local before review, with its word count: the agent reads files, not the web</span><i>docs/architecture/item-contract.md</i></div>
+  </div>
+</div>
+</body>
+</html>

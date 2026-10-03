@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/neighbours.png. The neighbour block is item 2026-08-18_7's, as the sync
+  wrote it; the search counts and the routing runs are from docs/architecture/related-notes.md and
+  experiments/related-notes. Render with assets/pictures/render.sh neighbours.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Possible neighbours</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .c1 { width: 250px; flex: none; display: flex; flex-direction: column; }
+  .c2 { flex: 1 1 0; display: flex; flex-direction: column; }
+  .c3 { width: 262px; flex: none; display: flex; flex-direction: column; }
+  .calls { border: 1px solid var(--line); border-radius: 8px; background: #1f2328; color: #d1d9e0; padding: 8px 10px; font: 10.5px/1.6 var(--mono); white-space: pre; }
+  .calls .n { color: #ffa198; font-weight: 700; }
+  .calls .dim { color: #9198a1; }
+  .calls .ok { color: #7ee787; font-weight: 700; }
+  .emacs .pane { font-size: 10px; line-height: 1.45; }
+  .nb .src { white-space: normal; }
+  .bars { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; }
+  .bar { display: grid; grid-template-columns: 86px 1fr; align-items: start; gap: 6px; font-size: 10px; }
+  .bar + .bar { margin-top: 8px; }
+  .bar .lab { color: var(--ink); line-height: 1.2; }
+  .bar .lab i { display: block; color: var(--muted); font-style: normal; font-size: 9px; }
+  .bar .track { position: relative; height: 16px; }
+  .bar .fill { height: 16px; border-radius: 3px; background: #b6c2cf; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font: 600 9.5px var(--mono); color: #1f2328; }
+  .bar .fill.good { background: #8cc4ff; }
+  .bar .fill.best { background: var(--accent); color: #fff; }
+  .verdict { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>Where it probably belongs, before anyone searches</h1>
+    <span class="sub">each item arrives with the two nearest passages from your own plans and notes — found by retrieval, not by an agent loop</span>
+  </div>
+
+  <div class="main">
+    <div class="c1">
+      <div class="col-title"><span class="pill before">without</span>the agent searches</div>
+      <div class="calls"><span class="dim"># routing six real items, unaided</span>
+Grep  <span class="dim">whole repository</span>   <span class="n">×17</span>
+Grep  <span class="dim">same, one file</span>     <span class="n">×17</span>
+Read  <span class="dim">one plan file,</span>
+      <span class="dim">three offsets</span>      <span class="n">×3</span>
+
+<span class="dim"># given the candidates</span>
+Grep  <span class="dim">exploratory</span>        <span class="ok">×0</span>
+Read  <span class="dim">the cited lines</span></div>
+      <div class="caption" style="margin-top: 7px">An agent has to invent search terms, run them over dozens of plan files and a thousand notes, then read wide to see whether a hit is real. <b>Retrieval over every plan and note does it once, at sync time, for every item.</b></div>
+    </div>
+
+    <div class="c2">
+      <div class="col-title"><span class="pill after">with</span>item 7, as delivered</div>
+      <div class="emacs">
+        <div class="title"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Emacs — item 7, How to Steal Reasoning…</span></div>
+        <div class="pane">
+          <div><span class="k">kind:</span> paper · <span class="k">lead:</span> abstract · <span class="k">sources:</span> 2</div>
+          <div class="hd">Lead</div>
+          <div class="q">Many large language models (LLMs) use reasoning to generate responses but do not reveal their full reasoning traces…</div>
+          <div class="nb">
+            <div class="hd">Possible neighbours — unverified <i>added by the sync</i></div>
+            <div style="margin: 2px 0 3px">Most likely destination file: <span class="path">ML/Generative_AI.org</span></div>
+            <div style="color: var(--s-key)">Machine retrieval, not a finding. … roughly one in eight is wrong.</div>
+            <div class="src">• plan <span class="path">ML/Generative_AI.org:304</span> likely — Post-training and alignment &gt; Model composition &gt; Distilling reasoning traces from a large reasoning model into a small one</div>
+            <div class="src">• vault <span class="path">Papers/Learning to Discover at Test Time.md:82</span> likely — Novelty</div>
+          </div>
+        </div>
+        <div class="modeline">~/info-triage-inbox/info/2026-08-18_7/<b>index.md</b></div>
+      </div>
+      <div class="caption">The first row is the task this paper belongs under; the second is a weak match, and the wording says so. The same block is in front of <b>you</b> when you read the item yourself.</div>
+    </div>
+
+    <div class="c3">
+      <div class="col-title">The wording is load-bearing</div>
+      <div class="bars">
+        <div class="bar"><span class="lab">no field<i>control</i></span><div class="track"><div class="fill" style="width: 100%">997k</div></div></div>
+        <div class="bar"><span class="lab">“## Related”<i>stated as fact</i></span><div class="track"><div class="fill" style="width: 100%; background: #ffcecb">1,010k</div><div class="verdict">merged all 6 items</div></div></div>
+        <div class="bar"><span class="lab">unverified<i>hedged</i></span><div class="track"><div class="fill good" style="width: 84.5%">843k</div><div class="verdict">−15.5% · 4 merge, 2 new</div></div></div>
+        <div class="bar"><span class="lab">+ likely file<i>Sonnet</i></span><div class="track"><div class="fill best" style="width: 69.8%">697k</div><div class="verdict">−30.2%</div></div></div>
+        <div class="bar"><span class="lab">+ likely file<i>Opus</i></span><div class="track"><div class="fill best" style="width: 60.2%">601k</div><div class="verdict">−39.8%</div></div></div>
+      </div>
+      <div class="caption">Tokens to route the same six items, one run per condition. Stated as fact, the rows made the agent merge everything; hedged, it judged each item on its merits.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>~88%</b><span>of the rows shown are correct; both out-of-scope controls get none</span><i>experiments/related-notes</i></div>
+    <div class="stat"><b>18 of 20</b><span>items had the right destination file in the top row; 15 the exact task</span><i>experiments/related-notes</i></div>
+    <div class="stat"><b>~1 min</b><span>for 92 items over 8,130 passages, after the inbox is already readable</span><i>docs/architecture/related-notes.md</i></div>
+    <div class="stat"><b>No LLM</b><span>BM25, then a 278M cross-encoder; no vector index, ~600 MB of memory</span><i>experiments/related-notes</i></div>
+  </div>
+</div>
+</body>
+</html>

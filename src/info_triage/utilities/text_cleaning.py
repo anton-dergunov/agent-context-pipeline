@@ -12,6 +12,8 @@ Cleans up:
 8) URL tracking query parameters (e.g. utm_source, fbclid) (A).
 9) Mixed-word Unicode homoglyphs (B).
 10) Visual separator lines normalized to standard Org dividers (C).
+11) Invisible characters (zero-width space, joiners, word joiner, BOM, soft hyphen), which
+    otherwise split words and URLs without showing.
 
 Preserves:
 - Org-mode structural metadata (#+TITLE, #+SUBTITLE, etc.)
@@ -78,6 +80,9 @@ UNWANTED_PARAMS = {
     "spm",
     "click_id",
 }
+
+# Characters that render as nothing but still split a word or a URL in two
+INVISIBLE_CHARACTERS = re.compile("[\u00ad\u200b\u200c\u200d\u2060\ufeff]")
 
 # Mixed-word Cyrillic to Latin homoglyph mappings
 CYRILLIC_TO_LATIN = {
@@ -176,6 +181,9 @@ def clean_line_text(
     """
     Core cleanup function for the text content of a line.
     """
+    # 0. Drop invisible characters before anything matches words or URLs
+    text = INVISIBLE_CHARACTERS.sub("", text)
+
     # 1. Map keycap ten (special codepoint) to standard "10"
     text = text.replace("\U0001f51f", "10")
 
@@ -244,6 +252,8 @@ def clean_line(
     """
     Cleans a single line while preserving Org-mode structure.
     """
+    line = INVISIBLE_CHARACTERS.sub("", line)
+
     # Preserve org-mode metadata/comments (lines starting with #+ or # )
     if line.startswith("#+") or line.startswith("# "):
         return line

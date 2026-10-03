@@ -1,0 +1,15 @@
+{
+  "posts": 52,
+  "posts_with_media_kept": 50,
+  "videos": 33,
+  "image_posts": 17,
+  "carousels": 14,
+  "recovered_exceeds_caption": 30,
+  "recovered_at_least_3x_caption": 22,
+  "caption_under_25_words": 13,
+  "words": {
+    "caption": 4794,
+    "on_screen": 13045,
+    "speech": 1408
+  }
+}

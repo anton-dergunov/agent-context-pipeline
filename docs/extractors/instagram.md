@@ -1,6 +1,6 @@
 # Instagram extraction
 
-`instagram-extract` downloads each Instagram post into `instagram_output/<shortcode>/` and recovers its on-screen text and spoken audio. It runs standalone and as the `instagram` handler of the pipeline's `content-extraction` step. Instagram network access is handled by Instaloader; OCR and transcription run locally. No language model, hosted OCR or hosted transcription service is called.
+`instagram-extract` downloads each Instagram post into `instagram_output/<shortcode>/` and recovers its on-screen text and spoken audio. It runs standalone and as the `instagram` handler of the pipeline's `content-extraction` step. Instagram network access is handled by Instaloader; OCR and transcription run locally. No language model, hosted OCR or hosted transcription service is called. In 30 of the 52 posts in one real inbox, the images and video held more words than the caption: [`experiments/instagram-streams/`](../../experiments/instagram-streams/README.md).
 
 ## Setup
 

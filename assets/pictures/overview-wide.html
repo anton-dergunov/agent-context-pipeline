@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/overview-wide.png: the same story as overview.png in a 16:10 frame, so
+  that it sits beside the other pictures. Same item, 2026-08-18_10, redrawn from its files and
+  trimmed. Render with assets/pictures/render.sh overview-wide.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Agent context pipeline</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .c1 { width: 214px; flex: none; }
+  .c2 { width: 236px; flex: none; }
+  .c3 { flex: 1 1 0; display: flex; flex-direction: column; }
+  .ar { width: 18px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--muted); margin: 0 -6px; }
+  .stage { margin-bottom: 7px; }
+  .stage h2 { font-size: 13px; }
+  .dialog .body { padding: 7px 9px 9px; }
+  .field { font-size: 11px; }
+  .server { padding: 9px 10px; }
+  .steps li { padding-bottom: 8px; }
+  .emacs .pane { font-size: 10px; line-height: 1.45; }
+  .c3 .emacs { flex: 1 1 auto; display: flex; flex-direction: column; }
+  .c3 .emacs .pane.item { flex: 1 1 auto; overflow: hidden; }
+  .agent { margin-top: 8px; }
+  .mini { font: 10px/1.5 var(--mono); }
+  .chip { font-size: 10px; padding: 1px 7px; }
+  .done .mono { font-size: 10px; }
+  .done { white-space: nowrap; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>Agent context pipeline</h1>
+    <span class="sub">one share on the phone or in the browser, and the item reaches your coding agent clean, resolved and already retrieved — no LLM in the pipeline</span>
+  </div>
+
+  <div class="main">
+    <div class="c1">
+      <div class="stage"><span class="num">1</span><h2>Capture in one tap</h2></div>
+      <div class="chips"><span class="chip">Telegram</span><span class="chip on">Chrome</span><span class="chip">CLI</span><span class="chip">HTTP</span></div>
+      <div class="dialog">
+        <div class="bar"><img src="../../extension/icons/icon-128.png" alt="">Info Triage Capture<span class="x">✕</span></div>
+        <div class="body">
+          <div class="label">ROUTE</div>
+          <div class="field select"><span>info</span><span>▾</span></div>
+          <div class="label">TEXT CONTENT</div>
+          <div class="field">
+            <div class="url">https://www.linkedin.com/posts/hoang-van-hao_a-models-kv-cache…</div>
+            <div style="margin-top: 3px">Selection: “NVIDIA just moved a cache between two models with plain linear regression.”</div>
+          </div>
+          <div class="label">INTENT</div>
+          <div class="field">Learn the essence of their method</div>
+          <div class="done">✓ Captured <span class="mono">info/2026-08-18_10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ar">→</div>
+
+    <div class="c2">
+      <div class="stage"><span class="num">2</span><h2>The server runs the steps</h2></div>
+      <div class="server">
+        <ul class="steps">
+          <li><span class="name">text-cleaning</span><span class="t">1 ms</span><div class="what">invisible and look-alike characters</div></li>
+          <li><span class="name">link-discovery</span><span class="t">1 ms</span><div class="what">1 link: the LinkedIn post</div></li>
+          <li><span class="name">url-resolution</span><span class="t">1.3 s</span><div class="what">canonical address and page title</div></li>
+          <li><span class="name">content-extraction</span><span class="t">1.7 s</span><div class="what"><b>LinkedIn post</b> · 140 words</div><div class="what harvest">→ follows the author’s comment to<br><b>arXiv paper</b> · 9,731 words + PDF</div></li>
+          <li><span class="name">index-render</span><span class="t">3 ms</span><div class="what">the index.md for this item</div></li>
+        </ul>
+        <div class="note"><b>Ready 7 s after capture.</b> A step that fails is recorded on the item, and the item still arrives.</div>
+      </div>
+      <div class="term" style="margin-top: 8px; font-size: 9.5px"><span class="p">$</span> ./sync.sh
+<span class="h">==&gt; The inbox is ready to review now</span>
+<span class="h">==&gt; Neighbours added: 42 of 92</span></div>
+    </div>
+
+    <div class="ar">→</div>
+
+    <div class="c3">
+      <div class="stage"><span class="num">3</span><h2>Review with your agent</h2><span class="sub">each route is a queue</span></div>
+      <div class="emacs">
+        <div class="title"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Emacs — the queue, and item 7</span></div>
+        <div class="pane">
+          <div class="org"><span class="ln">○ 6 · <span class="lnk">Whoa, Meta released a new open-weight LLM…</span></span><span class="tag">post</span></div>
+          <div class="org cur"><span class="ln">○ 7 · <span class="lnk">Cross-Model KV Cache Transfer in LLM Families…</span></span><span class="tag">paper</span></div>
+          <div class="org"><span class="ln">○ 8 · <span class="lnk">GitSkills: A Dataset of Agent Skills on GitHub</span></span><span class="tag">paper</span></div>
+        </div>
+        <div class="modeline">~/info-triage-inbox/info/<b>triage.org</b></div>
+        <div class="pane item">
+          <div><span class="k">kind:</span> paper · <span class="k">sources:</span> 2 · <span class="k">lead:</span> abstract</div>
+          <div class="hd">Captured</div>
+          <div class="q"><span class="lnk">A model's KV cache only works on the model that built it…</span> Intent: Learn the essence of their method</div>
+          <div class="hd">Sources</div>
+          <div class="ln">1. <span class="lnk">extracted/02-research-arxiv-…/content.md</span> — 9,731 words · <span class="lnk">pdf</span></div>
+          <div class="ln">2. <span class="lnk">extracted/01-linkedin-7492…/content.md</span> — 140 words</div>
+          <div class="hd">Lead</div>
+          <div class="q">Production deployments often swap between different-sized models in a family for cost-quality cascading…</div>
+          <div class="nb">
+            <div class="hd">Possible neighbours — unverified <i>from your own notes</i></div>
+            <div class="src">• plan <span class="path">ML/Systems.org:324</span> likely — … Prefill-decode disaggregation and KV cache transfer between instances</div>
+          </div>
+        </div>
+        <div class="modeline">…/info/2026-08-18_10/<b>index.md</b></div>
+      </div>
+      <div class="agent"><div class="who">YOUR CODING AGENT</div><div class="say"><span class="p">›</span> Read triage.md and file item 7</div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

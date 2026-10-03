@@ -113,6 +113,10 @@ Text cleaning reuses `clean_text` with its internal link resolution disabled. It
 social-media formatting, strips invisible characters and look-alike letters, and removes tracking
 parameters from links already present in the body. Segment headings are protected while it runs.
 
+On the old capture backlog, lines written in styled letters cost 4.9 times the tokens of the same
+lines normalized, and cleaning the whole file saved 8.5%:
+[`experiments/text-cleaning/`](../../experiments/text-cleaning/README.md).
+
 ## Link discovery
 
 Link discovery builds one ordered table of every distinct target the item carries, and writes it to

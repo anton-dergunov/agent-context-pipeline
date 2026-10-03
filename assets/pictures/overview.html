@@ -1,0 +1,149 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/overview.png, the picture at the top of the README. It follows one real
+  item (a LinkedIn post that led to an arXiv paper) from capture to review; the panels are redrawn
+  from that item's files and trimmed to fit. Render with assets/pictures/render.sh overview.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="900x909">
+<title>Agent context pipeline overview</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="frame">
+
+  <!-- row 1: capture → server -->
+  <div class="row">
+    <div class="col" style="width: 300px">
+      <div class="stage"><span class="num">1</span><h2>Capture in one tap</h2></div>
+      <div class="chips">
+        <span class="chip">Telegram</span>
+        <span class="chip on">Chrome</span>
+        <span class="chip">command line</span>
+        <span class="chip">HTTP</span>
+      </div>
+      <div class="dialog">
+        <div class="bar"><img src="../../extension/icons/icon-128.png" alt="">Info Triage Capture<span class="x">✕</span></div>
+        <div class="body">
+          <div class="label">ROUTE</div>
+          <div class="field select"><span>info</span><span>▾</span></div>
+          <div class="label">TEXT CONTENT</div>
+          <div class="field">
+            <div class="url">https://www.linkedin.com/posts/hoang-van-hao_a-models-kv-cache-only-works…</div>
+            <div style="margin-top: 4px">Selection:<br>“NVIDIA just moved a cache between two models with plain linear regression.”</div>
+          </div>
+          <div class="label">INTENT</div>
+          <div class="field">Learn the essence of their method</div>
+          <div class="done">✓ Captured &nbsp;<span class="mono">info/2026-08-18_10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-r">
+      <svg width="26" height="14" viewBox="0 0 26 14"><path d="M1 7h21M17 2l6 5-6 5" fill="none" stroke="#59636e" stroke-width="1.6"/></svg>
+    </div>
+
+    <div class="col" style="flex: 1">
+      <div class="stage"><span class="num">2</span><h2>The server runs the route's steps</h2>
+        <span class="sub">Docker on a NAS, a VPS or the laptop</span></div>
+      <div class="server">
+        <div class="inner">
+          <ul class="steps">
+            <li><span class="name">text-cleaning</span><span class="t">1 ms</span>
+              <div class="what">invisible and look-alike characters</div></li>
+            <li><span class="name">link-discovery</span><span class="t">1 ms</span>
+              <div class="what">1 link: the LinkedIn post</div></li>
+            <li><span class="name">url-resolution</span><span class="t">1.3 s</span>
+              <div class="what">canonical address and page title</div></li>
+            <li><span class="name">content-extraction</span><span class="t">1.7 s</span>
+              <div class="what"><b>LinkedIn post</b> · 140 words</div>
+              <div class="what harvest">→ follows the author's comment to<br><b>arXiv paper</b> · 9,731 words + PDF</div></li>
+            <li><span class="name">index-render</span><span class="t">3 ms</span>
+              <div class="what">the index.md for this item</div></li>
+          </ul>
+          <div class="tree"><span class="dim">inbox/info/</span>2026-08-18_10/
+├─ <span class="hl">index.md</span>  <span class="dim">← the one file to read</span>
+├─ links.json
+├─ capture/
+│  ├─ message.md
+│  └─ payload.json
+└─ extracted/
+   ├─ 01-linkedin-7492…/
+   │  └─ content.md
+   └─ 02-research-arxiv-2608.03893/
+      ├─ content.md
+      └─ raw/paper.pdf</div>
+        </div>
+        <div class="note"><b>Ready 7 s after capture.</b> A step that fails is recorded on the item, and the item still arrives.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- down: sync -->
+  <div class="arrow-d" style="margin-left: 590px">
+    <svg width="14" height="24" viewBox="0 0 14 24"><path d="M7 1v20M2 16l5 6 5-6" fill="none" stroke="#59636e" stroke-width="1.6"/></svg>
+  </div>
+
+  <!-- row 2: laptop -->
+  <div class="stage"><span class="num">3</span><h2>Sync to the laptop, review with your agent</h2>
+    <span class="sub">every route is its own queue in ~/info-triage-inbox/</span></div>
+  <div class="row" style="gap: 16px">
+    <div class="col" style="width: 300px; flex: none">
+      <div class="term"><span class="p">$</span> ./sync.sh
+<span class="h">==&gt; Downloading new and edited items</span>
+<span class="h">==&gt; The inbox is ready to review now</span>
+<span class="h">==&gt; Looking for possible neighbours</span>
+<span class="dim">    of 92 items in the background</span>
+<span class="dim">    8130 passages of plans and notes</span>
+<span class="h">==&gt; Neighbours added to 42 of 92 items</span></div>
+
+      <div class="emacs" style="margin-top: 10px">
+        <div class="title"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Emacs — the queue, for you</span></div>
+        <div class="pane">
+          <div class="date">⊙ 2026-08-18</div>
+          <div class="org"><span class="ln">○ 6 · <span class="lnk">Whoa, Meta released a new open-weight LLM…</span></span><span class="tag">post</span></div>
+          <div class="org cur"><span class="ln">○ 7 · <span class="lnk">Cross-Model KV Cache Transfer in LLM Families…</span></span><span class="tag">paper</span></div>
+          <div class="org"><span class="ln">○ 8 · <span class="lnk">GitSkills: A Dataset of Agent Skills on GitHub</span></span><span class="tag">paper</span></div>
+        </div>
+        <div class="modeline">~/info-triage-inbox/info/<b>triage.org</b></div>
+      </div>
+
+      <div class="agent">
+        <div class="who">YOUR CODING AGENT</div>
+        <div class="say"><span class="p">›</span> Read triage.md and file item 7</div>
+      </div>
+      <div class="note"><b>triage.md</b> is every item's index.md in the same order, so the numbers match. The agent opens a body only when its word count says it is worth it. <b>Deleting an item's directory marks it processed</b>; the next sync removes it from the server.</div>
+    </div>
+
+    <div class="col" style="flex: 1">
+      <div class="emacs">
+        <div class="title"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Emacs — item 7, as the agent reads it</span></div>
+        <div class="pane">
+          <div class="k">---</div>
+          <div><span class="k">kind:</span> paper</div>
+          <div class="ln"><span class="k">title:</span> "Cross-Model KV Cache Transfer in LLM Families: A Closed-Form Linear…"</div>
+          <div><span class="k">sources:</span> 2</div>
+          <div class="k">---</div>
+          <div class="hd">Captured</div>
+          <div class="q"><span class="lnk">A model's KV cache only works on the model that built it… | Hao Hoang</span><br>Selection: "NVIDIA just moved a cache between two models with plain linear regression."<br>Intent: Learn the essence of their method</div>
+          <div class="hd">Sources</div>
+          <div class="ln">1. <span class="lnk">extracted/02-research-arxiv-2608.03893/content.md</span> — 9,731 words · <span class="lnk">pdf</span></div>
+          <div class="ln">2. <span class="lnk">extracted/01-linkedin-7492…/content.md</span> — Hao Hoang — 140 words</div>
+          <div class="hd">Lead</div>
+          <div class="q">Production deployments often swap between different-sized models in a family for cost-quality cascading, mid-conversation switching, and routing…</div>
+          <div class="nb">
+            <div class="hd">Possible neighbours — unverified <i>added by the sync, from your own notes</i></div>
+            <div class="src">• plan <span class="path">ML/Generative_AI.org:48</span> likely — … Model anatomy &gt; KV cache as an architectural constraint on design choices</div>
+            <div class="src">• plan <span class="path">ML/Systems.org:324</span> likely — … Prefill-decode disaggregation and KV cache transfer between instances</div>
+          </div>
+        </div>
+        <div class="modeline">~/info-triage-inbox/info/2026-08-18_10/<b>index.md</b></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

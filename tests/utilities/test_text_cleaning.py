@@ -47,6 +47,13 @@ from info_triage.utilities.text_cleaning import clean_file, clean_line, clean_te
         ("—-", "---"),
         ("—--", "---"),
         ("========", "---"),
+        ("zero​width", "zerowidth"),
+        ("soft­hyphen and ﻿BOM", "softhyphen and BOM"),
+        ("#AI​ #LLM", ""),
+        (
+            "See https://arxiv.org/abs/​2210.03629 now",
+            "See https://arxiv.org/abs/2210.03629 now",
+        ),
     ],
 )
 def test_imported_line_cleaning_cases(source, expected):

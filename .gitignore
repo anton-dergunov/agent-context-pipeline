@@ -23,3 +23,6 @@ secrets/
 *.part
 *cookies*.txt
 session-*
+
+# Frames and images cut from private captures for the demo pictures; the rendered PNGs are committed
+assets/pictures/media/

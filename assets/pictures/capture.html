@@ -1,0 +1,137 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/capture.png. The browser dialog is redrawn from the extension, the
+  share sheet from Telegram's with the bot icons in assets/bot-icons, and the routes from
+  config.example.yaml, trimmed. Render with assets/pictures/render.sh capture.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Capture or forget</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .before-col { width: 176px; flex: none; display: flex; flex-direction: column; }
+  .chore { list-style: none; counter-reset: c; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 8px 10px; }
+  .chore li { counter-increment: c; position: relative; padding-left: 22px; font-size: 11px; line-height: 1.35; color: var(--muted); }
+  .chore li + li { margin-top: 5px; }
+  .chore li::before { content: counter(c); position: absolute; left: 0; top: 0; width: 15px; height: 15px; border-radius: 50%; background: #d8dee4; color: var(--muted); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .now { flex: 1 1 0; display: flex; flex-direction: column; gap: 10px; }
+  .clients { display: grid; grid-template-columns: 168px 1fr; gap: 12px; align-items: start; }
+  .share { border: 7px solid #1f2328; border-radius: 22px; background: #fff; overflow: hidden; }
+  .share .sheet { padding: 8px 9px 10px; }
+  .share .grab { width: 34px; height: 4px; border-radius: 2px; background: #d0d7de; margin: 0 auto 7px; }
+  .share .what { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; margin-bottom: 8px; line-height: 1.3; }
+  .share .what b { color: var(--ink); font-weight: 600; display: block; }
+  .bots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; }
+  .bots img { width: 30px; height: 30px; border-radius: 50%; display: block; margin: 0 auto 2px; background: #f6f8fa; }
+  .bots span { font-size: 9.5px; color: var(--ink); }
+  .bots .on img { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .share .label2 { font-size: 9px; color: var(--muted); margin: 0 0 5px; letter-spacing: .04em; }
+  .dialog .body { padding: 7px 10px 9px; }
+  .dialog .field { font-size: 11px; }
+  .cli { background: #1f2328; color: #d1d9e0; border-radius: 8px; padding: 6px 10px; font: 10px/1.5 var(--mono); white-space: pre; overflow: hidden; }
+  .cli .p { color: #7ee787; }
+  .cli .dim { color: #9198a1; }
+  .cli .out { color: #ffffff; }
+  .config { width: 236px; flex: none; display: flex; flex-direction: column; }
+  .yaml { font-size: 10px; line-height: 1.5; }
+  .yaml .c { color: #8c959f; }
+  .yaml .key { color: #953800; }
+  .notes { margin-top: 8px; font-size: 10.5px; line-height: 1.4; color: var(--muted); }
+  .notes div { padding-left: 12px; position: relative; }
+  .notes div::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+  .notes div + div { margin-top: 4px; }
+  .notes b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>Capture or forget</h1>
+    <span class="sub">saving something you are reading takes one share, from the phone, the tablet, the browser or a script — and you keep reading</span>
+  </div>
+
+  <div class="main">
+    <div class="before-col">
+      <div class="col-title"><span class="pill before">before</span>saving one link</div>
+      <ol class="chore">
+        <li>Copy the address</li>
+        <li>Open Dropbox or an editor</li>
+        <li>Open Inbox.org</li>
+        <li>Scroll to the end</li>
+        <li>Paste the link, type a note</li>
+        <li>Save</li>
+        <li>Find the article again</li>
+      </ol>
+      <div class="caption" style="margin-top: 8px">Seven steps on a tablet, so most things were not saved at all — and what was, landed in one 4,000-line file.</div>
+    </div>
+
+    <div class="now">
+      <div class="col-title"><span class="pill after">now</span>one share, to one endpoint <span class="muted">POST /capture · ⌘⇧K in Chrome</span></div>
+      <div class="clients">
+        <div class="share">
+          <div style="height: 30px; background: linear-gradient(#e9edf1, #d8dee4);"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="what"><b>Wait until you see this village after dark</b>instagram.com/reel/…</div>
+            <div class="label2">SHARE TO TELEGRAM</div>
+            <div class="bots">
+              <div class="on"><img src="../bot-icons/book.png" alt=""><span>info</span></div>
+              <div><img src="../bot-icons/businessman.png" alt=""><span>job</span></div>
+              <div><img src="../bot-icons/languages.png" alt=""><span>lang</span></div>
+              <div><img src="../bot-icons/video.png" alt=""><span>clip</span></div>
+            </div>
+            <div class="label2" style="margin: 8px 0 0; text-align: center">the bot stays silent unless a capture fails</div>
+          </div>
+        </div>
+        <div class="dialog">
+          <div class="bar"><img src="../../extension/icons/icon-128.png" alt="">Info Triage Capture<span class="x">✕</span></div>
+          <div class="body">
+            <div class="label">ROUTE</div>
+            <div class="field select"><span>info</span><span>▾</span></div>
+            <div class="label">TEXT CONTENT</div>
+            <div class="field"><div class="url">https://arxiv.org/abs/2609.14858v1</div><div style="margin-top: 2px">Selection: “A lightweight orchestration layer…”</div></div>
+            <div class="label">INTENT</div>
+            <div class="field">Compare with AlphaEvolve</div>
+            <div class="done">✓ Captured &nbsp;<span class="mono">info/2026-10-02_99</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cli"><span class="p">$</span> info-triage-capture --file spec.pdf "the spec"
+<span class="out">info/2026-10-02_100</span>
+<span class="p">$</span> curl -H "Authorization: Bearer $TOKEN" \
+       -d '{"text":"…"}' http://server:8000/capture</div>
+    </div>
+
+    <div class="config">
+      <div class="col-title">Routes are yours <span class="muted">config.yaml</span></div>
+      <div class="doc yaml"><span class="key">routes:</span>
+  - <span class="key">name:</span> info  <span class="c"># the default</span>
+    <span class="key">token_env:</span> TELEGRAM_…_INFO
+    <span class="key">steps:</span> <span class="c"># all six</span>
+      - <span class="key">name:</span> voice-transcription
+      - <span class="key">name:</span> text-cleaning
+      - <span class="c">…</span>
+      - <span class="key">name:</span> index-render
+  - <span class="key">name:</span> job
+    <span class="key">steps:</span>
+      - <span class="key">name:</span> link-discovery
+      - <span class="key">name:</span> index-render</div>
+      <div class="notes">
+        <div>A route is a pipeline, a queue and usually a bot. <b>The template’s routes are examples</b>: name your own, list their steps.</div>
+        <div>A link and the comment typed after it within <b>3 s</b> become one item.</div>
+        <div><b>Edit</b> the Telegram message and the item updates; add <b>#job</b> and it moves.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>1 share</b><span>instead of seven steps, without leaving what you are reading</span><i>Telegram · Chrome · CLI · HTTP</i></div>
+    <div class="stat"><b>3 s</b><span>Telegram messages this close together become one item: a link and the thought about it</span><i>config.yaml · telegram.grouping</i></div>
+    <div class="stat"><b>0 lost</b><span>a step that fails is recorded on the item, and the item still arrives</span><i>docs/architecture/overview.md</i></div>
+    <div class="stat"><b>No bot needed</b><span>to start: the browser extension and the command line work on their own</span><i>docs/operations/setup.md</i></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "lines": 4017,
+  "urls": 596,
+  "lnkd_in_urls": 221,
+  "lines_with_emoji": 250,
+  "lines_with_styled_letters": 47,
+  "styled_lines_tokens": {
+    "raw": 3401,
+    "nfkc_normalized": 699
+  },
+  "whole_file_tokens": {
+    "raw": 53952,
+    "cleaned": 49364
+  },
+  "example": {
+    "text": "𝗣𝗼𝘁𝗲𝗻𝘁𝗶𝗮𝗹 𝗽𝗮𝗿𝗮𝗱𝗶𝗴𝗺 𝘀𝗵𝗶𝗳𝘁",
+    "raw": 50,
+    "nfkc_normalized": 3
+  }
+}

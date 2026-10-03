@@ -72,6 +72,20 @@ The 40 links still untitled are mostly refusals no anonymous client gets past, p
 and hosts that no longer resolve. They stay in an item as bare URLs with a stable reason, and the
 item is delivered either way.
 
+## LinkedIn short links
+
+193 of the 529 links are `lnkd.in` short links. LinkedIn rewrites every link in a post to one, so
+a copied post carries no destination at all, and an agent that follows one with a plain request
+lands on a LinkedIn page instead of the article. 192 of the 193 reached their real destination,
+and 184 got a title after the changes (170 before). Mostly they lead to github.com (34), arxiv.org
+(24), deeplearning.ai (14) and newsletter.systemdesign.one (11).
+
+```bash
+uv run python experiments/url-title-audit/lnkd_in.py
+```
+
+reads both reports and prints these counts; it makes no requests.
+
 ## Files
 
 | File | Holds |
@@ -80,6 +94,7 @@ item is delivered either way.
 | [`report-improved.json`](report-improved.json) | the same corpus after the changes |
 | [`problem-cases-report-improved.json`](problem-cases-report-improved.json) | the 30 focused cases, after the changes |
 | [`problem-cases-improved.md`](problem-cases-improved.md) | the same 30 as the Markdown the resolver writes |
+| [`lnkd_in.py`](lnkd_in.py) | the LinkedIn short-link counts above, from the two reports |
 
 Each record is `{source_url, final_url, title, reason, error}`. The URL caches and the enriched
 copies of the notes themselves are not committed.

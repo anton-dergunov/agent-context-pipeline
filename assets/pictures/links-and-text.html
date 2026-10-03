@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/links-and-text.png. The post is assembled from the styles in
+  tests/fixtures and the backlog's real lnkd.in links; the cleaned text is what clean_text returns
+  for it, and the titles and destinations are the resolver's, from
+  experiments/url-title-audit/report-improved.json. Token counts are tiktoken o200k_base.
+  Render with assets/pictures/render.sh links-and-text.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Links and clean text</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .panel { flex: 1 1 0; display: flex; flex-direction: column; }
+  .panel .doc { flex: 1 1 auto; font-size: 12px; line-height: 1.7; padding: 10px 12px; }
+  .zw { background: #ffebe9; color: #cf222e; border-radius: 3px; font-size: 9px; padding: 0 2px; }
+  .lnk2 { color: #cf222e; }
+  .steps2 { width: 210px; flex: none; display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; padding-top: 40px; }
+  .step { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 7px 10px; }
+  .step .name { font: 600 11px var(--mono); }
+  .step .what { font-size: 10.5px; color: var(--muted); line-height: 1.38; margin-top: 2px; }
+  .step .what b { color: var(--ink); font-weight: 600; }
+  .tok { display: inline-block; margin-left: 6px; font: 600 10px var(--mono); color: var(--muted); }
+  .md .t { color: var(--accent); }
+  .md .u { color: var(--muted); }
+  .chain { font: 10px/1.5 var(--mono); color: var(--muted); margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 5px; }
+  .chain s { text-decoration: none; color: #cf222e; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>A click for you, a dead end for the agent</h1>
+    <span class="sub">what a post pasted from LinkedIn carries, and what the agent is handed instead</span>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <div class="col-title"><span class="pill before">captured</span>capture/source.md <span class="tok">185 tokens</span></div>
+      <div class="doc">🚀 𝗣𝗼𝘁𝗲𝗻𝘁𝗶𝗮𝗹 𝗽𝗮𝗿𝗮𝗱𝗶𝗴𝗺 𝘀𝗵𝗶𝗳𝘁 for agents 👇
+
+1️⃣ 𝐑𝐞𝐀𝐜𝐭 👉 <span class="lnk2">https://lnkd.in/gbXxR4Dp</span>
+2️⃣ 𝐀𝐠𝐞𝐧𝐭-𝐚𝐬-𝐚-𝐉𝐮𝐝𝐠𝐞 👉
+   <span class="lnk2">https://lnkd.in/g<span class="zw">ZWSP</span>miUe-nv</span>
+3️⃣ 𝐀𝐮𝐭𝐨𝐆𝐞𝐧 𝐜𝐨𝐮𝐫𝐬𝐞 👉 <span class="lnk2">https://lnkd.in/gE_dMbYa</span>
+
+hashtag#AI hashtag#Agents hashtag#LLM</div>
+      <div class="caption">Bold letters are mathematical symbols, so a search for <b>ReAct</b> finds nothing. The invisible character turns link 2 into an address that leads nowhere. Every link is a short link that names nothing.</div>
+    </div>
+
+    <div class="steps2">
+      <div class="step"><span class="name">text-cleaning</span><div class="what">styled letters to plain, emoji bullets and hashtag lines out, <b>invisible characters removed</b></div></div>
+      <div class="step"><span class="name">link-discovery</span><div class="what">3 links, deduplicated on the canonical address; tracking parameters dropped</div></div>
+      <div class="step"><span class="name">url-resolution</span><div class="what"><b>lnkd.in answers with a warning page</b>, not a redirect: the real target is read from that page, then titled from its own metadata</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="col-title"><span class="pill after">delivered</span>capture/message.md <span class="tok">58 tokens</span></div>
+      <div class="doc md">Potential paradigm shift for agents
+
+1 ReAct -> [<span class="t">ReAct: Synergizing Reasoning
+  and Acting in Language Models</span>]
+  (<span class="u">https://arxiv.org/abs/2210.03629</span>)
+2 Agent-as-a-Judge -> [<span class="t">Agent-as-a-
+  Judge: Evaluate Agents with Agents</span>]
+  (<span class="u">https://arxiv.org/abs/2410.10934</span>)
+3 AutoGen course -> [<span class="t">AI Agentic Design
+  Patterns with AutoGen</span>]
+  (<span class="u">https://deeplearning.ai/courses/…</span>)<div class="chain">links.json: 3 rows · 2 research, 1 document
+research ranks first for extraction</div></div>
+      <div class="caption">The agent sees what each link is before deciding to open it, and the papers are already on disk.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>192 of 193</b><span>LinkedIn short links in the old notes reached their real destination; 184 got a title</span><i>experiments/url-title-audit</i></div>
+    <div class="stat"><b>92%</b><span>of 529 bare links titled from public page metadata alone, no browser</span><i>experiments/url-title-audit</i></div>
+    <div class="stat"><b>4.9×</b><span>the tokens for lines in styled letters; “𝗣𝗼𝘁𝗲𝗻𝘁𝗶𝗮𝗹 𝗽𝗮𝗿𝗮𝗱𝗶𝗴𝗺 𝘀𝗵𝗶𝗳𝘁” is 50 tokens, plain 3</span><i>experiments/text-cleaning</i></div>
+    <div class="stat"><b>97 shorteners</b><span>recognized and followed — bit.ly, t.co, lnkd.in, amzn.to … — then re-routed to the right extractor</span><i>utilities/url_resolution.py</i></div>
+  </div>
+</div>
+</body>
+</html>

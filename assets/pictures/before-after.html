@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/before-after.png. Left: an excerpt of the author's capture backlog as it
+  stood on 1 Aug 2026, quoted as it was. Middle: the agent's own words while filing it, from its
+  session transcripts of August 2026. Right: the same links as the pipeline resolves them, from
+  experiments/url-title-audit/report-improved.json. Render with assets/pictures/render.sh before-after.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Before and after</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .c1 { width: 282px; flex: none; display: flex; flex-direction: column; }
+  .c2 { flex: 1 1 0; display: flex; flex-direction: column; }
+  .c3 { width: 300px; flex: none; display: flex; flex-direction: column; }
+  .emacs { flex: 1 1 auto; display: flex; flex-direction: column; }
+  .emacs .pane { flex: 1 1 auto; white-space: pre; font-size: 10px; line-height: 1.4; }
+  .short { color: #cf222e; }
+  .chips { margin-top: 7px; }
+  .links { flex: 1 1 auto; font: 11px/1.45 Inter, -apple-system, sans-serif; white-space: normal; padding: 8px 11px; }
+  .links .lrow { padding-left: 1.3em; text-indent: -1.3em; }
+  .links .lrow + .row { margin-top: 6px; }
+  .links .from { display: block; text-indent: 0; font: 9.5px var(--mono); color: var(--muted); }
+  .links .from s { color: #cf222e; text-decoration: none; }
+  .links .t { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .links .meta { color: var(--muted); }
+  .arrow-col { width: 18px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>Before: a backlog the agent could not open</h1>
+    <span class="sub">Summer 2026, an agent filing 45 Org files of saved posts, 12,449 lines — and what the same links look like now</span>
+  </div>
+
+  <div class="main">
+    <div class="c1">
+      <div class="col-title"><span class="pill before">before</span>Unsorted.org <span class="muted">4,017 lines</span></div>
+      <div class="emacs">
+        <div class="title"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Unsorted.org</span></div>
+        <div class="pane">If I had to start learning Agentic AI
+in 2025, This is exactly where I’d begin.
+<span class="k">…</span>
+Understand the Fundamentals
+
+1. Google Agents Whitepaper
+ <span class="short">https://lnkd.in/ghcxpVXd</span>
+
+2. Google Companion Paper – Advanced
+   Concepts
+ <span class="short">https://lnkd.in/g-ym8Qhe</span>
+
+3. ReAct: Reasoning + Acting with LLMs
+ <span class="short">https://lnkd.in/gbXxR4Dp</span>
+
+4. Agent as a Judge (for evals)
+ <span class="short">https://lnkd.in/gmiUe-nv</span>
+
+AI Agentic Design Patterns with AutoGen
+ <span class="short">https://lnkd.in/gE_dMbYa</span></div>
+      </div>
+      <div class="chips" style="flex-wrap: nowrap"><span class="chip">596 links</span><span class="chip" style="color:#cf222e;border-color:#ffcecb">221 of them lnkd.in</span></div>
+    </div>
+
+    <div class="c2">
+      <div class="col-title">The agent, in its own words <span class="muted">Aug 2026</span></div>
+      <div class="bubble"><span class="say">“<code>lnkd.in</code> shorteners cannot be resolved. <code>curl -L</code> returns the shortener; the target sits behind a LinkedIn login wall.”</span><span class="who">a rule the agent wrote into its own instructions</span></div>
+      <div class="bubble"><span class="say">“The Mollick LinkedIn post is behind the login wall, but the activity ID decodes to 2025-05-23 and the slug (‘Plato was right, a new paper’) points to Jha et al.”</span><span class="who">identifying a paper by guessing from the URL</span></div>
+      <div class="bubble"><span class="say">“Training-data bias, dressed up as judgement. … I can verify an English resource with one search where a Russian one often needs three.”</span><span class="who">explaining, when asked, why it had marked Russian books down</span></div>
+      <div class="caption" style="margin-top: 8px">For a person a short link is one click. For an agent it is a dead end, and what it cannot open it quietly judges by what it already knows.</div>
+    </div>
+
+    <div class="c3">
+      <div class="col-title"><span class="pill after">after</span>the same links in index.md</div>
+      <div class="doc links">
+        <div class="lrow">1. <span class="t">Agents</span> <span class="meta">— document · resolved</span><span class="from"><s>lnkd.in/ghcxpVXd</s> → kaggle.com/whitepaper-agents</span></div>
+        <div class="lrow">2. <span class="t">Agents Companion</span> <span class="meta">— document · resolved</span><span class="from"><s>lnkd.in/g-ym8Qhe</s> → kaggle.com/whitepaper-agent-companion</span></div>
+        <div class="lrow">3. <span class="t">ReAct: Synergizing Reasoning and Acting in Language Models</span> <span class="meta">— research · resolved</span><span class="from"><s>lnkd.in/gbXxR4Dp</s> → arxiv.org/abs/2210.03629</span></div>
+        <div class="lrow">4. <span class="t">Agent-as-a-Judge: Evaluate Agents with Agents</span> <span class="meta">— research · resolved</span><span class="from"><s>lnkd.in/gmiUe-nv</s> → arxiv.org/abs/2410.10934</span></div>
+        <div class="lrow">5. <span class="t">AI Agentic Design Patterns with AutoGen</span> <span class="meta">— document · resolved</span><span class="from"><s>lnkd.in/gE_dMbYa</s> → deeplearning.ai/courses/…</span></div>
+      </div>
+      <div class="caption">The real address, the page’s own title, and which extractor handles it. The two papers are fetched to <b>content.md</b> with their word counts; the agent reads, it does not search.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>385 vs 223</b><span>web searches against page fetches in 90 filing sessions: identifying, not reading</span><i>experiments/item-contract</i></div>
+    <div class="stat"><b>1 in 10</b><span>fetches failed outright, mostly 403 — and each failure was nearly silent</span><i>experiments/item-contract</i></div>
+    <div class="stat"><b>192 of 193</b><span>LinkedIn short links from the old notes now reach their real destination</span><i>experiments/url-title-audit</i></div>
+    <div class="stat"><b>~6k vs 30–60k</b><span>tokens for a 20-item day: indexes, against bare links fetched live (estimate)</span><i>experiments/item-contract</i></div>
+  </div>
+</div>
+</body>
+</html>

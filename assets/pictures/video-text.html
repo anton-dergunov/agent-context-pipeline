@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  Source of assets/pictures/video-text.png. Two real posts from the owner's inbox: a reel whose
+  caption asks for a comment while its list of projects is only on screen, and a carousel whose
+  place names are only in the images. The text panels quote the recognized text as it came out,
+  misreadings included. The frames and images in media/ are cut from those captures and are not
+  committed. Render with assets/pictures/render.sh video-text.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="picture-size" content="960x600">
+<title>Text inside video and images</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .reel { width: 150px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+  .reel .phone { border-width: 6px; border-radius: 18px; }
+  .cap { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 10.5px; line-height: 1.35; background: var(--panel); }
+  .cap .label, .lbl { font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--muted); display: block; margin-bottom: 2px; }
+  .mid { flex: 1 1 0; display: flex; flex-direction: column; gap: 6px; }
+  .ocr { font: 11px/1.4 Inter, -apple-system, sans-serif; columns: 2; column-gap: 16px; padding: 6px 10px; }
+  .ocr div { break-inside: avoid; padding-left: 1.6em; text-indent: -1.6em; }
+  .ocr .n { color: var(--muted); }
+  .carousel { width: 262px; flex: none; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid var(--line); padding-left: 14px; }
+  .thumbs { display: flex; gap: 4px; }
+  .thumbs img { width: calc((100% - 8px) / 3); border-radius: 4px; border: 1px solid var(--line); display: block; }
+  .places { font: 10.5px/1.4 Inter, -apple-system, sans-serif; padding: 6px 10px; }
+  .places .ru { color: var(--muted); }
+  .note { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+  .note b { color: var(--ink); font-weight: 600; }
+  .down { text-align: center; color: var(--muted); font-size: 11px; line-height: 1; }
+</style>
+</head>
+<body class="wide">
+<div class="frame">
+  <div class="head">
+    <h1>The caption says “comment ‘hired’”. The list is on screen.</h1>
+    <span class="sub">read frame by frame on the server — no LLM, no cloud API</span>
+  </div>
+
+  <div class="main">
+    <div class="reel">
+      <div class="phone"><img src="media/reel-phone.jpg" alt=""></div>
+      <div class="cap"><span class="label">CAPTION · 21 WORDS</span>If you wanna get hired as an $100-$200k+ Ai Engineer, do these<br>Comment “hired” to get the full list of projects</div>
+      <div class="note">The caption is all a link gives an agent. The reel is 11 s long; each project is on screen for under a second.</div>
+    </div>
+
+    <div class="mid">
+      <span class="lbl">SAMPLED AT 3 FRAMES A SECOND — 34 OF 331 FRAMES READ</span>
+      <div class="strip">
+        <figure><img src="media/reel-1.33.jpg" alt=""><figcaption>1.3 s</figcaption></figure>
+        <figure><img src="media/reel-3.33.jpg" alt=""><figcaption>3.3 s</figcaption></figure>
+        <figure><img src="media/reel-5.67.jpg" alt=""><figcaption>5.7 s</figcaption></figure>
+        <figure><img src="media/reel-7.33.jpg" alt=""><figcaption>7.3 s</figcaption></figure>
+        <figure><img src="media/reel-9.0.jpg" alt=""><figcaption>9.0 s</figcaption></figure>
+        <figure><img src="media/reel-10.67.jpg" alt=""><figcaption>10.7 s</figcaption></figure>
+      </div>
+      <div class="down">↓ &nbsp;159 lines merged across frames, 128 kept</div>
+      <span class="lbl">ON-SCREEN TEXT IN content.md — 806 WORDS, AS RECOGNIZED</span>
+      <div class="doc ocr"><div><span class="n">1.</span> LLM Output Arbitration System</div><div><span class="n">2.</span> Self-Healing Technical Documentation</div><div><span class="n">3.</span> Failure Forensics Tool for Al Pipelines</div><div><span class="n">4.</span> LLM Cost Autopilot</div><div><span class="n">5.</span> Model Regression Detection System</div><div><span class="n">6.</span> AI Feature Flag System with Gradual Rollout and Quality Monitoring</div><div><span class="n">7.</span> LLM Gateway with Rate Limiting, Fallback Routing, and Observability</div><div><span class="n">8.</span> Fine-Tuning Pipeline with LoRA on a Domain-Specific Dataset</div><div><span class="n">9.</span> Prompt Versioning and A/B Testing Platform</div><div><span class="n">10.</span> RAG Pipeline with Hybrid Search Over Internal Docs</div><div><span class="n">11.</span> Text-to-SQL Interface with Guardrails and …</div><div><span class="n">12.</span> Automated Eval Dataset Generator from Production Logs</div></div>
+      <div class="note"><b>All twelve projects</b>, each with the description under it. In index.md the on-screen text comes first and the caption last: a reel’s caption is marketing, the content is in the picture.</div>
+    </div>
+
+    <div class="carousel">
+      <span class="lbl">A CAROUSEL OF 12 IMAGES, IN RUSSIAN</span>
+      <div class="cap">“10 мест вдали от стандартных маршрутов Гуанчжоу” <span style="color: var(--muted)">— 10 places off the usual routes of Guangzhou. No place is named.</span></div>
+      <div class="thumbs">
+        <img src="media/guangzhou-02.jpg" alt="">
+        <img src="media/guangzhou-04.jpg" alt="">
+        <img src="media/guangzhou-05.jpg" alt="">
+      </div>
+      <span class="lbl">RECOGNIZED IN THE IMAGES — 591 WORDS</span>
+      <div class="doc places">Dongshankou <span class="ru">· район Yuexiu</span>
+KUIYUAN 1922 <span class="ru">· 100-летняя вилла</span>
+UVILLAGE XIAOZHO <span class="ru">· район Haizhu</span>
+QIXINGGANG ANCIENT COAST SITE
+XIAOGANG PARK
+ANCIENT PORT <span class="ru">· район Huangpu</span>
+SHENJING ANCIENT VILLAGE
+PANTANG ANCIENT VILLAGE <span class="ru">· Liwan</span></div>
+      <div class="note">Latin and Cyrillic in one recognition model. Every place name came from the pictures; the descriptions stay in Russian.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>30 of 52</b><span>saved Instagram posts held more words in their images and video than in the caption</span><i>experiments/instagram-streams</i></div>
+    <div class="stat"><b>89% at 11%</b><span>of on-screen text kept while reading 3 frames a second instead of every frame</span><i>experiments/video-ocr</i></div>
+    <div class="stat"><b>~50 s</b><span>per minute of video with the server’s OCR on an M1 MacBook Air; 14× faster than every frame</span><i>experiments/video-ocr</i></div>
+    <div class="stat"><b>4 languages</b><span>of speech transcribed locally — English, Spanish, Russian, Mandarin — and nothing invented over music</span><i>experiments/transcription-models</i></div>
+  </div>
+</div>
+</body>
+</html>

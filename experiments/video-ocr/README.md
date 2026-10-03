@@ -3,7 +3,7 @@
 **Question.** Per-frame OCR of a short video took about 28 minutes for 7 minutes of footage. What can
 be skipped without losing the overlay text, and which engine can run on a NAS with no GPU?
 
-**Status.** Measured early August 2026 on Apple Silicon. Shipped: sample 3 frames per second at a
+**Status.** Measured early August 2026 on an M1 MacBook Air. Shipped: sample 3 frames per second at a
 maximum height of 800, Apple Vision on macOS, RapidOCR with the PP-OCRv5 Cyrillic recognizer
 elsewhere. 14 times faster on macOS for 89% of the substantial text. Throughput on the NAS itself is
 still not measured (section 8).
