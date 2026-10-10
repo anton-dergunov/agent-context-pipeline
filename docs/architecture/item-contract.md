@@ -171,6 +171,11 @@ whether its claim holds up.
 - **`## Problems`** appears only when preprocessing hit some, and comes last. It turns a missing
   title or a thin `## Sources` from a mystery into a fact about the run.
 
+The sync adds up to two delimited sections to the delivered copy, between `## Links` and
+`## Problems`: `## Paper library`, what the owner's paper library reports about the papers the
+item names, and `## Possible neighbours — unverified`. Both are described in
+[`sync.md`](sync.md#the-paper-library-pass).
+
 `## Sources` and `## Links` are lists, never Markdown tables. A table is as wide as its widest row,
 these rows carry page titles, and the file is read in a half-width editor window beside the agent. A
 list re-flows at any width and costs fewer tokens.

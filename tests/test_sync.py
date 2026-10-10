@@ -10,6 +10,7 @@ import unittest.mock
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from info_triage import paper_info
 from info_triage.sync import (
     DEFAULT_ORG_EXCLUDE,
     DIGEST_NAME,
@@ -1345,3 +1346,198 @@ class DuplicateCaptureTests(unittest.TestCase):
             # The directory link stays first: Emacs reads the item's id out of it.
             self.assertTrue(trail.strip().startswith("[[file:2026-08-10_2/][directory]]"), trail)
             self.assertTrue(trail.endswith(" · dup of 1"), trail)
+
+
+IN_LIBRARY = {
+    "status": "in library",
+    "arxiv": "2501.13956",
+    "title": "Zep: A Temporal Knowledge Graph",
+    "folder": "llm/memory",
+    "paper": "library/llm/memory/Zep.md",
+    "note": "notes/Zep.md",
+    "overview": "/vault/Papers/Zep.md",
+    "review": None,
+    "summary": "A bitemporal knowledge graph for agent memory.",
+}
+OUTSIDE = {
+    "status": "not in library",
+    "arxiv": "2408.09585",
+    "title": "On the Necessity of World Knowledge",
+    "published": "2024-08-18",
+    "venue": None,
+    "comment": "Preprint, 23 pages",
+    "citations": 41,
+    "citations_per_year": 19.5,
+    "influential_citations": 3,
+    "uptake": "modest",
+    "named_in_library": {"papers": 0, "notes_and_reviews": 0, "by": []},
+    "folder": "search/dense-retrieval",
+    "folder_papers": 36,
+    "type": "method",
+    "character": "empirical",
+    "proposes": "The authors propose SKIM.",
+    "evidence": "Public datasets.",
+    "releases": "none stated",
+    "nearest": [
+        {
+            "title": "Doc2Query",
+            "paper": "library/search/Doc2Query.md",
+            "relation": "same-problem",
+            "how": "SKIM uses meta-data.",
+        }
+    ],
+}
+
+
+def paper_index(name: str, arxiv_id: str, *, problem: str = "") -> str:
+    received_at = "2026-08-11T09:00:00+00:00"
+    url = f"https://arxiv.org/abs/{arxiv_id}"
+    return linked_index(name, received_at, url, kind="paper", problem=problem)
+
+
+class PaperLibraryTests(unittest.TestCase):
+    """Which papers are asked about, and what the section says of them."""
+
+    def test_a_paper_item_asks_about_its_own_paper(self):
+        fields = {"kind": "paper", "canonical_url": "https://arxiv.org/abs/2408.09585"}
+        asked = paper_info.wanted(fields, "1. <https://arxiv.org/abs/2408.09585> — research")
+        self.assertEqual(asked.queries, ("2408.09585",))
+
+    def test_a_post_asks_about_the_few_papers_it_links(self):
+        listing = (
+            "1. [a](extracted/02-research-arxiv-2608.10906/content.md)\n"
+            "2. <https://arxiv.org/pdf/2501.13956v2> — research · resolved"
+        )
+        asked = paper_info.wanted({"kind": "post"}, listing)
+        self.assertEqual(asked.queries, ("2608.10906", "2501.13956"))
+
+    def test_a_reading_list_asks_about_none_of_its_papers(self):
+        listing = "\n".join(f"<https://arxiv.org/abs/2501.{n:05}>" for n in range(10, 15))
+        self.assertEqual(paper_info.wanted({"kind": "linklist"}, listing).queries, ())
+        fields = {"kind": "paper", "doi": "10.48550/arXiv.2408.09585"}
+        self.assertEqual(paper_info.wanted(fields, listing).queries, ("2408.09585",))
+
+    def test_a_paper_without_an_arxiv_id_is_asked_for_by_title(self):
+        fields = {"kind": "paper", "title": "Zep: a temporal knowledge graph", "doi": "10.1/x"}
+        asked = paper_info.wanted(fields, "")
+        self.assertEqual(asked.queries, ("Zep: a temporal knowledge graph",))
+        self.assertEqual(paper_info.answers(asked, [IN_LIBRARY, OUTSIDE]), [(IN_LIBRARY, True)])
+
+    def test_a_library_paper_is_shown_with_absolute_paths(self):
+        block = paper_info.render_block([(IN_LIBRARY, True)], Path("/papers"))
+        self.assertIn("- Status: in the library, filed in `llm/memory`", block)
+        self.assertIn("- Paper: `library/llm/memory/Zep.md`", block)
+        self.assertIn("- Overview: `/vault/Papers/Zep.md`", block)
+        self.assertIn("The library is `/papers`", block)
+        self.assertNotIn("Review", block)
+
+    def test_the_items_own_paper_leaves_out_what_its_lead_already_quotes(self):
+        own = paper_info.render_block([(OUTSIDE, True)], Path("/papers"))
+        other = paper_info.render_block([(OUTSIDE, False)], Path("/papers"))
+        self.assertNotIn("Proposes", own)
+        self.assertIn("- Proposes: The authors propose SKIM.", other)
+        self.assertIn("- Submitted: 2024-08-18", other)
+        for block in (own, other):
+            self.assertIn("- Citations: 41 in total, 19.5 a year", block)
+            self.assertIn("[same-problem] — `library/search/Doc2Query.md`", block)
+            self.assertNotIn("Releases", block)
+            self.assertNotIn("Named by", block)
+
+    def test_the_section_sits_before_the_neighbours_and_the_problems(self):
+        index = paper_index("2026-08-11_3", "2408.09585", problem="a step failed")
+        from info_triage.neighbours import apply_block
+
+        block = paper_info.render_block([(OUTSIDE, True)], Path("/papers"))
+        for text in (
+            apply_block(paper_info.apply_block(index, block), BLOCK),
+            paper_info.apply_block(apply_block(index, BLOCK), block),
+        ):
+            order = [
+                text.index(m)
+                for m in ("## Links", "paper-info:begin", "neighbours:begin", "## Problems")
+            ]
+            self.assertEqual(order, sorted(order))
+            self.assertEqual(paper_info.apply_block(text, block), text)
+        self.assertEqual(paper_info.apply_block(paper_info.apply_block(index, block), ""), index)
+
+    def test_what_the_command_printed_is_kept_when_it_fails(self):
+        printed = json.dumps(IN_LIBRARY) + "\nnot json\n" + json.dumps({"status": "not found"})
+
+        def run(command, **_):
+            self.assertEqual(command[1:5], ["-C", "/papers", "info", "--json"])
+            return subprocess.CompletedProcess(command, 1, stdout=printed)
+
+        with unittest.mock.patch("shutil.which", return_value="/bin/paperlib"):
+            self.assertEqual(paper_info.lookup(["2501.13956"], Path("/papers"), run), [IN_LIBRARY])
+        with (
+            unittest.mock.patch("shutil.which", return_value=None),
+            self.assertRaises(paper_info.PaperInfoUnavailable),
+        ):
+            paper_info.lookup(["2501.13956"], Path("/papers"), run)
+
+
+class PaperLibraryAnnotationTests(unittest.TestCase):
+    """The pass runs after delivery, and may never cost an item or a sync."""
+
+    @contextlib.contextmanager
+    def inbox(self, *, library=True):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote, local, state, papers = (
+                root / n for n in ("remote", "local", "state", "papers")
+            )
+            for directory in (remote, local, state, papers):
+                directory.mkdir()
+            write_item(remote, "2026-08-09_1", received_at="2026-08-09T09:00:00+00:00")
+            write_item(
+                remote,
+                "2026-08-11_3",
+                received_at="2026-08-11T09:00:00+00:00",
+                index=paper_index("2026-08-11_3", "2408.09585"),
+            )
+            config = SyncConfig(
+                "server", "/remote/inbox", local, state, paper_library=papers if library else None
+            )
+            yield config, FakeSyncCommands(remote)
+
+    def run_sync(self, config, commands, lookup):
+        output = io.StringIO()
+        with (
+            unittest.mock.patch("info_triage.sync.paper_info.lookup", side_effect=lookup) as asked,
+            contextlib.redirect_stdout(output),
+        ):
+            synchronize(config, commands)
+        return asked, output.getvalue()
+
+    def test_the_section_reaches_the_item_and_the_digest(self):
+        with self.inbox() as (config, commands):
+            asked, _ = self.run_sync(config, commands, lambda queries, library: [OUTSIDE])
+            info = config.local_inbox / "info"
+            self.assertEqual(asked.call_args.args, (["2408.09585"], config.paper_library))
+            self.assertIn("## Paper library", (info / "2026-08-11_3" / "index.md").read_text())
+            self.assertNotIn("paper-info", (info / "2026-08-09_1" / "index.md").read_text())
+            self.assertEqual((info / DIGEST_NAME).read_text().count("paper-info:begin"), 1)
+
+    def test_nothing_is_asked_without_a_library_or_when_switched_off(self):
+        for change in ({"library": False}, {"papers": False}):
+            with self.inbox(library=change.get("library", True)) as (config, commands):
+                if "papers" in change:
+                    config = SyncConfig(**{**config.__dict__, "papers": False})
+                asked, _ = self.run_sync(config, commands, lambda queries, library: [OUTSIDE])
+                self.assertFalse(asked.called)
+
+    def test_a_failing_lookup_leaves_a_delivered_inbox(self):
+        def lookup(queries, library):
+            raise paper_info.PaperInfoUnavailable("`paperlib` is not on the PATH")
+
+        with self.inbox() as (config, commands):
+            _, output = self.run_sync(config, commands, lookup)
+            info = config.local_inbox / "info"
+            self.assertIn("Paper library skipped", output)
+            self.assertTrue((info / "2026-08-11_3" / "index.md").is_file())
+            self.assertIn("### 2 — 2026-08-11_3", (info / DIGEST_NAME).read_text())
+
+    def test_the_setting_names_the_library(self):
+        config = default_config({"INFO_TRIAGE_PAPER_LIBRARY": "/papers"})
+        self.assertEqual(config.paper_library, Path("/papers"))
+        self.assertIsNone(default_config({"INFO_TRIAGE_PAPER_LIBRARY": " "}).paper_library)

@@ -166,6 +166,21 @@ A plain `uv sync` removes the extra again, after which every sync prints that po
 are switched off. [`../architecture/sync.md`](../architecture/sync.md#the-annotation-pass) has the
 remaining settings.
 
+### Paper library (optional)
+
+If you keep papers in an [agentic-paper-library](https://github.com/anton-dergunov/agentic-paper-library)
+on this machine, name it and each item about a paper says what the library knows of it: whether you
+already have the paper and where its note is, or its venue, citations and the nearest papers you
+hold.
+
+```dotenv
+INFO_TRIAGE_PAPER_LIBRARY=~/papers
+```
+
+`paperlib` must be on the `PATH`. A paper the library has not seen costs two small model requests
+there, once. [`../architecture/sync.md`](../architecture/sync.md#the-paper-library-pass) has the
+details.
+
 ## Defining routes
 
 A route is one entry under `routes:` in `config.yaml`:
@@ -228,6 +243,7 @@ out of order.
 | `INFO_TRIAGE_ORG_ROOT`, `INFO_TRIAGE_OBSIDIAN_ROOT` | `sync.sh` | The two note directories of the neighbour pass; unset turns it off |
 | `INFO_TRIAGE_ORG_EXCLUDE` | `sync.sh` | Org file names never searched, comma-separated |
 | `INFO_TRIAGE_NEIGHBOUR_ROUTE` | `sync.sh` | The one route that is annotated; default `info` |
+| `INFO_TRIAGE_PAPER_LIBRARY` | `sync.sh` | A paper library asked about the papers that route's items name; unset turns it off |
 
 A variable set in the real environment overrides the file. `deploy.sh` copies `.env` to the server
 as it is, so one file serves both machines.

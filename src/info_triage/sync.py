@@ -17,6 +17,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from info_triage import paper_info
 from info_triage.envfile import load_env_file, project_root
 
 ITEM_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d+$")
@@ -38,6 +39,7 @@ ORG_ROOT_VARIABLE = "INFO_TRIAGE_ORG_ROOT"
 OBSIDIAN_ROOT_VARIABLE = "INFO_TRIAGE_OBSIDIAN_ROOT"
 ORG_EXCLUDE_VARIABLE = "INFO_TRIAGE_ORG_EXCLUDE"
 NEIGHBOUR_ROUTE_VARIABLE = "INFO_TRIAGE_NEIGHBOUR_ROUTE"
+PAPER_LIBRARY_VARIABLE = "INFO_TRIAGE_PAPER_LIBRARY"
 #: The route whose items are annotated with their possible neighbours unless the
 #: settings name another: the one triaged by hand and filed into the notes.
 DEFAULT_NEIGHBOUR_ROUTE = "info"
@@ -125,6 +127,10 @@ class SyncConfig:
     #: nothing to do with the notes.
     neighbour_route: str = DEFAULT_NEIGHBOUR_ROUTE
     annotate: bool = True
+    #: The owner's paper library, asked about the papers that route's items name. None
+    #: means there is none on this machine, and nothing is asked.
+    paper_library: Path | None = None
+    papers: bool = True
 
     @property
     def manifest(self) -> Path:
@@ -197,6 +203,7 @@ def default_config(environ: Mapping[str, str] | None = None) -> SyncConfig:
         obsidian_root=_corpus_root(environ.get(OBSIDIAN_ROOT_VARIABLE)),
         org_exclude=_org_exclude(environ.get(ORG_EXCLUDE_VARIABLE)),
         neighbour_route=neighbour_route or DEFAULT_NEIGHBOUR_ROUTE,
+        paper_library=_corpus_root(environ.get(PAPER_LIBRARY_VARIABLE)),
     )
 
 
@@ -871,6 +878,77 @@ def _write_blocks(route_dir: Path, blocks: dict[str, str], apply_block: Callable
     return written
 
 
+def _collapsed_duplicates(route_dir: Path) -> set[str]:
+    """The items `triage.md` prints as a stub. A block written into one would land in a
+    section the digest does not print. Defensive against a half-deleted item:
+    annotating everything is the safe answer, and this may not fail a sync."""
+    try:
+        return {
+            name
+            for name, duplicate in duplicate_captures(_sorted_items(route_dir)).items()
+            if duplicate.collapse
+        }
+    except SyncError:
+        return set()
+
+
+def annotate_papers(config: SyncConfig) -> None:
+    """Add what the paper library knows to the items that name papers, on one route.
+
+    Runs where `annotate_inbox` does and under its rules: after the queue is announced
+    ready, every index read before the slow part, every write conditional on the item
+    still being there, and nothing here may fail a sync. A paper the library holds or
+    has looked at before is answered from disk, so a repeated sync costs a second; a
+    new one costs two model requests in `paperlib`.
+    """
+    route_dir = config.local_inbox / config.neighbour_route
+    library = config.paper_library
+    if not config.papers or library is None or not route_dir.is_dir():
+        return
+    if not library.is_dir():
+        print(f"Paper library skipped: no library at {library}")
+        return
+
+    collapsed = _collapsed_duplicates(route_dir)
+    items: dict[str, paper_info.Wanted] = {}
+    for item in sorted(path for path in route_dir.iterdir() if path.is_dir()):
+        if item.name in collapsed:
+            continue
+        try:
+            index = (item / INDEX_NAME).read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"Could not read {route_dir.name}/{item.name}: {error}")
+            continue
+        listing = "\n".join(_index_section(index, "Sources") + _index_section(index, "Links"))
+        asked = paper_info.wanted(_front_matter_fields(index), listing)
+        if asked.queries:
+            items[item.name] = asked
+    queries = list(dict.fromkeys(query for asked in items.values() for query in asked.queries))
+    if not queries:
+        return
+
+    print(
+        f"==> Asking the paper library about {_plural(len(queries), 'paper')} "
+        f"in {_plural(len(items), 'item')}"
+    )
+    started = time.monotonic()
+    try:
+        records = paper_info.lookup(queries, library)
+        blocks = {
+            name: block
+            for name, asked in items.items()
+            if (block := paper_info.render_block(paper_info.answers(asked, records), library))
+        }
+        written = _write_blocks(route_dir, blocks, paper_info.apply_block)
+        if written:
+            atomic_write_text(route_dir / DIGEST_NAME, _render_digest(_sorted_items(route_dir)))
+    except Exception as error:  # noqa: BLE001 - enrichment may never fail a sync
+        print(f"Paper library skipped: {type(error).__name__}: {error}")
+        return
+    elapsed = f"{time.monotonic() - started:.0f}s"
+    print(f"==> Paper library: a section added to {written} of {len(items)} items in {elapsed}")
+
+
 def annotate_inbox(config: SyncConfig) -> None:
     """Add each item's possible-neighbours section on one route, once the queue is usable.
 
@@ -899,16 +977,8 @@ def annotate_inbox(config: SyncConfig) -> None:
 
     # A collapsed duplicate's block would be written into an index whose neighbours
     # section `triage.md` does not print, so the pass would spend a second per item
-    # on nothing. Defensive against a half-deleted item: annotating everything is
-    # the safe answer, and this may not fail a sync.
-    try:
-        collapsed = {
-            name
-            for name, duplicate in duplicate_captures(_sorted_items(route_dir)).items()
-            if duplicate.collapse
-        }
-    except SyncError:
-        collapsed = set()
+    # on nothing.
+    collapsed = _collapsed_duplicates(route_dir)
 
     # Read first, compute second, write third. Nothing below this loop reads an item
     # again except to write it, so the user is free to work the queue meanwhile.
@@ -1060,6 +1130,7 @@ def synchronize(config: SyncConfig, command_runner: CommandRunner = run_command)
     # the agent, and the queue is meant to be read while it runs.
     print("==> Synchronization complete — the inbox is ready to review now")
     print(f"Laptop inbox: {config.local_inbox}")
+    annotate_papers(config)
     annotate_inbox(config)
 
 
@@ -1097,6 +1168,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             "instant; pass this when the plans or the vault have moved since the sync."
         ),
     )
+    parser.add_argument(
+        "--no-papers",
+        dest="papers",
+        action="store_false",
+        default=None,
+        help=(
+            "Skip asking the paper library about the papers the items name. The sync "
+            "itself is unaffected either way."
+        ),
+    )
+    parser.add_argument(
+        "--papers",
+        dest="papers",
+        action="store_true",
+        help=(
+            "Ask the paper library again during --regenerate. Without it a regenerate "
+            "reuses the sections already in the item directories."
+        ),
+    )
     arguments = parser.parse_args(argv)
     load_env_file()
     try:
@@ -1104,10 +1194,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.regenerate:
             generate_inbox(config.local_inbox)
             print(f"==> Regenerated {DIGEST_NAME} and {ORG_NAME} in {config.local_inbox}")
+            if arguments.papers:
+                annotate_papers(config)
             if arguments.neighbours:
                 annotate_inbox(config)
         else:
-            synchronize(replace(config, annotate=arguments.neighbours is not False))
+            synchronize(
+                replace(
+                    config,
+                    annotate=arguments.neighbours is not False,
+                    papers=arguments.papers is not False,
+                )
+            )
     except (SyncError, OSError, subprocess.CalledProcessError) as error:
         print(error, file=sys.stderr)
         return 1

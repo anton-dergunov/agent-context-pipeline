@@ -16,6 +16,8 @@ follows `XDG_STATE_HOME`.
 ./sync.sh --regenerate            # rebuild the views from the local items; no network
 ./sync.sh --no-neighbours         # skip the annotation pass that follows a sync
 ./sync.sh --regenerate --neighbours   # recompute the annotation after the notes have moved
+./sync.sh --no-papers             # skip asking the paper library
+./sync.sh --regenerate --papers   # ask the paper library again
 ```
 
 ## The roles are asymmetric
@@ -47,7 +49,8 @@ therefore keeps the minimum state that can:
 3. Remove local copies of items the server no longer has under that name (see below).
 4. Download new and edited items with `rsync -azc`, without `--delete`.
 5. Update the manifest, then regenerate both views for every route.
-6. Print that the inbox is ready, and only then run the annotation pass.
+6. Print that the inbox is ready, and only then run the two passes that add to the items: the
+   paper library, then the annotation.
 
 ### Safety checks
 
@@ -185,11 +188,67 @@ and the queue is meant to be worked while it runs.
   the block would never appear in it, and the owner is reading it at the time.
 - `--regenerate` reuses the blocks already on disk, which keeps renumbering after a drop instant.
 
-`index.md` therefore has two writers and no others: the server's `index-render` and this pass. The
+`index.md` therefore has two writers and no others: the server's `index-render` and the sync, whose
+two passes each own one delimited block. The
 block is delimited, append-only and regenerated whole — stripped, then appended — never patched.
 Because the download compares checksums, an annotated index differs from the server's copy and is
 downloaded again next sync; that restores the pristine file and the pass re-applies. This is
 intended and should not be defeated.
+
+## The paper library pass
+
+A laptop may hold a paper library, the separate
+[agentic-paper-library](https://github.com/anton-dergunov/agentic-paper-library) project. Its
+`paperlib info` answers in one call what a routing agent would otherwise search for: whether the
+owner already has a paper, and where its markdown, note and overview are; or, for a paper outside
+the library, its venue, citations, the folder it would be filed in and the nearest papers held.
+When `INFO_TRIAGE_PAPER_LIBRARY` names a library, the sync asks about the papers of the annotated
+route and appends the answer to each item as `## Paper library`, between `## Links` and the
+possible neighbours. `src/info_triage/paper_info.py` holds it.
+
+```markdown
+<!-- paper-info:begin -->
+
+## Paper library
+
+What `paperlib info` reports: public records and the owner's paper library, read
+from the abstract alone. A report, not a judgement of the item.
+The library is `~/papers`; the paths below are inside it unless absolute.
+
+**Agent Harnesses for Long-Horizon Tool Use** — arXiv 2607.12345
+- Status: not in the library
+- Venue: arXiv only · 23 pages
+- Citations: 41 in total, 19.5 a year, 3 where the citing paper builds on this one · uptake modest
+- Would be filed in: `llm/agents` (48 papers) · type method, empirical
+- Nearest held: Voyager [same-problem] — `library/llm/agents/Voyager.md`: …
+
+<!-- paper-info:end -->
+```
+
+- **Which papers.** A `kind: paper` item's own paper, always. Other arXiv papers an item names
+  (in `## Sources` and `## Links`) only when there are at most three; past that the item is a
+  reading list, each paper outside the library costs model requests, and the routing outcome for a
+  pile of links is one task. A paper with no arXiv id is asked for by title, which finds it only if
+  the library holds it.
+- **What is left out.** For the item's own paper, the date and what the paper proposes: the
+  frontmatter and the abstract under `## Lead` already say both. A paper found inside a post has
+  no abstract in the index, so its two-sentence description is kept.
+- **Cost.** One `paperlib` process for the whole queue. A paper the library holds or has looked at
+  before is answered from disk; a new one takes two small model requests in `paperlib`, about
+  fifteen seconds, and is saved there. The download restores each pristine `index.md` on the next
+  sync and the pass re-applies, which then takes about a second.
+- **It is enrichment**, under the rules of the annotation pass: indexes are read before the slow
+  part, an item dropped meanwhile is skipped, collapsed duplicates are skipped, a missing library,
+  a missing `paperlib` or any exception prints one line, and the route's `triage.md` is rewritten
+  only when a section was written.
+- **A model wrote part of it.** The folder, the type and the relation to each nearest paper come
+  from `paperlib`'s model requests. That does not break the rule that nothing is summarized
+  ([`item-contract.md`](item-contract.md#why-nothing-is-summarized)): the extraction path is
+  untouched, the section says what it is, and it adds what the item could not know about itself,
+  the owner's library.
+
+`paperlib info --json` is the interface between the two projects; its keys are read in
+`paper_info._entry` and nowhere else.
 
 ### Settings
 
@@ -201,6 +260,8 @@ INFO_TRIAGE_ORG_ROOT=~/notes/org
 INFO_TRIAGE_OBSIDIAN_ROOT=~/notes/vault
 # Org files never searched. Replaces the default list (workspace.org, init.org).
 INFO_TRIAGE_ORG_EXCLUDE=workspace.org,init.org,Inbox.org
+# A paper library; `paperlib` must be on the PATH. Unset: no paper is looked up.
+INFO_TRIAGE_PAPER_LIBRARY=~/papers
 ```
 
 They never go into `config.yaml`, which belongs to the daemon and rejects fields it does not know.

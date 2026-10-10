@@ -57,6 +57,9 @@ counting through the items. That second phase looks for each item's possible nei
 notes, and writes a section only the agent cares about. **Start reading as soon as the ready line
 appears.**
 
+With a paper library configured, the same phase first asks it about the papers the items name. That
+takes a second, or about fifteen for each paper the library has not seen before.
+
 Working the queue while it runs is safe, including dropping items: a dropped item is reported as
 `Item is no longer here, leaving it` and the run carries on. When it finishes it rewrites `triage.md`
 alone, so `triage.org` never changes underneath the reader.

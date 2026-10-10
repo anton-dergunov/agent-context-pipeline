@@ -75,7 +75,7 @@ HTTP server, which is threaded so that a slow upload cannot block the health che
 | `src/info_triage/extractors/` | the content extractors, also usable standalone |
 | `src/info_triage/utilities/` | text cleaning, URL resolution, Markdown helpers |
 | `src/info_triage/web.py` | health check, dashboard, capture endpoint |
-| `src/info_triage/sync.py`, `neighbours.py` | the laptop side; they never import the daemon |
+| `src/info_triage/sync.py`, `neighbours.py`, `paper_info.py` | the laptop side; they never import the daemon |
 
 Daemon settings are read strictly from `config.yaml` (or the file named by `INFO_TRIAGE_CONFIG`):
 unknown fields and invalid values stop startup. `.env` holds what differs between installations: the
