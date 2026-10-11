@@ -829,3 +829,151 @@ def test_an_untitled_item_falls_back_to_the_users_own_note():
     )
 
     assert field(rendered, "headline") == '"translate this and add to my reflection plan"'
+
+
+def caption_headline(caption, **sections):
+    rendered = index(
+        [payload(1, 100, text="https://instagram.com/reel/x")],
+        body(("text", "https://instagram.com/reel/x")),
+        [link(1, handler="instagram")],
+        extractions=[
+            extraction(
+                handler="instagram",
+                kind="post",
+                title=None,
+                short_form=True,
+                sections=[*sections.items(), ("Caption", caption)],
+            )
+        ],
+    )
+    return field(rendered, "headline")
+
+
+@pytest.mark.parametrize(
+    ("caption", "headline"),
+    [
+        # A list number and an abbreviation both end in ". " and are no sentence.
+        (
+            "1. Can you tell me about someone you developed?\n\n2. And someone promoted?",
+            '"1. Can you tell me about someone you developed?"',
+        ),
+        (
+            "🧠 EP. 06 | SLAP YOURSELF\nHow many of these can you explain?",
+            '"🧠 EP. 06 | SLAP YOURSELF"',
+        ),
+        ("Осознала. Приняла. Не возражаю 🙃\n.\n.\n#офис", '"Осознала. Приняла. Не возражаю 🙃"'),
+        # A hook line says nothing by itself; the line after it is the title.
+        (
+            "Info para guardar…\n\nEstos son algunos lugares para visitar en Buenos Aires.",
+            '"Info para guardar… Estos son algunos lugares para visitar en Buenos Aires."',
+        ),
+        (
+            "Save these asap 👇\n\n20 Secret Claude Codes 🤫",
+            '"Save these asap 👇 20 Secret Claude Codes 🤫"',
+        ),
+        ("📚\n\nBibliotecas que parecen de cuentos!", '"Bibliotecas que parecen de cuentos!"'),
+    ],
+)
+def test_a_headline_too_short_to_name_anything_is_continued(caption, headline):
+    assert caption_headline(caption) == headline
+
+
+def test_a_headline_that_already_names_the_item_stops_at_its_line():
+    """The minimum only ever lengthens: a title line stays out of the paragraph below."""
+    caption = "RAG vs CAG vs MAG\n\nThe interesting part isn't choosing the best architecture."
+
+    assert caption_headline(caption) == '"RAG vs CAG vs MAG"'
+
+
+def test_a_headline_does_not_stop_on_a_colon():
+    rendered = index(
+        [payload(1, 100, text="Notes from the talk:\nlatency grows with document length")],
+        body(("text", "Notes from the talk:\nlatency grows with document length")),
+    )
+
+    assert field(rendered, "headline") == (
+        '"Notes from the talk: latency grows with document length"'
+    )
+
+
+FACEBOOK = "https://www.facebook.com/reel/1"
+
+
+def test_a_body_that_is_only_its_resolved_link_is_named_by_the_page():
+    """`url-resolution` rewrites a bare address into a Markdown link.
+
+    Read as text that was `[Cecile G.`: the label's bracket, cut at the first
+    full stop, or at the limit somewhere inside the destination.
+    """
+    rendered = index(
+        [payload(1, 100, text=FACEBOOK)],
+        body(("text", f"[Cecile G. Tamura]({FACEBOOK})")),
+        [link(1, canonical=FACEBOOK, title="Cecile G. Tamura", status="resolved")],
+    )
+
+    assert field(rendered, "headline") == '"Cecile G. Tamura"'
+
+
+def test_a_page_title_too_short_to_name_the_item_is_continued_by_the_capture():
+    """A social post's page title is often just its author's name."""
+    selection = "LLMs can talk in a language of their own. " + "It is shorter. " * 20
+    message = f"[Md Ismail Sojal]({FACEBOOK})\n\nSelection:\n{selection}"
+    rendered = index(
+        [payload(1, 100, text=message)],
+        body(("text", message)),
+        [link(1, canonical=FACEBOOK, title="Md Ismail Sojal", status="resolved")],
+    )
+
+    assert field(rendered, "intent") == "null"
+    assert field(rendered, "headline") == (
+        '"Md Ismail Sojal Selection: LLMs can talk in a language of their own."'
+    )
+
+
+def test_the_page_title_outranks_the_users_note():
+    """The note is `intent` and has its own line in the queue.
+
+    As the label too it read "Visit this" twice and never said what to visit.
+    Facebook's counters in front of the title are not part of it.
+    """
+    title = "265K views · 14K reactions | A walk along the wall"
+    rendered = index(
+        [payload(1, 100, text=f"{FACEBOOK} Visit this")],
+        body(("text", f"[{title}]({FACEBOOK}) Visit this")),
+        [link(1, canonical=FACEBOOK, title=title, status="resolved")],
+    )
+
+    assert field(rendered, "intent") == '"Visit this"'
+    assert field(rendered, "headline") == '"A walk along the wall"'
+
+
+LINKEDIN = "https://www.linkedin.com/posts/someone_a-post-1"
+
+
+def linkedin_title(page_title):
+    rendered = index(
+        [payload(1, 100, text=LINKEDIN)],
+        body(("text", LINKEDIN)),
+        [link(1, handler="linkedin", canonical=LINKEDIN, title=page_title, status="resolved")],
+        extractions=[
+            extraction(handler="linkedin", kind="post", title="This is a brilliant paper.")
+        ],
+    )
+    assert field(rendered, "headline") is None
+    return field(rendered, "title")
+
+
+def test_a_linkedin_post_is_titled_by_its_topic_line():
+    page_title = (
+        "PARSER outperforms sequential memory agents | Elvis S. posted on the topic | LinkedIn"
+    )
+
+    assert linkedin_title(page_title) == '"PARSER outperforms sequential memory agents"'
+
+
+@pytest.mark.parametrize(
+    "page_title",
+    ["This is a brilliant paper. It's one of the cleanest… | Elvis S. | 19 comments", None],
+)
+def test_a_linkedin_post_without_a_topic_line_keeps_its_first_sentence(page_title):
+    assert linkedin_title(page_title) == '"This is a brilliant paper."'

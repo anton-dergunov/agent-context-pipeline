@@ -9,6 +9,7 @@ deliberately absent until extraction exists.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -479,44 +480,82 @@ _HEADLINE_STREAMS: tuple[str, ...] = (
     "accessibility description",
 )
 
-_SENTENCE_ENDINGS = (". ", "? ", "! ", "… ")
+#: A headline shorter than this names nothing: `1.`, `🧠 EP.`, `Info para
+#: guardar…` were all first sentences. Below it the next sentence or line is
+#: appended, so the rule only ever lengthens a headline that was too short to
+#: read and leaves every other one exactly as it was.
+MIN_HEADLINE_WORDS = 4
+
+_SENTENCE_BREAK = re.compile(r"(?<=[.?!…]) ")
+
+#: A line `url-resolution` rewrote from a bare address: nothing but links.
+_LINK_ONLY_LINE = re.compile(r"(?:\[(?:[^\]\\]|\\.)*\]\((?:[^()\\]|\\.)*\)\s*)+")
+
+#: Facebook opens a reel's page title with its counters.
+_COUNTER_PREFIX = re.compile(r"^[\d.,]+[KMB]? views · [\d.,]+[KMB]? reactions \| ")
+
+#: LinkedIn's own topic line for a post, where its page has one.
+_LINKEDIN_TOPIC = re.compile(r"^(?P<topic>.+?) \| .+ posted on the topic \| LinkedIn$")
 
 
-def _first_sentence(text: str, limit: int = HEADLINE_CHARS) -> str:
-    """Return TEXT's opening sentence as one line, cut to LIMIT on a word boundary."""
-    collapsed = " ".join(text.split())
-    if not collapsed:
-        return ""
-    # Sentence-final punctuation at the very end has no trailing space to find.
-    for ending in _SENTENCE_ENDINGS:
-        position = collapsed.find(ending)
-        if 0 < position <= limit:
-            collapsed = collapsed[: position + 1]
-            break
-    if len(collapsed) <= limit:
-        return collapsed
-    cut = collapsed[: limit - 1]
+def _word_count(text: str) -> int:
+    """Count the words of TEXT, where an emoji or a lone dash is not one."""
+    return sum(1 for word in text.split() if any(character.isalnum() for character in word))
+
+
+def _cut(line: str, limit: int) -> str:
+    """Cut LINE to LIMIT on a word boundary."""
+    if len(line) <= limit:
+        return line
+    cut = line[: limit - 1]
     spaced = cut.rsplit(" ", 1)[0] if " " in cut else cut
     return spaced.rstrip(" ,;:—-") + "…"
 
 
 def _names_nothing(line: str) -> bool:
-    """Is every word here an address rather than a word?
+    """Is there no word here that says what the item is about?
 
-    A caption that opens with its hashtag block, or a message that is nothing
-    but the link it shared, names no subject — and the address fallback at the
-    end of the chain renders a bare URL far better than this would.
+    A caption that opens with its hashtag block, a line that is one emoji, or a
+    message that is nothing but the link it shared — bare, or rewritten into a
+    Markdown link by `url-resolution` — names no subject, and the fallbacks at
+    the end of the chain render the link's title or address far better.
     """
+    if not any(character.isalnum() for character in line):
+        return True
+    if _LINK_ONLY_LINE.fullmatch(line):
+        return True
     return all(word.startswith(("#", "@", "http://", "https://", "www.")) for word in line.split())
 
 
-def _headline_line(text: str) -> str:
-    """Return the first line of TEXT that says something about it."""
+def _first_sentence(text: str, limit: int = HEADLINE_CHARS) -> str:
+    """Return the opening of TEXT that says something about it, as one line.
+
+    That is the first sentence of the first line that names anything, and more
+    only while it is still under `MIN_HEADLINE_WORDS`: the following sentences,
+    then the following lines. A line end stays a boundary once the minimum is
+    met, which keeps a caption's title line out of the paragraph below it.
+    Until then nothing separates the parts but a space, which is how the
+    platforms themselves flatten a caption into a page title.
+    """
+    parts: list[str] = []
     for line in text.splitlines():
         collapsed = " ".join(line.split())
-        if collapsed and not _names_nothing(collapsed):
-            return collapsed
-    return ""
+        if not collapsed or _names_nothing(collapsed):
+            continue
+        for sentence in _SENTENCE_BREAK.split(collapsed):
+            parts.append(sentence)
+            joined = " ".join(parts)
+            # A colon announces what follows, so stopping on one stops short.
+            enough = _word_count(joined) >= MIN_HEADLINE_WORDS and not joined.endswith(":")
+            if enough or len(joined) > limit:
+                return _cut(joined, limit)
+    return _cut(" ".join(parts), limit)
+
+
+def _leads_with_link(text: str) -> bool:
+    """Does TEXT open with a line that is nothing but a resolved link?"""
+    first = next((line for line in text.splitlines() if line.strip()), "")
+    return bool(_LINK_ONLY_LINE.fullmatch(" ".join(first.split())))
 
 
 def _stream_headline(record: ExtractionRecord | None) -> str:
@@ -528,9 +567,9 @@ def _stream_headline(record: ExtractionRecord | None) -> str:
         key=lambda entry: (_headline_rank(entry[1]), entry[0]),
     )
     for _, _, body in ranked:
-        line = _headline_line(body)
-        if line:
-            return line
+        sentence = _first_sentence(body)
+        if sentence:
+            return sentence
     return ""
 
 
@@ -572,21 +611,49 @@ def _headline(
     does, so the result degrades rather than disappearing.
     """
     primary = _primary_link(links)
+    page_title = _COUNTER_PREFIX.sub("", primary.title or "") if primary is not None else ""
+    captured = _without_segment_headings(body)
+    if _leads_with_link(captured):
+        # The link is what was captured and the rest is said about it, so its
+        # page names the item. A title too short to — a social post's is often
+        # just its author — is continued by that text under the usual minimum.
+        captured = f"{page_title}\n{captured}"
     for candidate in (
         _stream_headline(record),
         # Before the excerpt, and for the same reason `_lead' prefers it: the
         # opening prose of a paper is a header block, the abstract is the paper.
-        _headline_line(record.abstract or "") if record is not None else "",
-        _headline_line(record.excerpt or "") if record is not None else "",
+        (record.abstract or "") if record is not None else "",
+        (record.excerpt or "") if record is not None else "",
+        # Ahead of the note: the note is `intent` and the queue prints it on its
+        # own line, so as the label too it said "Visit this" twice and never
+        # what was to be visited.
+        page_title if note is not None else "",
         note[1] if note is not None else "",
-        _headline_line(_without_segment_headings(body)),
-        (primary.title or primary.label or "") if primary is not None else "",
+        captured,
+        page_title or ((primary.label or "") if primary is not None else ""),
         _url_headline(primary),
     ):
         sentence = _first_sentence(candidate)
         if sentence:
             return sentence
     return "(untitled)"
+
+
+def _title(record: ExtractionRecord | None, links: Sequence[LinkTableEntry]) -> str | None:
+    """Return the top source's title, if it has one.
+
+    A LinkedIn post has none of its own, so its extraction carries the post's
+    first sentence — "This is a brilliant paper." Where LinkedIn's page names
+    the topic instead, that names the item better and is used.
+    """
+    if record is None or not record.title:
+        return None
+    if record.handler == "linkedin":
+        for entry in links:
+            topic = _LINKEDIN_TOPIC.match(entry.title or "") if entry.n == record.link_n else None
+            if topic is not None:
+                return topic.group("topic")
+    return record.title
 
 
 def _blockquote(text: str) -> str:
@@ -715,8 +782,9 @@ def render_index(
     kind = _kind(links, lead_source, linklist_threshold)
     if kind is not None:
         fields.append(("kind", kind))
-    if lead_source is not None and lead_source.title:
-        fields.append(("title", _yaml_scalar(lead_source.title)))
+    title = _title(lead_source, links)
+    if title is not None:
+        fields.append(("title", _yaml_scalar(title)))
     else:
         # Only ever a stand-in for a missing title, so a consumer reads
         # `title or headline` and no item is ever labelled twice. See `_headline'.

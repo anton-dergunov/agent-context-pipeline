@@ -128,7 +128,7 @@ is actually known.** An absent field is information; an invented one would be tr
 | `via` | when forwarded | Telegram's forwarding provenance, such as `@channel (forwarded channel)` |
 | `intent` | always, `null` when undetected | the three heuristics below |
 | `kind` | when known | `note` with no links, `linklist` at the link-list threshold, otherwise what the top extraction turned out to be: `paper｜article｜pdf｜repo｜video｜post` |
-| `title` | when the top source has one | extraction metadata |
+| `title` | when the top source has one | extraction metadata; for a LinkedIn post, its page's topic line where there is one |
 | `headline` | when there is no title | derived, see below |
 | `authors`, `published`, `venue`, `doi` | when known | the top source's metadata |
 | `canonical_url` | when the item has a link | the highest-priority row of the link table |
@@ -144,6 +144,28 @@ none, which is most items: an Instagram post has no title worth the name, and wi
 label a queue shows a date and a kind and no way to tell one item from the next. It is the only
 field derived for legibility, so it is computed on the server, where the caption, the on-screen text
 and the transcript are still in reach. A consumer reads `title or headline`.
+
+A headline is the opening sentence of the first thing in this order that has one: the caption or
+another recovered stream, the abstract, the opening prose, the page title of the link when a note of
+your own came with it, that note, the captured text, the link's title, its address. Three rules keep
+it a label rather than a fragment:
+
+- A line of hashtags, mentions, addresses, symbols alone, or nothing but a link names nothing and is
+  passed over.
+- A headline under four words is continued with the next sentence, then the next line, so `1.`,
+  `🧠 EP.` and `Info para guardar…` run on into what they introduce. One that already has four words
+  stops where it always did, and one may not end on a colon.
+- When the capture opens with its link, the page title leads and the rest of the capture continues
+  it only if the title is that short, as a social post's is when it is only the author's name.
+
+It is cut at 100 characters on a word boundary. A caption that opens with a call to action of four
+words or more (`Comment "Spanish" for a free trial…`) is still the headline: telling promotion from
+a title takes a judgement about meaning, and neither the on-screen text nor the overlap between
+streams picked better on the 124 items both were tried on.
+
+A LinkedIn post has no title, so its extraction carries the first sentence, which is often a
+reaction (`This is a brilliant paper.`). Where LinkedIn's page title has the form `<topic> | <author>
+posted on the topic | LinkedIn`, `title` is that topic. `## Sources` keeps the first sentence.
 
 `kind` is promoted to what the item turned out to be. A LinkedIn post whose author's comment links
 an arXiv paper is `kind: paper`, and its lead is the abstract, because the post is transport for the
