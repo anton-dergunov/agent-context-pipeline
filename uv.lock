@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
@@ -176,7 +176,7 @@ name = "browser-cookie3"
 version = "0.20.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jeepney", marker = "'bsd' in sys_platform or sys_platform == 'linux'" },
+    { name = "jeepney", marker = "sys_platform == 'linux' or 'bsd' in sys_platform" },
     { name = "lz4" },
     { name = "pycryptodomex" },
     { name = "shadowcopy", marker = "sys_platform == 'win32'" },
@@ -911,14 +911,14 @@ wheels = [
 
 [[package]]
 name = "instaloader"
-version = "4.15.3"
+version = "4.15.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ee/ea/bb89a72982bdb196f31291a361977c9ab718336e1980cb1c72d445036b6a/instaloader-4.15.3.tar.gz", hash = "sha256:6df0d03397a9606d85930e5c45fe11cb87c07a7c992101247c339fa51f19fa6d", size = 68969, upload-time = "2026-07-26T09:04:39.115Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/e1/e4a53e61dc719ea5ff89df171567a91e797a0e5bf5fba067cc892421a2fc/instaloader-4.15.4.tar.gz", hash = "sha256:3fde2f5e9421449344d7e05a41d1ea853ef17efead5a272e4af2728b0eaf38b9", size = 70981, upload-time = "2026-10-12T20:07:16.478Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/1e/bdccba210e5681fa3f7490d35e7561c8bb1c4adc0ecb35ac0c06286cdd9b/instaloader-4.15.3-py3-none-any.whl", hash = "sha256:17e25115a65923bcdc1a5a0f58d90728d96718ef129a753656a3ef75443a272b", size = 70830, upload-time = "2026-07-26T09:04:37.939Z" },
+    { url = "https://files.pythonhosted.org/packages/35/a7/be5e0bcc51fe17305e40f601f3e73e673ba6bcffe4ef0d661191cedc8311/instaloader-4.15.4-py3-none-any.whl", hash = "sha256:3a859736f34f9d0bd284c50333d0f33b16bc63dd948b1efecdfdc9ebd6257713", size = 72062, upload-time = "2026-10-12T20:07:15.233Z" },
 ]
 
 [[package]]
