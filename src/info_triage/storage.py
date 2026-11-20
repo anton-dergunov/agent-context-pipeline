@@ -8,6 +8,7 @@ import threading
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -778,6 +779,60 @@ class CaptureStore:
                 staging_path,
                 already_known,
             )
+
+    def requeue(self, route: str, local_id: int) -> CapturedItem:
+        """Run an item's pipeline again from its capture, at a bumped revision.
+
+        Nothing captured changes: `capture/` is the pipeline's input and stays as
+        it is, and only what the last revision generated is discarded. The bump
+        is what makes the laptop take the item back on its next sync, exactly as
+        after an edit. An item already queued or being processed is returned
+        untouched, since its pending run reads the same capture.
+        """
+        with self._lock:
+            row = self.item_by_local_id(route, local_id)
+            if row is None:
+                raise KeyError(f"{route}/{local_id}")
+            item = CapturedItem(
+                row["origin_route"],
+                row["chat_id"],
+                row["message_id"],
+                route,
+                local_id,
+                row["revision"],
+                row["status"],
+                self.staging_for(route, row["created_at"], local_id),
+                True,
+            )
+            if row["status"] in ("received", "processing"):
+                return item
+            inbox_path = self.inbox_for(route, row["created_at"], local_id)
+            if inbox_path.exists():
+                if item.path.exists():
+                    raise RuntimeError(f"Both staging and inbox contain {inbox_path.name}")
+                inbox_path.rename(item.path)
+            elif not item.path.is_dir():
+                raise FileNotFoundError(f"Item directory is missing: {route}/{inbox_path.name}")
+            self.reset_generated_output(item.path)
+            revision = row["revision"] + 1
+            metadata = self._read_metadata(item.path)
+            metadata["revision"] = revision
+            atomic_write(
+                item.path / "metadata.json",
+                json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+            )
+            self._save_state(
+                row["origin_route"],
+                row["chat_id"],
+                row["message_id"],
+                route,
+                local_id,
+                "received",
+                revision,
+                row["created_at"],
+                row["short_text"] or "",
+            )
+            return replace(item, revision=revision, status="received")
 
     def reset_generated_output(self, item_path: Path) -> None:
         """Discard everything a previous revision generated inside one item.

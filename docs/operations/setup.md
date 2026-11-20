@@ -148,6 +148,17 @@ what to do with the inbox.
 
 `INFO_TRIAGE_INBOX` in `.env` puts the inbox somewhere else.
 
+### When a source refused
+
+An item always arrives, even when retrieving what it links to failed; its `index.md` then says
+`extraction: failed` or `blocked` and lists why under `## Problems`. Once the cause is gone, run the
+items again — their captured content is kept, and the next `./sync.sh` brings them back:
+
+```bash
+uv run info-triage-capture --reprocess info/2026-11-20_311    # one item, by the handle in triage.org
+uv run info-triage-capture --reprocess-failed instagram       # every failed Instagram post in the inbox
+```
+
 ### Possible neighbours (optional)
 
 After a sync, each item can be annotated with the notes it probably belongs with. It needs two
@@ -216,8 +227,9 @@ still synchronized until you have dealt with them.
 - `processing.linklist_threshold`: at how many links an item is treated as a link list, one value for
   all routes.
 - `telegram.grouping`: how close together Telegram messages must be to become one item.
-- `extractors.*`: retry and update settings, and optional session files for Instagram and Medium,
-  unset by default. Those files are account credentials; keep them out of the repository.
+- `extractors.*`: retry and update settings, and optional cookie files for Instagram and Medium,
+  unset by default. Public Instagram posts need none. Those files are account credentials; keep them
+  out of the repository.
 - `web.port`: the HTTP port inside the container. If it changes, change the port mapping and the
   health check in `compose.yaml` to match.
 

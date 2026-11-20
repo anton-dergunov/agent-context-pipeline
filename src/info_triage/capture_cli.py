@@ -12,6 +12,7 @@ import base64
 import json
 import mimetypes
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -23,6 +24,40 @@ from .envfile import load_env_file
 DEFAULT_URL = "http://localhost:8000"
 TOKEN_VARIABLE = "INFO_TRIAGE_CAPTURE_TOKEN"
 URL_VARIABLE = "INFO_TRIAGE_CAPTURE_URL"
+# The laptop's copy of the inbox, as `sync.sh` reads it.
+INBOX_VARIABLE = "INFO_TRIAGE_INBOX"
+# The two index.md frontmatter fields that say an item's own source was not
+# retrieved. Plain `key: value` lines; the frontmatter is the item contract.
+FRONTMATTER_FIELD = re.compile(r"^(origin|extraction):[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+UNRETRIEVED = ("failed", "blocked")
+
+
+def unretrieved_handles(inbox: Path, handler: str) -> list[str]:
+    """Handles of the delivered items whose `handler` source came back empty."""
+    handles = []
+    for index in sorted(inbox.glob("*/*/index.md")):
+        text = index.read_text(encoding="utf-8", errors="replace")
+        end = text.find("\n---", 4)
+        if not text.startswith("---\n") or end < 0:
+            continue
+        fields = dict(FRONTMATTER_FIELD.findall(text[4:end]))
+        if fields.get("origin") == handler and fields.get("extraction") in UNRETRIEVED:
+            handles.append(f"{index.parent.parent.name}/{index.parent.name}")
+    return handles
+
+
+def _post(base_url: str, path: str, payload: dict, token: str) -> dict:
+    request = urllib.request.Request(
+        f"{base_url.rstrip('/')}{path}",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return json.load(response)
 
 
 def build_payload(
@@ -63,7 +98,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="info-triage-capture",
         description="Send one capture to the Info Triage daemon over HTTP.",
     )
-    parser.add_argument("text", nargs="*", help="Capture text; read from stdin when omitted")
+    parser.add_argument(
+        "text",
+        nargs="*",
+        help="Capture text, read from stdin when omitted; with --reprocess, item handles",
+    )
     parser.add_argument(
         "--route",
         default=None,
@@ -87,6 +126,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--source", default="cli", help="Which client this is (default: cli)")
     parser.add_argument("--captured-at", help="ISO-8601 timestamp with an offset, if not right now")
     parser.add_argument(
+        "--reprocess",
+        action="store_true",
+        help="Run the pipeline again over the items whose handles are given, keeping "
+        "their captured content. For enrichment that failed while a source refused.",
+    )
+    parser.add_argument(
+        "--reprocess-failed",
+        metavar="HANDLER",
+        help="Reprocess every item in the local inbox whose HANDLER source (e.g. "
+        f"instagram) came back failed or blocked. The inbox is ${INBOX_VARIABLE} "
+        "or ~/info-triage-inbox.",
+    )
+    parser.add_argument(
         "--url",
         default=os.environ.get(URL_VARIABLE, DEFAULT_URL),
         help=f"Daemon base URL (default: ${URL_VARIABLE} or {DEFAULT_URL})",
@@ -97,6 +149,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not token:
         print(f"{TOKEN_VARIABLE} is not set", file=sys.stderr)
         return 2
+
+    if arguments.reprocess or arguments.reprocess_failed:
+        return _reprocess(arguments, token)
 
     text = " ".join(arguments.text) if arguments.text else sys.stdin.read()
     try:
@@ -112,21 +167,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 1
 
-    request = urllib.request.Request(
-        f"{arguments.url.rstrip('/')}/capture",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            # The server's route, not the requested one: replacing an item into
-            # another route renumbers it, and this line is the handle to reuse.
-            item = json.load(response)
-            print(f"{item['route']}/{item['id']}")
+        item = _post(arguments.url, "/capture", payload, token)
+        # The server's route, not the requested one: replacing an item into
+        # another route renumbers it, and this line is the handle to reuse.
+        print(f"{item['route']}/{item['id']}")
     except urllib.error.HTTPError as error:
         print(f"{error.code} {error.read().decode('utf-8', 'replace').strip()}", file=sys.stderr)
         return 1
@@ -134,6 +179,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 1
     return 0
+
+
+def _reprocess(arguments: argparse.Namespace, token: str) -> int:
+    handles = list(arguments.text)
+    if arguments.reprocess_failed:
+        inbox = Path(
+            os.environ.get(INBOX_VARIABLE) or Path.home() / "info-triage-inbox"
+        ).expanduser()
+        handles += unretrieved_handles(inbox, arguments.reprocess_failed)
+    if not handles:
+        print("nothing to reprocess", file=sys.stderr)
+        return 0
+    try:
+        answer = _post(arguments.url, "/reprocess", {"ids": handles}, token)
+    except urllib.error.HTTPError as error:
+        print(f"{error.code} {error.read().decode('utf-8', 'replace').strip()}", file=sys.stderr)
+        return 1
+    except OSError as error:
+        print(error, file=sys.stderr)
+        return 1
+    failures = 0
+    for result in answer.get("results", []):
+        if result.get("status") == 200:
+            print(f"{result['id']} revision {result['revision']}")
+        else:
+            failures += 1
+            print(f"{result['status']} {result['id']}: {result.get('error')}", file=sys.stderr)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

@@ -1,9 +1,6 @@
-"""Tests for Instagram comment selection and metadata fallbacks."""
+"""Tests for Instagram comment mapping and selection."""
 
-from datetime import UTC, datetime
-from types import SimpleNamespace
-
-from info_triage.extractors.instagram.downloader import _location, _read_comments, _select_comments
+from info_triage.extractors.instagram.downloader import _read_comments, _select_comments
 
 
 def test_comments_are_ranked_and_owner_first_is_preserved():
@@ -35,40 +32,46 @@ def test_comments_are_ranked_and_owner_first_is_preserved():
     assert [item["id"] for item in selected["comments"]] == [1, 2]
 
 
-def _comment(comment_id, answers=()):
-    return SimpleNamespace(
-        id=comment_id,
-        owner=SimpleNamespace(username=f"user{comment_id}", userid=comment_id + 100),
-        text=f"comment {comment_id}",
-        created_at_utc=datetime(2025, 1, comment_id, tzinfo=UTC),
-        likes_count=comment_id,
-        answers=iter(answers),
-    )
+def _comment(comment_id, parent="root"):
+    return {
+        "id": str(comment_id),
+        "parent": parent,
+        "author": f"user{comment_id}",
+        "author_id": str(comment_id + 100),
+        "text": f"comment {comment_id}",
+        "timestamp": 1735689600 + comment_id,
+        "like_count": comment_id,
+    }
 
 
-def test_zero_comment_scan_limit_reads_every_comment_and_reply():
-    post = SimpleNamespace(get_comments=lambda: iter([_comment(1, [_comment(2)]), _comment(3)]))
-    comments, truncated = _read_comments(post, 0)
-    assert [item["id"] for item in comments] == [1, 2, 3]
+def test_yt_dlp_comments_map_onto_the_stored_shape():
+    info = {"comments": [_comment(1), _comment(2, parent="1")]}
+    comments, truncated = _read_comments(info, 0)
     assert not truncated
+    assert comments[0] == {
+        "id": 1,
+        "parent_id": None,
+        "owner_username": "user1",
+        "owner_id": 101,
+        "text": "comment 1",
+        "created_at_utc": "2025-01-01T00:00:01+00:00",
+        "likes_count": 1,
+    }
+    assert comments[1]["parent_id"] == 1
+
+
+def test_a_carousel_reads_the_comment_list_its_slides_repeat_once():
+    shared = [_comment(1), _comment(2)]
+    info = {"_type": "playlist", "entries": [{"comments": shared}, {"comments": shared}]}
+    comments, _ = _read_comments(info, 0)
+    assert [item["id"] for item in comments] == [1, 2]
 
 
 def test_positive_comment_scan_limit_is_respected():
-    post = SimpleNamespace(get_comments=lambda: iter([_comment(1, [_comment(2)]), _comment(3)]))
-    comments, truncated = _read_comments(post, 2)
+    comments, truncated = _read_comments({"comments": [_comment(1), _comment(2), _comment(3)]}, 2)
     assert [item["id"] for item in comments] == [1, 2]
     assert truncated
 
 
-def test_location_falls_back_to_raw_node_when_instaloader_requires_missing_id():
-    class PostWithIncompleteLocation:
-        _node = {"location": {"name": "Wangxian Valley", "lat": 28.44}}
-
-        @property
-        def location(self):
-            raise KeyError("id")
-
-    assert _location(PostWithIncompleteLocation()) == {
-        "name": "Wangxian Valley",
-        "lat": 28.44,
-    }
+def test_no_comment_list_is_unavailable_rather_than_empty():
+    assert _read_comments({"id": "x"}, 0) == (None, False)

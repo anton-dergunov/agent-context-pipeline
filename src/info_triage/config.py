@@ -104,10 +104,8 @@ class YouTubeExtractorConfig:
 class InstagramExtractorConfig:
     max_attempts: int
     retry_backoff_seconds: float
-    # Instagram rate-limits anonymous access and hides comments entirely. These
-    # stay unset until a session is mounted; treat either as a credential.
-    session_file: Path | None = None
-    instagram_user: str | None = None
+    # A Netscape cookies.txt of a logged-in browser, handed to yt-dlp. Public
+    # posts need none; when set it is an account credential.
     cookies_file: Path | None = None
 
 
@@ -203,14 +201,6 @@ def _path(value: Any, context: str, base_dir: Path) -> Path:
 
 def _optional_path(value: Any, context: str, base_dir: Path) -> Path | None:
     return None if value is None else _path(value, context, base_dir)
-
-
-def _optional_string(value: Any, context: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip():
-        raise ConfigError(f"{context} must be a non-empty string")
-    return value.strip()
 
 
 def _parse_step(value: Any, context: str, base_dir: Path) -> StepConfig:
@@ -449,8 +439,6 @@ def _parse_extractors(
         {
             "max_attempts",
             "retry_backoff_seconds",
-            "session_file",
-            "instagram_user",
             "cookies_file",
         },
     )
@@ -505,12 +493,6 @@ def _parse_extractors(
             retry_backoff_seconds=_number(
                 _required(instagram, "retry_backoff_seconds", "extractors.instagram"),
                 "extractors.instagram.retry_backoff_seconds",
-            ),
-            session_file=_optional_path(
-                instagram.get("session_file"), "extractors.instagram.session_file", base_dir
-            ),
-            instagram_user=_optional_string(
-                instagram.get("instagram_user"), "extractors.instagram.instagram_user"
             ),
             cookies_file=_optional_path(
                 instagram.get("cookies_file"), "extractors.instagram.cookies_file", base_dir

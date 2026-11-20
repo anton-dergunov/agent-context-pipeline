@@ -7,7 +7,6 @@ import gc
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 from info_triage.config import ConfigError, load_config
@@ -31,6 +30,7 @@ from info_triage.extractors.media.transcription import (
     resolve_backend_and_model,
     resolve_transcription_threads,
 )
+from info_triage.extractors.youtube.runner import ManagedYtDlp, RunnerSettings
 
 from .analysis import (
     IMAGE_SUFFIXES,
@@ -41,7 +41,7 @@ from .analysis import (
     transcribe_post,
     write_ocr_text,
 )
-from .downloader import DownloadOptions, download_post, make_loader
+from .downloader import DownloadOptions, download_post
 from .prepare import prepare_content
 from .urls import load_inputs
 
@@ -73,7 +73,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--config", type=_path, default=_default_config_path())
     parser.add_argument("--output-dir", type=_path, default=_path("instagram_output"))
-    parser.add_argument("--max-attempts", type=int, help="total download attempts per post")
+    parser.add_argument(
+        "--max-attempts", type=int, help="yt-dlp attempts per post on transient errors"
+    )
     parser.add_argument("--retry-backoff-seconds", type=float)
     parser.add_argument(
         "--max-comments", type=int, default=50, help="maximum ranked comments written per post"
@@ -84,15 +86,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="comments/replies scanned before ranking; 0 scans all available comments",
     )
-    parser.add_argument("--instagram-user", help="username associated with an Instaloader session")
-    parser.add_argument("--session-file", type=_path, help="Instaloader session file")
     parser.add_argument(
         "--cookies-file",
         type=_path,
-        help="Netscape/Mozilla cookies.txt containing Instagram cookies",
+        help="optional Netscape cookies.txt of a logged-in browser; public posts need none",
     )
     parser.add_argument(
-        "--cookies-from-browser", help="import the logged-in Instagram session from this browser"
+        "--cookies-from-browser",
+        help="optional: let yt-dlp read a logged-in Instagram session from this browser",
     )
     parser.add_argument(
         "--skip-download",
@@ -203,30 +204,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _retryable_download_status(status: dict) -> bool:
-    if status.get("status") != "failed" and status.get("comments") != "failed":
-        return False
-    message = " ".join(str(item.get("error", "")) for item in status.get("errors", [])).casefold()
-    non_retryable = (
-        "login required",
-        "not found",
-        "private",
-        "does not exist",
-        "invalid",
-        "cookies belong to",
-    )
-    return not any(marker in message for marker in non_retryable)
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    extractor_config = None
+    config = None
     if args.config.exists():
         try:
-            extractor_config = load_config(args.config).instagram_extractor
+            config = load_config(args.config)
         except ConfigError as exc:
             parser.error(str(exc))
+    extractor_config = config.instagram_extractor if config else None
     max_attempts = (
         args.max_attempts
         if args.max_attempts is not None
@@ -278,28 +265,34 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=args.output_dir,
         max_comments=args.max_comments,
         comment_scan_limit=args.comment_scan_limit,
-        session_file=args.session_file,
-        instagram_user=args.instagram_user,
-        cookies_file=args.cookies_file,
+        cookies_file=args.cookies_file
+        or (extractor_config.cookies_file if extractor_config else None),
         cookies_from_browser=args.cookies_from_browser,
     )
     if not args.skip_download:
-        try:
-            loader = make_loader(options)
-        except Exception as exc:
-            parser.error(f"could not initialize Instagram session: {exc}")
+        # The pipeline's own binary and update policy, so the standalone tool
+        # retrieves exactly what the daemon would.
+        update = config.youtube_extractor if config else None
+        runner = ManagedYtDlp(
+            RunnerSettings(
+                tool_dir=(config.data_dir if config else _path("data")) / "tools/yt-dlp",
+                **(
+                    {
+                        "channel": update.update_channel,
+                        "update_check_interval_hours": update.update_check_interval_hours,
+                        "update_on_compatibility_error": update.update_on_compatibility_error,
+                    }
+                    if update
+                    else {}
+                ),
+                max_attempts=max_attempts,
+                retry_backoff_seconds=retry_backoff_seconds,
+            )
+        )
         for source_url, shortcode in inputs:
             print(f"Downloading {shortcode} …", flush=True)
-            for attempt in range(max_attempts):
-                post_dir = download_post(loader, source_url, shortcode, options)
-                status = json.loads((post_dir / STATUS_NAME).read_text(encoding="utf-8"))
-                if not _retryable_download_status(status) or attempt + 1 >= max_attempts:
-                    break
-                time.sleep(retry_backoff_seconds * (2**attempt))
-            status["attempts"] = attempt + 1
-            (post_dir / STATUS_NAME).write_text(
-                json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-            )
+            post_dir = download_post(runner, source_url, shortcode, options)
+            status = json.loads((post_dir / STATUS_NAME).read_text(encoding="utf-8"))
             print(f"  {status['status']}: {post_dir}", flush=True)
 
     if not args.skip_transcription:

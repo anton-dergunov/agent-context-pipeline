@@ -272,3 +272,60 @@ def capture(
         "revision": item.revision,
         "status": item.status,
     }
+
+
+# Enough for every item of a weeks-long outage in one request, and small enough
+# that the body stays far below the capture size cap.
+MAX_REPROCESS_IDS = 1000
+
+
+def parse_reprocess(body: bytes, routes: tuple[str, ...]) -> list[tuple[str, str, int]]:
+    """Validate a `POST /reprocess` body: `{"ids": ["<route>/<name>", …]}`."""
+    try:
+        value = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise CaptureError(f"body is not valid JSON: {error}") from error
+    if not isinstance(value, dict):
+        raise CaptureError("body must be a JSON object")
+    unknown = set(value) - {"ids"}
+    if unknown:
+        raise CaptureError(f"unknown field(s): {', '.join(sorted(unknown))}")
+    ids = value.get("ids")
+    if not isinstance(ids, list) or not ids:
+        raise CaptureError("ids must be a non-empty list of item handles")
+    if len(ids) > MAX_REPROCESS_IDS:
+        raise CaptureError(f"ids must hold at most {MAX_REPROCESS_IDS} handles", status=413)
+    return [_handle(handle, routes) for handle in ids]
+
+
+def reprocess(
+    store: CaptureStore,
+    coordinator: ProcessingCoordinator,
+    body: bytes,
+    routes: tuple[str, ...],
+) -> tuple[int, dict[str, Any]]:
+    """Run the pipeline again over items already captured.
+
+    For enrichment that failed for reasons outside the item — a source that
+    refused every request for a while — once the cause is gone. Unlike a
+    replacement it changes no captured content, so a Telegram item is allowed:
+    there is nothing to edit upstream. Each handle is answered on its own, so
+    one stale handle does not cost the rest of the batch.
+    """
+    results: list[dict[str, Any]] = []
+    for route, name, local_id in parse_reprocess(body, routes):
+        handle = f"{route}/{name}"
+        with store.lock:
+            existing = store.item_by_local_id(route, local_id)
+            if existing is None or store.item_name(existing["created_at"], local_id) != name:
+                results.append({"id": handle, "status": 404, "error": "no such item"})
+                continue
+            try:
+                item = store.requeue(route, local_id)
+            except (OSError, RuntimeError) as error:
+                logger.warning("Could not reprocess %s: %s", handle, error)
+                results.append({"id": handle, "status": 409, "error": str(error)})
+                continue
+        coordinator.submit(item)
+        results.append({"id": handle, "status": 200, "revision": item.revision})
+    return 200, {"results": results}

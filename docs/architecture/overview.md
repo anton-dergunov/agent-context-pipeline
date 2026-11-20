@@ -42,7 +42,7 @@ Server ── python -m info_triage
    ├── capture            durable staging in data/staging/<route>/
    ├── one worker thread  runs the route's ordered steps, one item at a time
    ├── SQLite             item state, source-to-item mapping, processor counters
-   ├── HTTP server        GET /health, GET / (dashboard), POST /capture
+   ├── HTTP server        GET /health, GET / (dashboard), POST /capture, POST /reprocess
    └── data/inbox/<route>/   finished items
                            │
                            │  sync.sh  (rsync over SSH, driven from the laptop)
@@ -168,6 +168,24 @@ pipeline runs again. `route` beside an `id` is the destination, so a replacement
 which renumbers it; left out, the item stays in the route its handle names. `captured_at` cannot change. Only HTTP captures are rewritable; a Telegram
 capture answers `409`, because its message still exists upstream and is edited there.
 
+### `POST /reprocess`
+
+```text
+POST /reprocess   Authorization: Bearer <token>
+{ids: ["<route>/<name>", …]}
+→ 200 {results: [{id, status: 200, revision} | {id, status: 404|409, error}]}
+```
+
+Runs each item's pipeline again from its capture, at a bumped revision, so the next sync delivers it
+again. It is for enrichment that failed for a reason outside the item — a source that refused every
+request for a while — once the cause is gone. Nothing captured changes: `capture/` is the pipeline's
+input and stays as it is, and only what the last revision generated is discarded. That is why a
+Telegram item is allowed here although `/capture` refuses to rewrite one: there is nothing to edit
+upstream. An item already queued or processing is left to its pending run. Each handle is answered
+on its own. `info-triage-capture --reprocess <handle>…` is the client, and `--reprocess-failed
+<handler>` selects every item in the local inbox whose `origin` is that handler and whose
+`extraction` is `failed` or `blocked`.
+
 An HTTP capture writes `capture/payload.json` in Telegram's own payload shape, so link discovery,
 segment rendering and index rendering read it unchanged. Its identity is `chat_id = 0` (private-chat
 ids are always positive) with `message_id` set to the allocated `local_id`.
@@ -217,7 +235,8 @@ A revision is always rebuilt from the retained payload, never from a previously 
 is committed only if it is still the current revision. A later edit therefore supersedes a slow
 result without blocking capture. Because of that rebuild, expensive retrieval is cached outside the
 item under `data/extraction-cache/`, keyed on the canonical URL: adding a note to a message must not
-download its paper again.
+download its paper again. Only an extraction that retrieved something is cached, so a refusal is
+asked again on the next revision.
 
 ### Telemetry
 
@@ -263,7 +282,8 @@ store refuses a database that predates routes instead of migrating it.
 - `GET /routes` answers `{"routes": [...], "default": "<first route>"}` to a request carrying the
   capture bearer token. It is how a capture client learns the routes instead of hard-coding them,
   and how it checks its address and token without leaving a test item behind.
-- `POST /capture` is the only mutating endpoint.
+- `POST /capture` and `POST /reprocess` are the only mutating endpoints, behind the same token and
+  the same body limits.
 
 ## The laptop side
 

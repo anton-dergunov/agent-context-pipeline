@@ -37,14 +37,13 @@ extractors:
     update_on_compatibility_error: true
 
   instagram:
-    # Instaloader updates remain lockfile-reviewed; only transient extraction retries run here.
+    # Retrieval runs through the same self-updating yt-dlp as YouTube, so its
+    # update policy is the one above; these retries apply to transient errors.
     max_attempts: 3
     retry_backoff_seconds: 5
-    # Anonymous access is rate-limited and returns no comments. Point these at a
-    # mounted Instaloader session or cookie jar to extract reels reliably. Both
-    # are account credentials: mount them as secrets, never commit them.
-    session_file: null
-    instagram_user: null
+    # Public posts need no login. A Netscape cookies.txt from a logged-in
+    # browser only widens what Instagram returns; it is an account credential,
+    # so mount it as a secret and never commit it.
     cookies_file: null
 
   medium:

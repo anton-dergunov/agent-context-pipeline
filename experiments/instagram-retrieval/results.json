@@ -1,0 +1,54 @@
+[
+  {
+    "post": 1,
+    "client": "instaloader 4.15.3",
+    "ok": false,
+    "error": "instaloader.exceptions.ConnectionException: JSON Query to graphql/query: 401 Unauthorized - \"fail\" status, message \"Please wait a few minutes before you try aga"
+  },
+  {
+    "post": 1,
+    "client": "instaloader 4.16",
+    "ok": false,
+    "error": "instaloader.exceptions.BadResponseException: Fetching Post metadata failed."
+  },
+  {
+    "post": 1,
+    "client": "gallery-dl",
+    "ok": false,
+    "error": "[instagram][error] HTTP redirect to login page (https://www.instagram.com/accounts/login/)"
+  },
+  {
+    "post": 1,
+    "client": "yt-dlp",
+    "ok": true,
+    "slides": 11,
+    "caption_words": 58,
+    "comments": 12
+  },
+  {
+    "post": 2,
+    "client": "instaloader 4.15.3",
+    "ok": false,
+    "error": "instaloader.exceptions.ConnectionException: JSON Query to graphql/query: 401 Unauthorized - \"fail\" status, message \"Please wait a few minutes before you try aga"
+  },
+  {
+    "post": 2,
+    "client": "instaloader 4.16",
+    "ok": false,
+    "error": "instaloader.exceptions.BadResponseException: Fetching Post metadata failed."
+  },
+  {
+    "post": 2,
+    "client": "gallery-dl",
+    "ok": false,
+    "error": "[instagram][error] HTTP redirect to login page (https://www.instagram.com/accounts/login/)"
+  },
+  {
+    "post": 2,
+    "client": "yt-dlp",
+    "ok": true,
+    "slides": 6,
+    "caption_words": 50,
+    "comments": 9
+  }
+]

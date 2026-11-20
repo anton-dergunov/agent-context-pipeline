@@ -238,15 +238,23 @@ without the cache adding a note to a message would download its paper again. A c
 manifest is written last, so an interrupted extraction is re-run rather than served half-finished.
 What the item keeps is a copy, because a later retrieval is free to replace the cache entry.
 
+Only an extraction that retrieved something — `complete` or `partial` — is cached. `blocked` and
+`failed` describe one attempt, not the source: from 2026-10-30 Instagram refused every anonymous
+request for three weeks, and with those refusals cached, every one of the 86 posts would have kept
+its refusal after the cause was fixed. Uncached, the next revision asks again, and an entry cached
+as a failure is treated as a miss. `POST /reprocess` runs an item's pipeline again without editing it
+(see [`overview.md`](overview.md#post-reprocess)).
+
 **No extraction failure ever blocks an item.** A refusal, a timeout, an unparseable page or a
 missing extractor is recorded against its link and reported as a partial step; the item still lands
 with its capture text, its link table and whatever else was retrieved.
 
-Medium and Instagram retrieve substantially more when given a session.
-`extractors.medium.cookie_file` and `extractors.instagram.session_file` / `cookies_file` are unset
-by default; both are account credentials and belong in a mounted secret, never in the repository.
-Without them a paywalled Medium article extracts as `partial` with reason `medium-member-preview`,
-or `blocked` when the site refuses outright.
+Medium retrieves substantially more when given a session, and Instagram somewhat more.
+`extractors.medium.cookie_file` and `extractors.instagram.cookies_file` are unset by default; both
+are account credentials and belong in a mounted secret, never in the repository. Without them a
+paywalled Medium article extracts as `partial` with reason `medium-member-preview`, or `blocked`
+when the site refuses outright; a public Instagram post needs neither, and a refusal is `blocked`
+with reason `rate-limited` or `login-required`.
 
 ## Index rendering
 

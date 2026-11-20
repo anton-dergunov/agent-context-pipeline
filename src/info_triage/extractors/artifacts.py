@@ -36,7 +36,7 @@ EXTRACTION_STATUSES: tuple[str, ...] = ("complete", "partial", "blocked", "faile
 # Reasons that mean the source refused rather than that retrieval went wrong.
 # The distinction matters downstream: a block is a fact about the source that
 # routing must weigh, while a failure is a fact about this attempt.
-BLOCKING_REASONS = frozenset({"access-blocked", "auth-wall", "login-required"})
+BLOCKING_REASONS = frozenset({"access-blocked", "auth-wall", "login-required", "rate-limited"})
 
 
 def status_for_reason(reason: str | None) -> str:

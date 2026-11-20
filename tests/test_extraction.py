@@ -354,6 +354,49 @@ def test_a_cache_entry_without_its_manifest_is_re_run(tmp_path):
     assert CountingExtractor.runs == 2
 
 
+class RefusedExtractor(ContentExtractor):
+    runs = 0
+    status = "blocked"
+
+    def _run(self, url, handler, root):
+        RefusedExtractor.runs += 1
+        return write_extraction(root / "x", status=RefusedExtractor.status)
+
+
+@pytest.mark.parametrize("status", ["blocked", "failed"])
+def test_an_extraction_that_retrieved_nothing_is_not_cached(tmp_path, status):
+    """A refusal is a fact about one attempt; the next revision must ask again."""
+    RefusedExtractor.runs, RefusedExtractor.status = 0, status
+    extractor = RefusedExtractor(ExtractionSettings(data_dir=tmp_path / "data"))
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+
+    first = extractor.retrieve("https://example.com/a", "document", scratch)
+    extractor.retrieve("https://example.com/a", "document", scratch)
+
+    assert RefusedExtractor.runs == 2
+    assert (first / "status.json").is_file()
+    assert not (
+        tmp_path / "data" / "extraction-cache" / cache_key("https://example.com/a")
+    ).exists()
+
+
+def test_a_failure_cached_before_this_rule_is_re_run(tmp_path):
+    RefusedExtractor.runs = 0
+    cache = tmp_path / "data" / "extraction-cache" / cache_key("https://example.com/a")
+    write_extraction(cache / "x", status="failed")
+    (cache / "cache.json").write_text(json.dumps({"version": 1, "output": "x"}), encoding="utf-8")
+    RefusedExtractor.status = "complete"
+    extractor = RefusedExtractor(ExtractionSettings(data_dir=tmp_path / "data"))
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+
+    output = extractor.retrieve("https://example.com/a", "document", scratch)
+
+    assert RefusedExtractor.runs == 1
+    assert json.loads((output / "status.json").read_text())["status"] == "complete"
+
+
 @pytest.mark.parametrize(
     "identity,expected",
     [

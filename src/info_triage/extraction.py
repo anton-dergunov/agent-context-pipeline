@@ -301,6 +301,11 @@ def _published(metadata: dict[str, Any]) -> str | None:
     return None
 
 
+def _retrieved(directory: Path) -> bool:
+    status = _read_json(directory / STATUS_NAME, {})
+    return isinstance(status, dict) and status.get("status") in ("complete", "partial")
+
+
 class ContentExtractor:
     """Dispatch one canonical URL to its extractor, through the cache."""
 
@@ -313,12 +318,17 @@ class ContentExtractor:
 
         The returned path lives in the cache, so callers copy what they want out
         of it rather than mutating it.
+
+        Only an extraction that retrieved something is cached. A refusal or a
+        failure is a fact about one attempt — Instagram turned every anonymous
+        request away for weeks — and caching it would serve that attempt for
+        good, so it is returned from `scratch` and the next revision asks again.
         """
         entry = self._cache_root / cache_key(canonical_url)
         manifest = _read_json(entry / CACHE_MANIFEST)
         if isinstance(manifest, dict) and manifest.get("version") == CACHE_VERSION:
             output = entry / str(manifest.get("output", ""))
-            if output.is_dir():
+            if output.is_dir() and _retrieved(output):
                 return output
 
         if entry.exists():
@@ -326,6 +336,8 @@ class ContentExtractor:
         staging = scratch / cache_key(canonical_url)
         staging.mkdir(parents=True, exist_ok=True)
         output = self._run(canonical_url, handler, staging)
+        if not _retrieved(output):
+            return output
 
         entry.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(staging), str(entry))
@@ -401,6 +413,32 @@ class ContentExtractor:
         )
         return directory
 
+    def _yt_dlp(self, max_attempts: int, retry_backoff_seconds: float):
+        """One self-updating yt-dlp for every handler that uses it.
+
+        YouTube and Instagram share the binary, so its update policy is the one
+        configured under `extractors.youtube`; only the retries are per handler.
+        """
+        from .extractors.youtube.runner import ManagedYtDlp, RunnerSettings
+
+        update = self.settings.youtube
+        return ManagedYtDlp(
+            RunnerSettings(
+                tool_dir=self.settings.data_dir / "tools/yt-dlp",
+                **(
+                    {
+                        "channel": update.update_channel,
+                        "update_check_interval_hours": update.update_check_interval_hours,
+                        "update_on_compatibility_error": update.update_on_compatibility_error,
+                    }
+                    if update
+                    else {}
+                ),
+                max_attempts=max_attempts,
+                retry_backoff_seconds=retry_backoff_seconds,
+            )
+        )
+
     def _youtube(self, url: str, root: Path) -> Path:
         from .extractors.media.ocr import make_engine
         from .extractors.media.transcription import (
@@ -408,22 +446,12 @@ class ContentExtractor:
             resolve_backend_and_model,
         )
         from .extractors.youtube.extractor import ExtractionOptions, YouTubeExtractor
-        from .extractors.youtube.runner import ManagedYtDlp, RunnerSettings
         from .extractors.youtube.urls import parse_video_url
 
         config = self.settings.youtube
         if config is None:
             raise ExtractionError("YouTube extraction is not configured", reason="not-configured")
-        runner = ManagedYtDlp(
-            RunnerSettings(
-                tool_dir=self.settings.data_dir / "tools/yt-dlp",
-                channel=config.update_channel,
-                update_check_interval_hours=config.update_check_interval_hours,
-                update_on_compatibility_error=config.update_on_compatibility_error,
-                max_attempts=config.max_attempts,
-                retry_backoff_seconds=config.retry_backoff_seconds,
-            )
-        )
+        runner = self._yt_dlp(config.max_attempts, config.retry_backoff_seconds)
         backend, model = resolve_backend_and_model(None, None)
         extractor = YouTubeExtractor(
             runner,
@@ -452,7 +480,7 @@ class ContentExtractor:
             ocr_post,
             transcribe_post,
         )
-        from .extractors.instagram.downloader import DownloadOptions, download_post, make_loader
+        from .extractors.instagram.downloader import DownloadOptions, download_post
         from .extractors.instagram.urls import shortcode_from_url
         from .extractors.media.ocr import make_engine
         from .extractors.media.runtime import resolve_engine_name
@@ -465,11 +493,13 @@ class ContentExtractor:
         shortcode = shortcode_from_url(url)
         options = DownloadOptions(
             output_dir=root,
-            session_file=config.session_file if config else None,
-            instagram_user=config.instagram_user if config else None,
             cookies_file=config.cookies_file if config else None,
         )
-        post_dir = download_post(make_loader(options), url, shortcode, options)
+        runner = self._yt_dlp(
+            config.max_attempts if config else 3,
+            config.retry_backoff_seconds if config else 5.0,
+        )
+        post_dir = download_post(runner, url, shortcode, options)
 
         # OCR and transcription enrich a post that has already been retrieved.
         # If an engine is unavailable the caption is still worth keeping, so

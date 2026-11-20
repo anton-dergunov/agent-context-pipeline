@@ -26,6 +26,12 @@ TRACKING_PARAMETER_PREFIXES = ("utm_", "cp_landing")
 
 DEFAULT_PORTS = {"http": "80", "https": "443"}
 
+# A post's shortcode is the whole of its identity. The query only says how it was
+# shared — `igsh`, `img_index`, and opaque keys such as `obrf` and `rpxt` that
+# Instagram renames often enough that listing them would always be behind.
+INSTAGRAM_HOSTS = frozenset({"instagram.com", "www.instagram.com", "m.instagram.com"})
+INSTAGRAM_POST_PATHS = frozenset({"p", "reel", "reels", "tv"})
+
 RESEARCH_PRIORITY = 1
 SOLE_LINK_PRIORITY = 2
 REPOSITORY_PRIORITY = 3
@@ -119,6 +125,9 @@ def canonicalize_url(url: str) -> str:
     netloc = host
     if parsed.port is not None and str(parsed.port) != DEFAULT_PORTS[scheme]:
         netloc = f"{host}:{parsed.port}"
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if host in INSTAGRAM_HOSTS and len(path_parts) >= 2 and path_parts[0] in INSTAGRAM_POST_PATHS:
+        return urlunsplit((scheme, netloc, parsed.path, "", ""))
     query = ""
     if parsed.query:
         query = urlencode(

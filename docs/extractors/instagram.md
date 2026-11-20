@@ -1,6 +1,6 @@
 # Instagram extraction
 
-`instagram-extract` downloads each Instagram post into `instagram_output/<shortcode>/` and recovers its on-screen text and spoken audio. It runs standalone and as the `instagram` handler of the pipeline's `content-extraction` step. Instagram network access is handled by Instaloader; OCR and transcription run locally. No language model, hosted OCR or hosted transcription service is called. In 30 of the 52 posts in one real inbox, the images and video held more words than the caption: [`experiments/instagram-streams/`](../../experiments/instagram-streams/README.md).
+`instagram-extract` downloads each Instagram post into `instagram_output/<shortcode>/` and recovers its on-screen text and spoken audio. It runs standalone and as the `instagram` handler of the pipeline's `content-extraction` step. Instagram network access goes through yt-dlp, run by the same self-updating runner as YouTube; OCR and transcription run locally. No language model, hosted OCR or hosted transcription service is called. In 30 of the 52 posts in one real inbox, the images and video held more words than the caption: [`experiments/instagram-streams/`](../../experiments/instagram-streams/README.md).
 
 ## Setup
 
@@ -22,9 +22,11 @@ UV_CACHE_DIR=.uv-cache uv sync --extra surya --extra mac-transcription
 
 ## Authentication
 
-Public post metadata sometimes works anonymously, but Instagram requires a logged-in session for comments and increasingly rate-limits anonymous post access. Do not put a password in a file or command line. Use one of these forms:
+None is needed. Public posts — caption, every carousel slide, the visible comments — are retrieved without an account, through yt-dlp's logged-out path: it presents a browser's TLS fingerprint, reads the page's own request token, and asks the query Instagram's logged-out web client asks. When Instagram declines anyway, the extraction says so with `status: blocked` and `reason: rate-limited` or `login-required`, rather than reporting the post as gone, and nothing is cached, so the next attempt asks again (see [Retrying after an outage](#retrying-after-an-outage)).
 
-1. Import the active session directly from a local browser (recommended on the computer where the script runs):
+A login only widens what Instagram returns, and is an account credential. If you want one anyway, hand yt-dlp a session in one of two forms; never a password:
+
+1. Let yt-dlp read the active session from a local browser (standalone runs only):
 
    ```bash
    UV_CACHE_DIR=.uv-cache uv run instagram-extract \
@@ -32,30 +34,18 @@ Public post metadata sometimes works anonymously, but Instagram requires a logge
      --cookies-from-browser safari
    ```
 
-   Supported values include `safari`, `chrome`, `chromium`, `brave`, `firefox`, `edge`, `opera`, and `vivaldi`. The chosen browser must already be logged into `instagram.com`. macOS may ask for Keychain permission.
+   The value is passed to yt-dlp's own `--cookies-from-browser`; the browser must already be logged into `instagram.com`. macOS may ask for Keychain permission.
 
-   To fill in the currently missing comments without rerunning OCR, add `--skip-ocr`. Existing media files are reused rather than downloaded again.
+2. Supply a Netscape-format `cookies.txt` exported from the logged-in browser — `--cookies-file` here, `extractors.instagram.cookies_file` in `config.yaml` for the daemon. It must contain valid cookies for `.instagram.com`, especially `sessionid`. Treat it like a password and keep it outside Git.
 
-2. Supply a Netscape-format `cookies.txt` exported from the logged-in browser:
+### Retrying after an outage
 
-   ```bash
-   UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-     --input-file tests/fixtures/instagram_urls.txt \
-     --cookies-file /absolute/private/path/instagram-cookies.txt
-   ```
+Extractions that retrieved nothing are not cached, so an item is retried whenever its pipeline runs again. To run it again without editing anything, ask the daemon to reprocess it; captured content is untouched and the next sync delivers the item at a new revision:
 
-   It is a tab-separated Netscape/Mozilla cookie jar. It must contain valid cookies for `.instagram.com`, especially `sessionid`, `csrftoken`, and `ds_user_id`. Treat it like a password and keep it outside Git.
-
-3. Supply an existing Instaloader session file plus its username:
-
-   ```bash
-   UV_CACHE_DIR=.uv-cache uv run instagram-extract \
-     --input-file tests/fixtures/instagram_urls.txt \
-     --instagram-user YOUR_USERNAME \
-     --session-file /absolute/private/path/session-YOUR_USERNAME
-   ```
-
-   This is Instaloader's own session format, normally created at `~/.config/instaloader/session-YOUR_USERNAME` by `instaloader --login YOUR_USERNAME`. The script intentionally does not accept an Instagram password.
+```bash
+uv run info-triage-capture --reprocess info/2026-11-20_311 info/2026-11-20_312
+uv run info-triage-capture --reprocess-failed instagram   # every failed or blocked post in the local inbox
+```
 
 ## Usage
 
@@ -228,7 +218,7 @@ metadata.json                    stable, normalized metadata
 status.json                      partial failures are recorded here
 raw/caption.txt                  original post caption
 raw/comments.json / .txt         the selected comments, as retrieved
-raw/metadata_raw.json            raw Instagram structures for audit/future fields
+raw/metadata_raw.json            yt-dlp's full JSON for the post, for audit and future fields
 raw/media/                       all original images/videos, in carousel order
 raw/ocr/*.ocr.json               every OCR observation, bbox, confidence, and time
 raw/ocr/*.ocr.raw.txt            all deduplicated text, including low-confidence noise
@@ -251,32 +241,15 @@ Comment output separately identifies the chronologically first scanned comment/r
 
 “Any language” means automatic multilingual recognition over the languages supported by the installed models; no OCR or speech model can guarantee every language or unclear input. The JSON confidence/probability fields and explicit empty/failure statuses make uncertainty visible.
 
-## Why not `gallery-dl`
+## Why yt-dlp
 
-`gallery-dl` is the image-and-gallery sibling of `yt-dlp`, and the analogy to
-this project's YouTube path is tempting: several hundred sites behind one
-interface, per-site extractors maintained by other people, cookie handling, and
-metadata written alongside the media. Evaluated and declined, for one decisive
-reason and two supporting ones.
+Until 2026-10-30 this extractor used Instaloader as an anonymous GraphQL client. From that day Instagram answered every one of its requests with `401 "Please wait a few minutes"` — 86 posts in a row, after 101 retrieved before it, from the NAS and from a laptop alike — while the same posts opened in a private browser window. The latest Instaloader (4.16) fails too, and so does `gallery-dl` (redirected to the login page). yt-dlp retrieved the caption, every slide and the visible comments of both posts tested, with no account: [`experiments/instagram-retrieval/`](../../experiments/instagram-retrieval/README.md).
 
-**It does not fetch comments.** `yt-dlp` replaced a media downloader; `gallery-dl`
-would replace a metadata *and* comment client. `_read_comments` and
-`_select_comments` in `downloader.py`, the owner-first-comment rule, the
-like-ranked selection, and `comments.md` itself all have no equivalent in it.
+Two properties settle it beyond that one measurement:
 
-Supporting: the normalised metadata shape in `_metadata()` — `video_play_count`,
-`tagged_users`, `caption_hashtags`, `accessibility_caption` — maps only partially
-onto gallery-dl's Instagram keys, and is pinned by
-`tests/extractors/instagram/test_comments.py` and `test_prepare.py`. And
-Instaloader is used here only as an authenticated GraphQL client: every built-in
-downloader is disabled and the bytes are fetched by `_download_url` into `.part`
-files, which already resume, already reuse existing media, and already degrade
-rather than aborting. It works on the real corpus, and retrieval behaviour
-changes only with a measured reason.
+- **It updates itself.** The runner in `extractors/youtube/runner.py` checks the nightly channel daily and again on a compatibility error, and rolls back a release that breaks. Instagram changes its web client often; a lockfile-pinned client needs a human to notice every time, and this outage went unnoticed for three weeks.
+- **It is already here.** YouTube uses the same binary and the same runner, so this adds no dependency and removed one.
 
-**If Instaloader does break**, the cheap fallback is narrow and does not disturb
-any of the above: at `Post.from_shortcode` in `downloader.py`, catch the failure,
-shell out to `gallery-dl` for media and raw metadata, populate `raw/media/`, set
-`status["comments"] = "skipped"`, and let `prepare_content()` run unchanged. The
-repository already has the pattern for a pinned, self-updating out-of-process
-downloader in `extractors/youtube/runner.py`.
+yt-dlp is a video tool. Run with `--ignore-no-formats-error` it keeps image slides, whose full-size image is the last of each entry's `thumbnails`. A video slide takes Instagram's own progressive mp4 — the first non-DASH format, which carries the audio — exactly as Instaloader's `video_url` did. yt-dlp only describes the post; `downloader.py` fetches the bytes itself into resumable `.part` files and reuses media already on disk.
+
+What it does not report — tagged users, location, Instagram's alt text, play counts — is omitted from `metadata.json`, never guessed. Comments come back without a login, which Instaloader never managed.

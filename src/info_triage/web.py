@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from .capture_api import MAX_CAPTURE_REQUEST_BYTES, CaptureError, capture
+from .capture_api import MAX_CAPTURE_REQUEST_BYTES, CaptureError, capture, reprocess
 from .processing import ProcessingCoordinator
 from .storage import STATUSES, CaptureStore
 
@@ -55,17 +55,20 @@ class WebHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:
-        if urlsplit(self.path).path != "/capture":
+        path = urlsplit(self.path).path
+        handlers = {"/capture": capture, "/reprocess": reprocess}
+        if path not in handlers:
             self._send_json(404, {"error": "not found"})
             return
+        action = path.removeprefix("/")
         try:
             body = self._capture_body()
-            status, response = capture(self.store, self.coordinator, body, self.routes)
+            status, response = handlers[path](self.store, self.coordinator, body, self.routes)
         except CaptureError as error:
             self._send_json(error.status, {"error": str(error)})
         except Exception as error:
-            self.log_error("capture failed: %s", type(error).__name__)
-            self._send_json(500, {"error": f"capture failed: {type(error).__name__}"})
+            self.log_error("%s failed: %s", action, type(error).__name__)
+            self._send_json(500, {"error": f"{action} failed: {type(error).__name__}"})
         else:
             self._send_json(status, response)
 

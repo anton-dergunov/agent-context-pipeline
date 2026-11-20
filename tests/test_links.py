@@ -28,6 +28,15 @@ def text_link(offset, length, url):
             "https://example.com/a?id=7",
         ),
         ("https://instagram.com/reel/abc/?igsh=MTk=", "https://instagram.com/reel/abc/"),
+        (
+            "https://www.instagram.com/p/De2XxA2na_7/?obrf=NHR2MGkwOTZhMW80&img_index=1",
+            "https://www.instagram.com/p/De2XxA2na_7/",
+        ),
+        (
+            "https://www.instagram.com/p/DfSqLfNGmOD/?img_index=1&rpxt=MXlzMDcydGJ3OTJv",
+            "https://www.instagram.com/p/DfSqLfNGmOD/",
+        ),
+        ("https://www.instagram.com/someone/?hl=en", "https://www.instagram.com/someone/?hl=en"),
         ("https://youtu.be/abc?si=token&t=30", "https://youtu.be/abc?t=30"),
         ("https://example.com/a?is=1&fbclid=2&rcm=3", "https://example.com/a"),
         ("https://feverup.com/e/1?cp_landing_page=x&cp_landing=y", "https://feverup.com/e/1"),

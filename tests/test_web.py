@@ -436,3 +436,75 @@ class CaptureReplacementTests(CaptureRequests, unittest.TestCase):
 
             self.assertEqual(status, 409)
             self.assertIn("edit the message instead", body["error"])
+
+
+class ReprocessTests(CaptureRequests, unittest.TestCase):
+    """POST /reprocess runs the pipeline again over items already captured."""
+
+    def reprocess(self, store, ids, **kwargs):
+        handler = self.handler(store, json.dumps({"ids": ids}).encode("utf-8"), **kwargs)
+        handler.path = "/reprocess"
+        handler.do_POST()
+        return handler.status, json.loads(handler.wfile.getvalue())
+
+    def delivered_telegram_item(self, store, root):
+        item = store.capture("info", 4242, 17, "https://www.instagram.com/p/abc/", route="info")
+        store.promote_if_current(item)
+        path = root / "inbox" / "info" / item.path.name
+        (path / "index.md").write_text("---\nextraction: failed\n---\n")
+        (path / "extracted" / "01-instagram-abc").mkdir(parents=True)
+        return item, path
+
+    def test_a_delivered_telegram_item_runs_again_from_its_capture(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = make_store(root)
+            item, path = self.delivered_telegram_item(store, root)
+
+            status, body = self.reprocess(store, [f"info/{item.path.name}"])
+
+            self.assertEqual(status, 200)
+            self.assertEqual(
+                body["results"], [{"id": f"info/{item.path.name}", "status": 200, "revision": 2}]
+            )
+            # Back in the inbox at a new revision, so the laptop takes it again.
+            self.assertTrue(path.is_dir())
+            self.assertEqual(json.loads((path / "metadata.json").read_text())["revision"], 2)
+            self.assertEqual(store.get_item("info", 4242, 17)["revision"], 2)
+            # What the last revision generated is gone; the capture is untouched.
+            self.assertFalse((path / "index.md").exists())
+            self.assertFalse((path / "extracted").exists())
+            self.assertEqual(
+                (path / "capture" / "source.md").read_text(), "https://www.instagram.com/p/abc/"
+            )
+
+    def test_each_handle_is_answered_on_its_own(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = make_store(root)
+            item, _ = self.delivered_telegram_item(store, root)
+
+            status, body = self.reprocess(store, ["info/2026-01-01_99", f"info/{item.path.name}"])
+
+            self.assertEqual(status, 200)
+            self.assertEqual([result["status"] for result in body["results"]], [404, 200])
+
+    def test_an_item_already_queued_is_left_to_its_pending_run(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = make_store(Path(temporary))
+            item = store.capture("info", 4242, 17, "queued", route="info")
+
+            _, body = self.reprocess(store, [f"info/{item.path.name}"])
+
+            self.assertEqual(body["results"][0]["revision"], 1)
+
+    def test_a_reprocess_needs_the_token_and_well_formed_handles(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = make_store(Path(temporary))
+            for ids, kwargs, expected in (
+                (["info/2026-01-01_1"], {"token": "wrong-token!"}, 401),
+                (["nonsense"], {}, 400),
+                ([], {}, 400),
+            ):
+                status, _ = self.reprocess(store, ids, **kwargs)
+                self.assertEqual(status, expected, ids)
